@@ -1,4 +1,4 @@
-package cz.ad.print3d.aslicer.logic.model.stl;
+package cz.ad.print3d.aslicer.logic.model.format.stl;
 
 import cz.ad.print3d.aslicer.logic.model.basic.Vector3f;
 

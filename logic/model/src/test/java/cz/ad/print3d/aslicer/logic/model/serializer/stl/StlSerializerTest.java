@@ -1,11 +1,12 @@
-package cz.ad.print3d.aslicer.logic.model.serializer;
+package cz.ad.print3d.aslicer.logic.model.serializer.stl;
 
+import cz.ad.print3d.aslicer.logic.model.basic.Unit;
 import cz.ad.print3d.aslicer.logic.model.basic.Vector3f;
-import cz.ad.print3d.aslicer.logic.model.parser.AsciiStlParser;
-import cz.ad.print3d.aslicer.logic.model.parser.BinaryStlParser;
-import cz.ad.print3d.aslicer.logic.model.parser.StlParser;
-import cz.ad.print3d.aslicer.logic.model.stl.StlFacet;
-import cz.ad.print3d.aslicer.logic.model.stl.StlModel;
+import cz.ad.print3d.aslicer.logic.model.parser.stl.AsciiStlParser;
+import cz.ad.print3d.aslicer.logic.model.parser.stl.BinaryStlParser;
+import cz.ad.print3d.aslicer.logic.model.parser.stl.StlParser;
+import cz.ad.print3d.aslicer.logic.model.format.stl.StlFacet;
+import cz.ad.print3d.aslicer.logic.model.format.stl.StlModel;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
@@ -45,7 +46,7 @@ public class StlSerializerTest {
         Vector3f v2 = new Vector3f(1, 0, 0);
         Vector3f v3 = new Vector3f(0, 1, 0);
         StlFacet facet = new StlFacet(normal, v1, v2, v3, 0);
-        StlModel originalModel = new StlModel(header, List.of(facet));
+        StlModel originalModel = new StlModel(header, List.of(facet), Unit.MILLIMETER);
 
         // Serialize
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
@@ -57,7 +58,7 @@ public class StlSerializerTest {
         byte[] serializedData = outputStream.toByteArray();
         ByteArrayInputStream inputStream = new ByteArrayInputStream(serializedData);
         ReadableByteChannel readChannel = Channels.newChannel(inputStream);
-        BinaryStlParser parser = new BinaryStlParser();
+        BinaryStlParser parser = new BinaryStlParser(Unit.MILLIMETER);
         StlModel deserializedModel = parser.parse(readChannel);
 
         // Verify
@@ -82,7 +83,7 @@ public class StlSerializerTest {
      */
     @Test
     public void testSerializeWithEmptyHeader() throws IOException {
-        StlModel model = new StlModel(null, List.of());
+        StlModel model = new StlModel(null, List.of(), Unit.MILLIMETER);
         
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         WritableByteChannel writeChannel = Channels.newChannel(outputStream);
@@ -109,7 +110,7 @@ public class StlSerializerTest {
      */
     @Test
     public void testSerializeBinaryResource() throws IOException {
-        String resourcePath = "/test-binary.stl";
+        String resourcePath = "/stl/test-binary.stl";
         byte[] originalData;
         try (InputStream is = getClass().getResourceAsStream(resourcePath)) {
             assertNotNull(is, "Resource not found: " + resourcePath);
@@ -117,7 +118,7 @@ public class StlSerializerTest {
         }
 
         // Parse
-        BinaryStlParser parser = new BinaryStlParser();
+        BinaryStlParser parser = new BinaryStlParser(Unit.MILLIMETER);
         StlModel model;
         try (ReadableByteChannel readChannel = Channels.newChannel(new ByteArrayInputStream(originalData))) {
             model = parser.parse(readChannel);
@@ -153,7 +154,7 @@ public class StlSerializerTest {
         Vector3f v2 = new Vector3f(1, 0, 0);
         Vector3f v3 = new Vector3f(0, 1, 0);
         StlFacet facet = new StlFacet(normal, v1, v2, v3, 0);
-        StlModel originalModel = new StlModel(header, List.of(facet));
+        StlModel originalModel = new StlModel(header, List.of(facet), Unit.MILLIMETER);
 
         // Serialize
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
@@ -164,7 +165,7 @@ public class StlSerializerTest {
         // Deserialize
         byte[] serializedData = outputStream.toByteArray();
         ReadableByteChannel readChannel = Channels.newChannel(new ByteArrayInputStream(serializedData));
-        AsciiStlParser parser = new AsciiStlParser();
+        AsciiStlParser parser = new AsciiStlParser(Unit.MILLIMETER);
         StlModel deserializedModel = parser.parse(readChannel);
 
         // Verify
@@ -188,7 +189,7 @@ public class StlSerializerTest {
      */
     @Test
     public void testDispatcherDefault() throws IOException {
-        StlModel model = new StlModel(new byte[80], List.of());
+        StlModel model = new StlModel(new byte[80], List.of(), Unit.MILLIMETER);
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         WritableByteChannel writeChannel = Channels.newChannel(outputStream);
         
@@ -208,7 +209,7 @@ public class StlSerializerTest {
      */
     @Test
     public void testSerializeAsciiResource() throws IOException {
-        String resourcePath = "/test-ascii.ast";
+        String resourcePath = "/stl/test-ascii.ast";
         byte[] originalData;
         try (InputStream is = getClass().getResourceAsStream(resourcePath)) {
             assertNotNull(is, "Resource not found: " + resourcePath);
@@ -216,7 +217,7 @@ public class StlSerializerTest {
         }
 
         // Parse original
-        StlParser parser = new StlParser();
+        StlParser parser = new StlParser(Unit.MILLIMETER);
         StlModel originalModel;
         try (ReadableByteChannel readChannel = Channels.newChannel(new ByteArrayInputStream(originalData))) {
             originalModel = parser.parse(readChannel);

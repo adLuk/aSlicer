@@ -1,8 +1,9 @@
-package cz.ad.print3d.aslicer.logic.model.serializer;
+package cz.ad.print3d.aslicer.logic.model.serializer.stl;
 
 import cz.ad.print3d.aslicer.logic.model.basic.Vector3f;
-import cz.ad.print3d.aslicer.logic.model.stl.StlFacet;
-import cz.ad.print3d.aslicer.logic.model.stl.StlModel;
+import cz.ad.print3d.aslicer.logic.model.serializer.ModelSerializer;
+import cz.ad.print3d.aslicer.logic.model.format.stl.StlFacet;
+import cz.ad.print3d.aslicer.logic.model.format.stl.StlModel;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -12,7 +13,7 @@ import java.nio.channels.WritableByteChannel;
 /**
  * Implementation of ModelSerializer for binary STL files.
  */
-public class BinaryStlSerializer implements ModelSerializer {
+public class BinaryStlSerializer implements ModelSerializer<StlModel> {
 
     /**
      * Size of the binary STL header in bytes.
@@ -37,11 +38,11 @@ public class BinaryStlSerializer implements ModelSerializer {
      * @throws IOException if an I/O error occurs
      */
     @Override
-    public void serialize(StlModel model, WritableByteChannel channel) throws IOException {
+    public void serialize(final StlModel model, final WritableByteChannel channel) throws IOException {
         // Write 80-byte header
-        ByteBuffer headerBuffer = ByteBuffer.allocate(HEADER_SIZE);
+        final ByteBuffer headerBuffer = ByteBuffer.allocate(HEADER_SIZE);
         if (model.header() != null) {
-            int len = Math.min(model.header().length, HEADER_SIZE);
+            final int len = Math.min(model.header().length, HEADER_SIZE);
             headerBuffer.put(model.header(), 0, len);
         }
         // Fill remaining header space with zeros if necessary
@@ -52,17 +53,17 @@ public class BinaryStlSerializer implements ModelSerializer {
         writeFully(channel, headerBuffer);
 
         // Write 4-byte triangle count (Little Endian)
-        ByteBuffer countBuffer = ByteBuffer.allocate(TRIANGLE_COUNT_SIZE);
+        final ByteBuffer countBuffer = ByteBuffer.allocate(TRIANGLE_COUNT_SIZE);
         countBuffer.order(ByteOrder.LITTLE_ENDIAN);
         countBuffer.putInt(model.facetCount());
         countBuffer.flip();
         writeFully(channel, countBuffer);
 
         // Write facets
-        ByteBuffer facetBuffer = ByteBuffer.allocate(FACET_SIZE);
+        final ByteBuffer facetBuffer = ByteBuffer.allocate(FACET_SIZE);
         facetBuffer.order(ByteOrder.LITTLE_ENDIAN);
 
-        for (StlFacet facet : model.facets()) {
+        for (final StlFacet facet : model.facets()) {
             facetBuffer.clear();
             writeVector(facetBuffer, facet.normal());
             writeVector(facetBuffer, facet.v1());
@@ -81,7 +82,7 @@ public class BinaryStlSerializer implements ModelSerializer {
      * @param buffer the buffer to write from
      * @throws IOException if an I/O error occurs
      */
-    private void writeFully(WritableByteChannel channel, ByteBuffer buffer) throws IOException {
+    private void writeFully(final WritableByteChannel channel, final ByteBuffer buffer) throws IOException {
         while (buffer.hasRemaining()) {
             channel.write(buffer);
         }
@@ -93,7 +94,7 @@ public class BinaryStlSerializer implements ModelSerializer {
      * @param buffer the buffer to write to
      * @param vector the vector to write
      */
-    private void writeVector(ByteBuffer buffer, Vector3f vector) {
+    private void writeVector(final ByteBuffer buffer, final Vector3f vector) {
         buffer.putFloat(vector.x());
         buffer.putFloat(vector.y());
         buffer.putFloat(vector.z());

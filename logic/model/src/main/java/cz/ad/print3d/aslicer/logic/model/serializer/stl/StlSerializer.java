@@ -1,6 +1,7 @@
-package cz.ad.print3d.aslicer.logic.model.serializer;
+package cz.ad.print3d.aslicer.logic.model.serializer.stl;
 
-import cz.ad.print3d.aslicer.logic.model.stl.StlModel;
+import cz.ad.print3d.aslicer.logic.model.serializer.ModelSerializer;
+import cz.ad.print3d.aslicer.logic.model.format.stl.StlModel;
 
 import java.io.IOException;
 import java.nio.channels.WritableByteChannel;
@@ -9,7 +10,7 @@ import java.nio.channels.WritableByteChannel;
  * STL Serializer dispatcher that supports both binary and ASCII formats.
  * By default, it uses the binary format.
  */
-public class StlSerializer implements ModelSerializer {
+public class StlSerializer implements ModelSerializer<StlModel> {
 
     /**
      * Enumeration of supported STL formats.
@@ -19,6 +20,9 @@ public class StlSerializer implements ModelSerializer {
         ASCII
     }
 
+    /**
+     * The format to use for serialization (BINARY or ASCII).
+     */
     private Format format;
 
     /**
@@ -33,7 +37,7 @@ public class StlSerializer implements ModelSerializer {
      *
      * @param format the format to use for serialization
      */
-    public StlSerializer(Format format) {
+    public StlSerializer(final Format format) {
         this.format = format;
     }
 
@@ -51,7 +55,7 @@ public class StlSerializer implements ModelSerializer {
      *
      * @param format the format to use
      */
-    public void setFormat(Format format) {
+    public void setFormat(final Format format) {
         this.format = format;
     }
 
@@ -63,8 +67,8 @@ public class StlSerializer implements ModelSerializer {
      * @throws IOException if an I/O error occurs
      */
     @Override
-    public void serialize(StlModel model, WritableByteChannel channel) throws IOException {
-        ModelSerializer serializer;
+    public void serialize(final StlModel model, final WritableByteChannel channel) throws IOException {
+        final ModelSerializer<StlModel> serializer;
         if (format == Format.ASCII) {
             serializer = new AsciiStlSerializer();
         } else {

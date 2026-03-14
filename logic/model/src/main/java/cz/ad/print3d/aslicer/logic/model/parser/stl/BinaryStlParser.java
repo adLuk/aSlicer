@@ -1,8 +1,10 @@
-package cz.ad.print3d.aslicer.logic.model.parser;
+package cz.ad.print3d.aslicer.logic.model.parser.stl;
 
+import cz.ad.print3d.aslicer.logic.model.basic.Unit;
 import cz.ad.print3d.aslicer.logic.model.basic.Vector3f;
-import cz.ad.print3d.aslicer.logic.model.stl.StlFacet;
-import cz.ad.print3d.aslicer.logic.model.stl.StlModel;
+import cz.ad.print3d.aslicer.logic.model.parser.ModelParser;
+import cz.ad.print3d.aslicer.logic.model.format.stl.StlFacet;
+import cz.ad.print3d.aslicer.logic.model.format.stl.StlModel;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -14,7 +16,20 @@ import java.util.List;
 /**
  * Implementation of ModelParser for binary STL files.
  */
-public class BinaryStlParser implements ModelParser {
+public class BinaryStlParser implements ModelParser<StlModel> {
+    /**
+     * The unit used for coordinate values in the parsed model.
+     */
+    private final Unit unit;
+
+    /**
+     * Creates a new binary STL parser with the specified unit.
+     *
+     * @param unit the measurement unit to associate with the model
+     */
+    public BinaryStlParser(final Unit unit) {
+        this.unit = unit;
+    }
 
     /**
      * Size of the binary STL header in bytes.
@@ -39,22 +54,22 @@ public class BinaryStlParser implements ModelParser {
      * @throws IOException if an I/O error occurs or the stream ends prematurely
      */
     @Override
-    public StlModel parse(ReadableByteChannel channel) throws IOException {
+    public StlModel parse(final ReadableByteChannel channel) throws IOException {
         // Read 80-byte header
-        ByteBuffer headerBuffer = ByteBuffer.allocate(HEADER_SIZE);
+        final ByteBuffer headerBuffer = ByteBuffer.allocate(HEADER_SIZE);
         readFully(channel, headerBuffer);
-        byte[] header = headerBuffer.array();
+        final byte[] header = headerBuffer.array();
 
         // Read 4-byte triangle count (Little Endian)
-        ByteBuffer countBuffer = ByteBuffer.allocate(TRIANGLE_COUNT_SIZE);
+        final ByteBuffer countBuffer = ByteBuffer.allocate(TRIANGLE_COUNT_SIZE);
         countBuffer.order(ByteOrder.LITTLE_ENDIAN);
         readFully(channel, countBuffer);
         countBuffer.flip();
-        int triangleCount = countBuffer.getInt();
+        final int triangleCount = countBuffer.getInt();
 
         // Read facets
-        List<StlFacet> facets = new ArrayList<>(triangleCount);
-        ByteBuffer facetBuffer = ByteBuffer.allocate(FACET_SIZE);
+        final List<StlFacet> facets = new ArrayList<>(triangleCount);
+        final ByteBuffer facetBuffer = ByteBuffer.allocate(FACET_SIZE);
         facetBuffer.order(ByteOrder.LITTLE_ENDIAN);
 
         for (int i = 0; i < triangleCount; i++) {
@@ -62,16 +77,16 @@ public class BinaryStlParser implements ModelParser {
             readFully(channel, facetBuffer);
             facetBuffer.flip();
 
-            Vector3f normal = readVector(facetBuffer);
-            Vector3f v1 = readVector(facetBuffer);
-            Vector3f v2 = readVector(facetBuffer);
-            Vector3f v3 = readVector(facetBuffer);
-            int attributeByteCount = facetBuffer.getShort() & 0xFFFF;
+            final Vector3f normal = readVector(facetBuffer);
+            final Vector3f v1 = readVector(facetBuffer);
+            final Vector3f v2 = readVector(facetBuffer);
+            final Vector3f v3 = readVector(facetBuffer);
+            final int attributeByteCount = facetBuffer.getShort() & 0xFFFF;
 
             facets.add(new StlFacet(normal, v1, v2, v3, attributeByteCount));
         }
 
-        return new StlModel(header, facets);
+        return new StlModel(header, facets, unit);
     }
 
     /**
@@ -81,7 +96,7 @@ public class BinaryStlParser implements ModelParser {
      * @param buffer the buffer to fill
      * @throws IOException if an I/O error occurs or the end of the stream is reached before the buffer is full
      */
-    private void readFully(ReadableByteChannel channel, ByteBuffer buffer) throws IOException {
+    private void readFully(final ReadableByteChannel channel, final ByteBuffer buffer) throws IOException {
         while (buffer.hasRemaining()) {
             if (channel.read(buffer) == -1) {
                 throw new IOException("Unexpected end of stream");
@@ -95,10 +110,10 @@ public class BinaryStlParser implements ModelParser {
      * @param buffer the buffer containing three float values
      * @return a new Vector3f instance
      */
-    private Vector3f readVector(ByteBuffer buffer) {
-        float x = buffer.getFloat();
-        float y = buffer.getFloat();
-        float z = buffer.getFloat();
+    private Vector3f readVector(final ByteBuffer buffer) {
+        final float x = buffer.getFloat();
+        final float y = buffer.getFloat();
+        final float z = buffer.getFloat();
         return new Vector3f(x, y, z);
     }
 }
