@@ -2,11 +2,11 @@ package cz.ad.print3d.aslicer.logic.model.serializer.stl;
 
 import cz.ad.print3d.aslicer.logic.model.basic.Unit;
 import cz.ad.print3d.aslicer.logic.model.basic.Vector3f;
+import cz.ad.print3d.aslicer.logic.model.format.stl.StlFacet;
+import cz.ad.print3d.aslicer.logic.model.format.stl.StlModel;
 import cz.ad.print3d.aslicer.logic.model.parser.stl.AsciiStlParser;
 import cz.ad.print3d.aslicer.logic.model.parser.stl.BinaryStlParser;
 import cz.ad.print3d.aslicer.logic.model.parser.stl.StlParser;
-import cz.ad.print3d.aslicer.logic.model.format.stl.StlFacet;
-import cz.ad.print3d.aslicer.logic.model.format.stl.StlModel;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
@@ -18,9 +18,7 @@ import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests for STL serializers.

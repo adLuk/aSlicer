@@ -1,7 +1,8 @@
 package cz.ad.print3d.aslicer.logic.model.serializer.mf3;
 
+import cz.ad.print3d.aslicer.logic.model.format.mf3.core.Mf3Model;
 import cz.ad.print3d.aslicer.logic.model.serializer.ModelSerializer;
-import cz.ad.print3d.aslicer.logic.model.format.mf3.Mf3Model;
+
 import java.io.IOException;
 import java.nio.channels.WritableByteChannel;
 

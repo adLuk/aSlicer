@@ -1,5 +1,9 @@
 package cz.ad.print3d.aslicer.logic.model.basic;
 
+import jakarta.xml.bind.annotation.XmlEnum;
+import jakarta.xml.bind.annotation.XmlEnumValue;
+import jakarta.xml.bind.annotation.XmlType;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -7,35 +11,43 @@ import java.util.Map;
  * Enumeration of supported measurement units for 3MF (3D Manufacturing Format).
  * This enum defines the units used for coordinate values in the 3D model.
  */
+@XmlType(name = "unit", namespace = "http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel")
+@XmlEnum
 public enum Unit {
     /**
      * Microns (1 micrometer).
      */
+    @XmlEnumValue("micron")
     MICRON("micron"),
     
     /**
      * Millimeters. This is the default unit for 3MF files if not specified.
      */
+    @XmlEnumValue("millimeter")
     MILLIMETER("millimeter"),
     
     /**
      * Centimeters.
      */
+    @XmlEnumValue("centimeter")
     CENTIMETER("centimeter"),
     
     /**
      * Inches.
      */
+    @XmlEnumValue("inch")
     INCH("inch"),
     
     /**
      * Feet.
      */
+    @XmlEnumValue("foot")
     FOOT("foot"),
     
     /**
      * Meters.
      */
+    @XmlEnumValue("meter")
     METER("meter");
 
     private final String value;

@@ -1,30 +1,33 @@
 package cz.ad.print3d.aslicer.logic.model.parser.mf3;
 
-import cz.ad.print3d.aslicer.logic.model.basic.Unit;
-import cz.ad.print3d.aslicer.logic.model.basic.Vector3f;
-import cz.ad.print3d.aslicer.logic.model.format.mf3.Mf3Model;
-import cz.ad.print3d.aslicer.logic.model.format.mf3.Mf3Object;
-import cz.ad.print3d.aslicer.logic.model.format.mf3.relationship.Mf3Relationships;
-import cz.ad.print3d.aslicer.logic.model.format.mf3.Mf3Triangle;
+import cz.ad.print3d.aslicer.logic.model.format.mf3.core.Mf3Model;
+import cz.ad.print3d.aslicer.logic.model.format.mf3.contenttype.Mf3ContentTypes;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.relationship.Mf3Relationship;
+import cz.ad.print3d.aslicer.logic.model.format.mf3.relationship.Mf3Relationships;
 import cz.ad.print3d.aslicer.logic.model.parser.ModelParser;
 import jakarta.xml.bind.JAXBContext;
 import jakarta.xml.bind.JAXBException;
 import jakarta.xml.bind.Unmarshaller;
+import org.xml.sax.Attributes;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
+import org.xml.sax.XMLReader;
+import org.xml.sax.helpers.XMLFilterImpl;
 
-import javax.xml.stream.XMLInputFactory;
-import javax.xml.stream.XMLStreamConstants;
-import javax.xml.stream.XMLStreamException;
-import javax.xml.stream.XMLStreamReader;
+import javax.xml.XMLConstants;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.parsers.SAXParserFactory;
+import javax.xml.transform.sax.SAXSource;
+import javax.xml.validation.Schema;
+import javax.xml.validation.SchemaFactory;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URL;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -37,7 +40,10 @@ public class Mf3Parser implements ModelParser<Mf3Model> {
 
     private static final String DEFAULT_MODEL_ENTRY = "3D/3dmodel.model";
     private static final String ROOT_RELS_ENTRY = "_rels/.rels";
-    private static final String MAIN_MODEL_REL_TYPE = "http://schemas.microsoft.com/3dmanufacturing/core/2015/02/mainmodel";
+    private static final String CONTENT_TYPES_ENTRY = "[Content_Types].xml";
+    private static final String MAIN_MODEL_REL_TYPE_01 = "http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel/mainmodel";
+    private static final String MAIN_MODEL_REL_TYPE_11 = "http://schemas.microsoft.com/3dmanufacturing/2013/11/3dmodel/mainmodel";
+    private static final String MAIN_MODEL_REL_TYPE_CORE = "http://schemas.microsoft.com/3dmanufacturing/core/2015/02/mainmodel";
 
     /**
      * Parses the 3MF content from the given channel.
@@ -66,7 +72,16 @@ public class Mf3Parser implements ModelParser<Mf3Model> {
         final Mf3Relationships relationships = new Mf3Relationships();
         String modelPath = DEFAULT_MODEL_ENTRY;
 
-        // 1. Parse root relationships to find the main model part
+        // 1. Parse content types if present
+        Mf3ContentTypes contentTypes = null;
+        final byte[] contentTypesContent = entries.get(CONTENT_TYPES_ENTRY);
+        if (contentTypesContent != null) {
+            try (InputStream is = new ByteArrayInputStream(contentTypesContent)) {
+                contentTypes = parseContentTypesXml(is);
+            }
+        }
+
+        // 2. Parse root relationships to find the main model part
         final byte[] rootRelsContent = entries.get(ROOT_RELS_ENTRY);
         if (rootRelsContent != null) {
             try (InputStream is = new ByteArrayInputStream(rootRelsContent)) {
@@ -74,7 +89,8 @@ public class Mf3Parser implements ModelParser<Mf3Model> {
                 if (rootRels.getRelationships() != null) {
                     relationships.getRelationships().addAll(rootRels.getRelationships());
                     for (final Mf3Relationship rel : rootRels.getRelationships()) {
-                        if (MAIN_MODEL_REL_TYPE.equals(rel.getType())) {
+                        final String type = rel.getType();
+                        if (MAIN_MODEL_REL_TYPE_01.equals(type) || MAIN_MODEL_REL_TYPE_11.equals(type) || MAIN_MODEL_REL_TYPE_CORE.equals(type)) {
                             modelPath = rel.getTarget();
                             if (modelPath.startsWith("/")) {
                                 modelPath = modelPath.substring(1);
@@ -104,9 +120,11 @@ public class Mf3Parser implements ModelParser<Mf3Model> {
         }
 
         try (InputStream is = new ByteArrayInputStream(modelContent)) {
-            return parseModelXml(is, relationships);
-        } catch (XMLStreamException e) {
-            throw new IOException("Failed to parse 3MF XML content", e);
+            final Mf3Model model = parseModelXml(is, relationships);
+            if (model != null) {
+                model.setContentTypes(contentTypes);
+            }
+            return model;
         }
     }
 
@@ -116,49 +134,26 @@ public class Mf3Parser implements ModelParser<Mf3Model> {
      * @param is            the input stream containing the model XML
      * @param relationships the list of discovered relationships
      * @return the parsed Mf3Model
-     * @throws XMLStreamException if an error occurs during XML parsing
+     * @throws IOException if an error occurs during JAXB unmarshalling
      */
-    private Mf3Model parseModelXml(final InputStream is, final Mf3Relationships relationships) throws XMLStreamException {
-        final XMLInputFactory factory = XMLInputFactory.newInstance();
-        // Disable external entities for security
-        factory.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, false);
-        factory.setProperty(XMLInputFactory.SUPPORT_DTD, false);
-
-        final XMLStreamReader reader = factory.createXMLStreamReader(is);
+    private Mf3Model parseModelXml(final InputStream is, final Mf3Relationships relationships) throws IOException {
         try {
-            final Map<String, String> metadata = new HashMap<>();
-            final List<Mf3Object> objects = new ArrayList<>();
-            Unit unit = Unit.MILLIMETER;
+            final JAXBContext context = JAXBContext.newInstance(Mf3Model.class);
+            final Unmarshaller unmarshaller = context.createUnmarshaller();
 
-            while (reader.hasNext()) {
-                final int event = reader.next();
-                if (event == XMLStreamConstants.START_ELEMENT) {
-                    final String localName = reader.getLocalName();
-                    if ("model".equals(localName)) {
-                        final String unitValue = reader.getAttributeValue(null, "unit");
-                        if (unitValue != null) {
-                            final Unit parsedUnit = Unit.fromString(unitValue);
-                            if (parsedUnit != null) {
-                                unit = parsedUnit;
-                            }
-                        }
-                    } else if ("metadata".equals(localName)) {
-                        final String name = reader.getAttributeValue(null, "name");
-                        final String value = reader.getElementText();
-                        if (name != null) {
-                            metadata.put(name, value);
-                        }
-                    } else if ("object".equals(localName)) {
-                        objects.add(parseObject(reader));
-                    }
-                }
+            final SAXParserFactory spf = SAXParserFactory.newInstance();
+            spf.setNamespaceAware(true);
+            final XMLReader xmlReader = spf.newSAXParser().getXMLReader();
+            final Mf3NamespaceFilter filter = new Mf3NamespaceFilter(xmlReader);
+
+            final SAXSource source = new SAXSource(filter, new InputSource(is));
+            final Mf3Model model = (Mf3Model) unmarshaller.unmarshal(source);
+            if (model != null) {
+                model.setRelationships(relationships);
             }
-
-            return new Mf3Model(metadata, objects, unit, relationships);
-        } catch (NumberFormatException e) {
-            throw new XMLStreamException("Invalid numeric value in 3MF XML", e);
-        } finally {
-            reader.close();
+            return model;
+        } catch (final JAXBException | SAXException | ParserConfigurationException e) {
+            throw new IOException("Failed to parse 3MF model XML content", e);
         }
     }
 
@@ -173,9 +168,47 @@ public class Mf3Parser implements ModelParser<Mf3Model> {
         try {
             final JAXBContext context = JAXBContext.newInstance(Mf3Relationships.class);
             final Unmarshaller unmarshaller = context.createUnmarshaller();
-            return (Mf3Relationships) unmarshaller.unmarshal(is);
-        } catch (final JAXBException e) {
+
+            final SAXParserFactory spf = SAXParserFactory.newInstance();
+            spf.setNamespaceAware(true);
+            final XMLReader xmlReader = spf.newSAXParser().getXMLReader();
+            final Mf3NamespaceFilter filter = new Mf3NamespaceFilter(xmlReader);
+
+            final SAXSource source = new SAXSource(filter, new InputSource(is));
+            return (Mf3Relationships) unmarshaller.unmarshal(source);
+        } catch (final JAXBException | SAXException | ParserConfigurationException e) {
             throw new IOException("Failed to parse relationships XML", e);
+        }
+    }
+
+    /**
+     * Parses the [Content_Types].xml file.
+     *
+     * @param is the input stream containing the [Content_Types].xml
+     * @return the parsed Mf3ContentTypes
+     * @throws IOException if an error occurs during JAXB unmarshalling or validation
+     */
+    private Mf3ContentTypes parseContentTypesXml(final InputStream is) throws IOException {
+        try {
+            final JAXBContext context = JAXBContext.newInstance(Mf3ContentTypes.class);
+            final Unmarshaller unmarshaller = context.createUnmarshaller();
+
+            final SchemaFactory sf = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
+            final URL schemaUrl = getClass().getResource("/xsd/opc-contentTypes.xsd");
+            if (schemaUrl != null) {
+                final Schema schema = sf.newSchema(schemaUrl);
+                unmarshaller.setSchema(schema);
+            }
+
+            final SAXParserFactory spf = SAXParserFactory.newInstance();
+            spf.setNamespaceAware(true);
+            final XMLReader xmlReader = spf.newSAXParser().getXMLReader();
+            final Mf3NamespaceFilter filter = new Mf3NamespaceFilter(xmlReader);
+
+            final SAXSource source = new SAXSource(filter, new InputSource(is));
+            return (Mf3ContentTypes) unmarshaller.unmarshal(source);
+        } catch (final JAXBException | SAXException | ParserConfigurationException e) {
+            throw new IOException("Failed to parse [Content_Types].xml", e);
         }
     }
 
@@ -194,39 +227,41 @@ public class Mf3Parser implements ModelParser<Mf3Model> {
     }
 
     /**
-     * Parses an object element from the XML.
-     *
-     * @param reader the XML stream reader
-     * @return the parsed Mf3Object
-     * @throws XMLStreamException if an error occurs during XML parsing
+     * XML filter to normalize 3MF and OPC namespaces to single target namespaces.
+     * This allows the parser to be independent of the specific schema version used in the file.
      */
-    private Mf3Object parseObject(XMLStreamReader reader) throws XMLStreamException {
-        int id = Integer.parseInt(reader.getAttributeValue(null, "id"));
-        String name = reader.getAttributeValue(null, "name");
-        
-        List<Vector3f> vertices = new ArrayList<>();
-        List<Mf3Triangle> triangles = new ArrayList<>();
-        
-        while (reader.hasNext()) {
-            int event = reader.next();
-            if (event == XMLStreamConstants.START_ELEMENT) {
-                String localName = reader.getLocalName();
-                if ("vertex".equals(localName)) {
-                    float x = Float.parseFloat(reader.getAttributeValue(null, "x"));
-                    float y = Float.parseFloat(reader.getAttributeValue(null, "y"));
-                    float z = Float.parseFloat(reader.getAttributeValue(null, "z"));
-                    vertices.add(new Vector3f(x, y, z));
-                } else if ("triangle".equals(localName)) {
-                    int v1 = Integer.parseInt(reader.getAttributeValue(null, "v1"));
-                    int v2 = Integer.parseInt(reader.getAttributeValue(null, "v2"));
-                    int v3 = Integer.parseInt(reader.getAttributeValue(null, "v3"));
-                    triangles.add(new Mf3Triangle(v1, v2, v3));
-                }
-            } else if (event == XMLStreamConstants.END_ELEMENT && "object".equals(reader.getLocalName())) {
-                break;
-            }
+    private static class Mf3NamespaceFilter extends XMLFilterImpl {
+        private static final String MODEL_TARGET_NAMESPACE = "http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel";
+        private static final String CONTENT_TYPES_TARGET_NAMESPACE = "http://schemas.openxmlformats.org/package/2006/content-types";
+        private static final String RELS_TARGET_NAMESPACE = "http://schemas.openxmlformats.org/package/2006/relationships";
+
+        public Mf3NamespaceFilter(final XMLReader parent) {
+            super(parent);
         }
-        
-        return new Mf3Object(id, name, vertices, triangles);
+
+        @Override
+        public void startElement(final String uri, final String localName, final String qName, final Attributes atts) throws SAXException {
+            super.startElement(normalizeNamespace(uri), localName, qName, atts);
+        }
+
+        @Override
+        public void endElement(final String uri, final String localName, final String qName) throws SAXException {
+            super.endElement(normalizeNamespace(uri), localName, qName);
+        }
+
+        private String normalizeNamespace(final String uri) {
+            if (uri != null) {
+                if (uri.contains("3dmanufacturing")) {
+                    return MODEL_TARGET_NAMESPACE;
+                }
+                if (uri.contains("content-types")) {
+                    return CONTENT_TYPES_TARGET_NAMESPACE;
+                }
+                if (uri.contains("relationships")) {
+                    return RELS_TARGET_NAMESPACE;
+                }
+            }
+            return uri;
+        }
     }
 }

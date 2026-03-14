@@ -1,11 +1,12 @@
 package cz.ad.print3d.aslicer.logic.model.parser.mf3;
 
-import cz.ad.print3d.aslicer.logic.model.format.mf3.Mf3Model;
-import cz.ad.print3d.aslicer.logic.model.format.mf3.Mf3Object;
-import cz.ad.print3d.aslicer.logic.model.format.mf3.Mf3Triangle;
-import cz.ad.print3d.aslicer.logic.model.format.mf3.relationship.Mf3Relationship;
 import cz.ad.print3d.aslicer.logic.model.basic.Unit;
 import cz.ad.print3d.aslicer.logic.model.basic.Vector3f;
+import cz.ad.print3d.aslicer.logic.model.format.mf3.core.Mf3Model;
+import cz.ad.print3d.aslicer.logic.model.format.mf3.resource.Mf3Object;
+import cz.ad.print3d.aslicer.logic.model.format.mf3.geometry.Mf3Triangle;
+import cz.ad.print3d.aslicer.logic.model.format.mf3.contenttype.Mf3ContentTypes;
+import cz.ad.print3d.aslicer.logic.model.format.mf3.relationship.Mf3Relationship;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
@@ -35,7 +36,7 @@ public class Mf3ParserTest {
     @Test
     public void testParseValid3Mf() throws IOException {
         String xmlContent = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-                "<model unit=\"millimeter\" xml:lang=\"en-US\" xmlns=\"http://schemas.microsoft.com/3dmanufacturing/core/2015/02\">\n" +
+                "<model unit=\"millimeter\" xml:lang=\"en-US\" xmlns=\"http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel\">\n" +
                 "  <metadata name=\"Title\">Test Cube</metadata>\n" +
                 "  <resources>\n" +
                 "    <object id=\"1\" name=\"Cube\">\n" +
@@ -117,7 +118,7 @@ public class Mf3ParserTest {
     @Test
     public void testParseMultipleObjects() throws IOException {
         String xmlContent = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-                "<model xmlns=\"http://schemas.microsoft.com/3dmanufacturing/core/2015/02\">\n" +
+                "<model xmlns=\"http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel\">\n" +
                 "  <resources>\n" +
                 "    <object id=\"1\" name=\"Obj1\"><mesh><vertices><vertex x=\"0\" y=\"0\" z=\"0\"/></vertices><triangles/></mesh></object>\n" +
                 "    <object id=\"2\" name=\"Obj2\"><mesh><vertices><vertex x=\"1\" y=\"1\" z=\"1\"/></vertices><triangles/></mesh></object>\n" +
@@ -144,7 +145,7 @@ public class Mf3ParserTest {
     @Test
     public void testParseUnits() throws IOException {
         String xmlTemplate = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-                "<model unit=\"%s\" xmlns=\"http://schemas.microsoft.com/3dmanufacturing/core/2015/02\">\n" +
+                "<model unit=\"%s\" xmlns=\"http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel\">\n" +
                 "  <resources />\n" +
                 "</model>";
 
@@ -169,12 +170,12 @@ public class Mf3ParserTest {
     public void testParseWithRels() throws IOException {
         String relsContent = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
                 "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">\n" +
-                "  <Relationship Id=\"rel1\" Type=\"http://schemas.microsoft.com/3dmanufacturing/core/2015/02/mainmodel\" Target=\"/models/my-model.model\"/>\n" +
+                "  <Relationship Id=\"rel1\" Type=\"http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel/mainmodel\" Target=\"/models/my-model.model\"/>\n" +
                 "  <Relationship Id=\"rel2\" Type=\"http://schemas.openxmlformats.org/package/2006/relationships/metadata\" Target=\"/metadata.xml\"/>\n" +
                 "</Relationships>";
         
         String modelContent = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-                "<model xmlns=\"http://schemas.microsoft.com/3dmanufacturing/core/2015/02\">\n" +
+                "<model xmlns=\"http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel\">\n" +
                 "  <resources />\n" +
                 "</model>";
 
@@ -195,7 +196,7 @@ public class Mf3ParserTest {
                 .filter(r -> "rel1".equals(r.getId()))
                 .findFirst()
                 .orElseThrow();
-        assertEquals("http://schemas.microsoft.com/3dmanufacturing/core/2015/02/mainmodel", rel1.getType());
+        assertEquals("http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel/mainmodel", rel1.getType());
         assertEquals("/models/my-model.model", rel1.getTarget());
     }
 
@@ -208,20 +209,20 @@ public class Mf3ParserTest {
     public void testParseWithModelRels() throws IOException {
         String rootRelsContent = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
                 "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">\n" +
-                "  <Relationship Id=\"rel1\" Type=\"http://schemas.microsoft.com/3dmanufacturing/core/2015/02/mainmodel\" Target=\"/3D/model.model\"/>\n" +
+                "  <Relationship Id=\"rel1\" Type=\"http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel/mainmodel\" Target=\"/3D/model.model\"/>\n" +
                 "</Relationships>";
         
         String modelPath = "3D/model.model";
         String modelRelsPath = "3D/_rels/model.model.rels";
         
         String modelContent = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-                "<model xmlns=\"http://schemas.microsoft.com/3dmanufacturing/core/2015/02\">\n" +
+                "<model xmlns=\"http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel\">\n" +
                 "  <resources />\n" +
                 "</model>";
         
         String modelRelsContent = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
                 "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">\n" +
-                "  <Relationship Id=\"rel2\" Type=\"http://schemas.microsoft.com/3dmanufacturing/core/2015/02/texture\" Target=\"/textures/tex1.png\"/>\n" +
+                "  <Relationship Id=\"rel2\" Type=\"http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel/texture\" Target=\"/textures/tex1.png\"/>\n" +
                 "</Relationships>";
 
         Map<String, String> files = new HashMap<>();
@@ -270,6 +271,73 @@ public class Mf3ParserTest {
         }
     }
 
+    /**
+     * Verifies that the parser correctly handles [Content_Types].xml.
+     *
+     * @throws IOException if an I/O error occurs
+     */
+    @Test
+    public void testParseWithContentTypes() throws IOException {
+        String contentTypesContent = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+                "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">\n" +
+                "  <Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>\n" +
+                "  <Default Extension=\"model\" ContentType=\"application/vnd.ms-package.3dmanufacturing-3dmodel+xml\"/>\n" +
+                "  <Override PartName=\"/3D/3dmodel.model\" ContentType=\"application/vnd.ms-package.3dmanufacturing-3dmodel+xml\"/>\n" +
+                "</Types>";
+
+        String modelContent = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+                "<model xmlns=\"http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel\">\n" +
+                "  <resources />\n" +
+                "</model>";
+
+        Map<String, String> files = new HashMap<>();
+        files.put("[Content_Types].xml", contentTypesContent);
+        files.put("3D/3dmodel.model", modelContent);
+
+        byte[] zipData = createZipWithFiles(files);
+        ReadableByteChannel channel = Channels.newChannel(new ByteArrayInputStream(zipData));
+
+        Mf3Parser parser = new Mf3Parser();
+        Mf3Model model = parser.parse(channel);
+
+        assertNotNull(model);
+        Mf3ContentTypes contentTypes = model.contentTypes();
+        assertNotNull(contentTypes);
+        assertEquals(2, contentTypes.getDefaults().size());
+        assertEquals(1, contentTypes.getOverrides().size());
+        assertEquals("rels", contentTypes.getDefaults().get(0).getExtension());
+        assertEquals("/3D/3dmodel.model", contentTypes.getOverrides().get(0).getPartName());
+    }
+
+    /**
+     * Verifies that the parser correctly handles invalid [Content_Types].xml (schema validation).
+     *
+     * @throws IOException if an I/O error occurs
+     */
+    @Test
+    public void testParseWithInvalidContentTypes() throws IOException {
+        String invalidContentTypes = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+                "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">\n" +
+                "  <InvalidElement />\n" +
+                "</Types>";
+
+        String modelContent = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+                "<model xmlns=\"http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel\">\n" +
+                "  <resources />\n" +
+                "</model>";
+
+        Map<String, String> files = new HashMap<>();
+        files.put("[Content_Types].xml", invalidContentTypes);
+        files.put("3D/3dmodel.model", modelContent);
+
+        byte[] zipData = createZipWithFiles(files);
+        ReadableByteChannel channel = Channels.newChannel(new ByteArrayInputStream(zipData));
+
+        Mf3Parser parser = new Mf3Parser();
+        // Should throw IOException due to validation failure if XSD is found
+        assertThrows(IOException.class, () -> parser.parse(channel));
+    }
+
     private byte[] createZipWithFile(String path, String content) throws IOException {
         Map<String, String> files = new HashMap<>();
         files.put(path, content);
@@ -287,5 +355,129 @@ public class Mf3ParserTest {
             }
         }
         return baos.toByteArray();
+    }
+
+    /**
+     * Verifies that the parser correctly handles the 2013/11 namespace.
+     *
+     * @throws IOException if an I/O error occurs
+     */
+    @Test
+    public void testParse2013_11_Namespace() throws IOException {
+        String xmlContent = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+                "<model unit=\"millimeter\" xmlns=\"http://schemas.microsoft.com/3dmanufacturing/2013/11/3dmodel\">\n" +
+                "  <resources>\n" +
+                "    <object id=\"1\" name=\"Test\" type=\"model\" partnumber=\"PN-001\">\n" +
+                "      <mesh>\n" +
+                "        <vertices><vertex x=\"0\" y=\"0\" z=\"0\"/></vertices>\n" +
+                "        <triangles/>\n" +
+                "      </mesh>\n" +
+                "    </object>\n" +
+                "  </resources>\n" +
+                "  <build>\n" +
+                "    <item objectid=\"1\" transform=\"1 0 0 0 1 0 0 0 1 0 0 0\"/>\n" +
+                "  </build>\n" +
+                "</model>";
+
+        String relsContent = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+                "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">\n" +
+                "  <Relationship Id=\"r1\" Type=\"http://schemas.microsoft.com/3dmanufacturing/2013/11/3dmodel/mainmodel\" Target=\"/3D/model.model\"/>\n" +
+                "</Relationships>";
+
+        Map<String, String> files = new HashMap<>();
+        files.put("_rels/.rels", relsContent);
+        files.put("3D/model.model", xmlContent);
+
+        byte[] zipData = createZipWithFiles(files);
+        ReadableByteChannel channel = Channels.newChannel(new ByteArrayInputStream(zipData));
+
+        Mf3Parser parser = new Mf3Parser();
+        Mf3Model model = parser.parse(channel);
+
+        assertNotNull(model);
+        assertEquals(1, model.objects().size());
+        assertEquals("Test", model.objects().get(0).name());
+        assertEquals("model", model.objects().get(0).getType());
+        assertEquals("PN-001", model.objects().get(0).getPartNumber());
+
+        assertNotNull(model.getBuild());
+        assertEquals(1, model.getBuild().getItems().size());
+        assertEquals(1, model.getBuild().getItems().get(0).getObjectId());
+        assertEquals("1 0 0 0 1 0 0 0 1 0 0 0", model.getBuild().getItems().get(0).getTransform());
+    }
+
+    /**
+     * Verifies that the parser correctly handles the core 2015/02 namespace.
+     *
+     * @throws IOException if an I/O error occurs
+     */
+    @Test
+    public void testParseCore2015Namespace() throws IOException {
+        String xmlContent = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+                "<model unit=\"millimeter\" xmlns=\"http://schemas.microsoft.com/3dmanufacturing/core/2015/02\">\n" +
+                "  <resources>\n" +
+                "    <object id=\"1\" name=\"CoreTest\">\n" +
+                "      <mesh>\n" +
+                "        <vertices><vertex x=\"0\" y=\"0\" z=\"0\"/></vertices>\n" +
+                "        <triangles/>\n" +
+                "      </mesh>\n" +
+                "    </object>\n" +
+                "  </resources>\n" +
+                "</model>";
+
+        String relsContent = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+                "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">\n" +
+                "  <Relationship Id=\"r1\" Type=\"http://schemas.microsoft.com/3dmanufacturing/core/2015/02/mainmodel\" Target=\"/3D/model.model\"/>\n" +
+                "</Relationships>";
+
+        Map<String, String> files = new HashMap<>();
+        files.put("_rels/.rels", relsContent);
+        files.put("3D/model.model", xmlContent);
+
+        byte[] zipData = createZipWithFiles(files);
+        ReadableByteChannel channel = Channels.newChannel(new ByteArrayInputStream(zipData));
+
+        Mf3Parser parser = new Mf3Parser();
+        Mf3Model model = parser.parse(channel);
+
+        assertNotNull(model);
+        assertEquals(1, model.objects().size());
+        assertEquals("CoreTest", model.objects().get(0).name());
+    }
+
+    /**
+     * Verifies that the parser correctly handles components in an object.
+     *
+     * @throws IOException if an I/O error occurs
+     */
+    @Test
+    public void testParseComponents() throws IOException {
+        String xmlContent = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+                "<model xmlns=\"http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel\">\n" +
+                "  <resources>\n" +
+                "    <object id=\"1\" name=\"Part\"><mesh><vertices><vertex x=\"0\" y=\"0\" z=\"0\"/></vertices><triangles/></mesh></object>\n" +
+                "    <object id=\"2\" name=\"Assembly\">\n" +
+                "      <components>\n" +
+                "        <component objectid=\"1\" transform=\"1 0 0 0 1 0 0 0 1 10 0 0\"/>\n" +
+                "      </components>\n" +
+                "    </object>\n" +
+                "  </resources>\n" +
+                "</model>";
+
+        byte[] zipData = createZipWithFile("3D/3dmodel.model", xmlContent);
+        ReadableByteChannel channel = Channels.newChannel(new ByteArrayInputStream(zipData));
+
+        Mf3Parser parser = new Mf3Parser();
+        Mf3Model model = parser.parse(channel);
+
+        assertNotNull(model);
+        assertEquals(2, model.objects().size());
+
+        Mf3Object assembly = model.objects().get(1);
+        assertEquals("Assembly", assembly.name());
+        assertNotNull(assembly.getComponents());
+        assertEquals(1, assembly.getComponents().getComponents().size());
+        assertEquals(1, assembly.getComponents().getComponents().get(0).getObjectId());
+        assertEquals("1 0 0 0 1 0 0 0 1 10 0 0", assembly.getComponents().getComponents().get(0).getTransform());
     }
 }

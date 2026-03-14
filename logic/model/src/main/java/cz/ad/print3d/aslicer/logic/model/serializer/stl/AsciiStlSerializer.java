@@ -1,9 +1,9 @@
 package cz.ad.print3d.aslicer.logic.model.serializer.stl;
 
 import cz.ad.print3d.aslicer.logic.model.basic.Vector3f;
-import cz.ad.print3d.aslicer.logic.model.serializer.ModelSerializer;
 import cz.ad.print3d.aslicer.logic.model.format.stl.StlFacet;
 import cz.ad.print3d.aslicer.logic.model.format.stl.StlModel;
+import cz.ad.print3d.aslicer.logic.model.serializer.ModelSerializer;
 
 import java.io.IOException;
 import java.io.PrintWriter;

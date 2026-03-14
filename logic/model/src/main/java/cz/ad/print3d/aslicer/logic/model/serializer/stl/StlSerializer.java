@@ -1,7 +1,7 @@
 package cz.ad.print3d.aslicer.logic.model.serializer.stl;
 
-import cz.ad.print3d.aslicer.logic.model.serializer.ModelSerializer;
 import cz.ad.print3d.aslicer.logic.model.format.stl.StlModel;
+import cz.ad.print3d.aslicer.logic.model.serializer.ModelSerializer;
 
 import java.io.IOException;
 import java.nio.channels.WritableByteChannel;

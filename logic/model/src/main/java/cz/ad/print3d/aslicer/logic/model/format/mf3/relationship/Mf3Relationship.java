@@ -9,34 +9,46 @@ import jakarta.xml.bind.annotation.XmlAttribute;
  * Conventions (OPC) relationship file.
  *
  * <p>A relationship expresses a connection between a source (the part containing
- * the relationship file) and a target (either another part or an external resource).
- * Each relationship is uniquely identified by an "Id" attribute and categorised
- * by a "Type" URI.</p>
+ * the relationship file) and a target (either another part in the package or an
+ * external resource). Each relationship is categorized by a "Type" URI and
+ * uniquely identified by an "Id" attribute within the relationship part.</p>
+ *
+ * <p>According to the OPC specification (ECMA-376 Part 2):
+ * <ul>
+ *   <li>The {@code Id} attribute specifies a unique identifier for the relationship.</li>
+ *   <li>The {@code Type} attribute specifies the relationship type URI, defining the role of the connection.</li>
+ *   <li>The {@code Target} attribute specifies the URI of the target resource.</li>
+ *   <li>The {@code TargetMode} attribute specifies whether the target is internal or external to the package.</li>
+ * </ul>
+ * </p>
  */
 @XmlAccessorType(XmlAccessType.FIELD)
 public class Mf3Relationship {
 
     /**
-     * Unique ID for the relationship, typically in the form "rIdN".
+     * Unique identifier for the relationship, typically in the form "rIdN".
+     * This ID must be unique within the relationship part.
      */
     @XmlAttribute(name = "Id")
     private String id;
 
     /**
-     * URI defining the relationship type (e.g.,
-     * "http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel").
+     * URI defining the relationship type, which defines the role or category of the
+     * relationship (e.g., "http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel").
      */
     @XmlAttribute(name = "Type")
     private String type;
 
     /**
-     * URI pointing to the target part or external resource.
+     * URI pointing to the target part (relative path within the package) or an
+     * external resource (absolute URI).
      */
     @XmlAttribute(name = "Target")
     private String target;
 
     /**
-     * Mode of the target: "Internal" (default) or "External".
+     * Mode of the target: "Internal" (default) if the target is another part in the
+     * same package, or "External" if the target is outside the package.
      */
     @XmlAttribute(name = "TargetMode")
     private String targetMode;
@@ -117,5 +129,31 @@ public class Mf3Relationship {
      */
     public void setTargetMode(final String targetMode) {
         this.targetMode = targetMode;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Mf3Relationship that = (Mf3Relationship) o;
+        return java.util.Objects.equals(id, that.id) &&
+                java.util.Objects.equals(type, that.type) &&
+                java.util.Objects.equals(target, that.target) &&
+                java.util.Objects.equals(targetMode, that.targetMode);
+    }
+
+    @Override
+    public int hashCode() {
+        return java.util.Objects.hash(id, type, target, targetMode);
+    }
+
+    @Override
+    public String toString() {
+        return "Mf3Relationship{" +
+                "id='" + id + '\'' +
+                ", type='" + type + '\'' +
+                ", target='" + target + '\'' +
+                ", targetMode='" + targetMode + '\'' +
+                '}';
     }
 }

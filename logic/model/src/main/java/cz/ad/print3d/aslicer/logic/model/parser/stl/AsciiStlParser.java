@@ -2,9 +2,9 @@ package cz.ad.print3d.aslicer.logic.model.parser.stl;
 
 import cz.ad.print3d.aslicer.logic.model.basic.Unit;
 import cz.ad.print3d.aslicer.logic.model.basic.Vector3f;
-import cz.ad.print3d.aslicer.logic.model.parser.ModelParser;
 import cz.ad.print3d.aslicer.logic.model.format.stl.StlFacet;
 import cz.ad.print3d.aslicer.logic.model.format.stl.StlModel;
+import cz.ad.print3d.aslicer.logic.model.parser.ModelParser;
 
 import java.io.BufferedReader;
 import java.io.IOException;
