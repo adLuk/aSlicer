@@ -1,0 +1,3 @@
+rootProject.name = 'aSlicer'
+include 'logic'
+include ':logic:model'
