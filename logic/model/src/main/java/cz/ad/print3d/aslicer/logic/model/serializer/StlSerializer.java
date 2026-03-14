@@ -1,101 +1,75 @@
 package cz.ad.print3d.aslicer.logic.model.serializer;
 
-import cz.ad.print3d.aslicer.logic.model.basic.Vector3f;
-import cz.ad.print3d.aslicer.logic.model.stl.StlFacet;
 import cz.ad.print3d.aslicer.logic.model.stl.StlModel;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.nio.channels.WritableByteChannel;
 
 /**
- * Implementation of ModelSerializer for binary STL files.
+ * STL Serializer dispatcher that supports both binary and ASCII formats.
+ * By default, it uses the binary format.
  */
 public class StlSerializer implements ModelSerializer {
 
     /**
-     * Size of the binary STL header in bytes.
+     * Enumeration of supported STL formats.
      */
-    private static final int HEADER_SIZE = 80;
+    public enum Format {
+        BINARY,
+        ASCII
+    }
+
+    private Format format;
 
     /**
-     * Size of the triangle count field in bytes.
+     * Creates a new StlSerializer with the default BINARY format.
      */
-    private static final int TRIANGLE_COUNT_SIZE = 4;
+    public StlSerializer() {
+        this(Format.BINARY);
+    }
 
     /**
-     * Size of a single facet entry in bytes (50 bytes total: 4*3*4 for vertices/normal + 2 for attributes).
+     * Creates a new StlSerializer with the specified format.
+     *
+     * @param format the format to use for serialization
      */
-    private static final int FACET_SIZE = 50;
+    public StlSerializer(Format format) {
+        this.format = format;
+    }
 
     /**
-     * Serializes the binary STL content to the given channel.
+     * Gets the current serialization format.
+     *
+     * @return the current format
+     */
+    public Format getFormat() {
+        return format;
+    }
+
+    /**
+     * Sets the serialization format.
+     *
+     * @param format the format to use
+     */
+    public void setFormat(Format format) {
+        this.format = format;
+    }
+
+    /**
+     * Serializes the model using the configured format.
      *
      * @param model the model to serialize
-     * @param channel the output binary channel
+     * @param channel the output channel
      * @throws IOException if an I/O error occurs
      */
     @Override
     public void serialize(StlModel model, WritableByteChannel channel) throws IOException {
-        // Write 80-byte header
-        ByteBuffer headerBuffer = ByteBuffer.allocate(HEADER_SIZE);
-        if (model.header() != null) {
-            int len = Math.min(model.header().length, HEADER_SIZE);
-            headerBuffer.put(model.header(), 0, len);
+        ModelSerializer serializer;
+        if (format == Format.ASCII) {
+            serializer = new AsciiStlSerializer();
+        } else {
+            serializer = new BinaryStlSerializer();
         }
-        // Fill remaining header space with zeros if necessary
-        while (headerBuffer.hasRemaining()) {
-            headerBuffer.put((byte) 0);
-        }
-        headerBuffer.flip();
-        writeFully(channel, headerBuffer);
-
-        // Write 4-byte triangle count (Little Endian)
-        ByteBuffer countBuffer = ByteBuffer.allocate(TRIANGLE_COUNT_SIZE);
-        countBuffer.order(ByteOrder.LITTLE_ENDIAN);
-        countBuffer.putInt(model.facetCount());
-        countBuffer.flip();
-        writeFully(channel, countBuffer);
-
-        // Write facets
-        ByteBuffer facetBuffer = ByteBuffer.allocate(FACET_SIZE);
-        facetBuffer.order(ByteOrder.LITTLE_ENDIAN);
-
-        for (StlFacet facet : model.facets()) {
-            facetBuffer.clear();
-            writeVector(facetBuffer, facet.normal());
-            writeVector(facetBuffer, facet.v1());
-            writeVector(facetBuffer, facet.v2());
-            writeVector(facetBuffer, facet.v3());
-            facetBuffer.putShort((short) facet.attributeByteCount());
-            facetBuffer.flip();
-            writeFully(channel, facetBuffer);
-        }
-    }
-
-    /**
-     * Writes all bytes from the buffer to the channel.
-     *
-     * @param channel the channel to write to
-     * @param buffer the buffer to write from
-     * @throws IOException if an I/O error occurs
-     */
-    private void writeFully(WritableByteChannel channel, ByteBuffer buffer) throws IOException {
-        while (buffer.hasRemaining()) {
-            channel.write(buffer);
-        }
-    }
-
-    /**
-     * Writes a 3D vector to the buffer.
-     *
-     * @param buffer the buffer to write to
-     * @param vector the vector to write
-     */
-    private void writeVector(ByteBuffer buffer, Vector3f vector) {
-        buffer.putFloat(vector.x());
-        buffer.putFloat(vector.y());
-        buffer.putFloat(vector.z());
+        serializer.serialize(model, channel);
     }
 }

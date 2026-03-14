@@ -7,13 +7,15 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Tests for StlParser.
+ * Tests for StlParser and its specialized implementations.
  */
 public class StlParserTest {
 
@@ -34,7 +36,7 @@ public class StlParserTest {
         
         ReadableByteChannel channel = Channels.newChannel(new ByteArrayInputStream(buffer.array()));
         
-        StlParser parser = new StlParser();
+        BinaryStlParser parser = new BinaryStlParser();
         StlModel model = parser.parse(channel);
         
         assertArrayEquals(header, model.header());
@@ -69,7 +71,7 @@ public class StlParserTest {
         
         ReadableByteChannel channel = Channels.newChannel(new ByteArrayInputStream(buffer.array()));
         
-        StlParser parser = new StlParser();
+        BinaryStlParser parser = new BinaryStlParser();
         StlModel model = parser.parse(channel);
         
         assertEquals(1, model.facetCount());
@@ -81,5 +83,64 @@ public class StlParserTest {
         assertEquals(0.0f, facet.v1().x());
         assertEquals(1.0f, facet.v2().x());
         assertEquals(1.0f, facet.v3().y());
+    }
+
+    /**
+     * Verifies that the dispatcher correctly delegates to BinaryStlParser for binary content.
+     *
+     * @throws IOException if an I/O error occurs
+     */
+    @Test
+    public void testDispatcherBinary() throws IOException {
+        byte[] header = new byte[80];
+        ByteBuffer buffer = ByteBuffer.allocate(84);
+        buffer.order(ByteOrder.LITTLE_ENDIAN);
+        buffer.put(header);
+        buffer.putInt(0);
+        
+        ReadableByteChannel channel = Channels.newChannel(new ByteArrayInputStream(buffer.array()));
+        StlParser parser = new StlParser();
+        StlModel model = parser.parse(channel);
+        
+        assertEquals(0, model.facetCount());
+    }
+
+    /**
+     * Verifies that the dispatcher correctly delegates to AsciiStlParser for ASCII content.
+     *
+     * @throws IOException if an I/O error occurs
+     */
+    @Test
+    public void testDispatcherAscii() throws IOException {
+        String ascii = "solid test\nfacet normal 0 0 1\nouter loop\nvertex 0 0 0\nvertex 1 0 0\nvertex 0 1 0\nendloop\nendfacet\nendsolid test";
+        ReadableByteChannel channel = Channels.newChannel(new ByteArrayInputStream(ascii.getBytes(StandardCharsets.US_ASCII)));
+        
+        StlParser parser = new StlParser();
+        StlModel model = parser.parse(channel);
+        
+        assertEquals(1, model.facetCount());
+        assertEquals("test", new String(model.header(), StandardCharsets.US_ASCII).trim());
+    }
+
+    /**
+     * Verifies that the parser can load an ASCII STL file from resources.
+     *
+     * @throws IOException if an I/O error occurs
+     */
+    @Test
+    public void testParseAsciiResource() throws IOException {
+        String resourcePath = "/test-ascii.stl";
+        try (InputStream is = getClass().getResourceAsStream(resourcePath)) {
+            assertNotNull(is, "Resource not found: " + resourcePath);
+            ReadableByteChannel channel = Channels.newChannel(is);
+            StlParser parser = new StlParser();
+            StlModel model = parser.parse(channel);
+            
+            assertEquals(1, model.facetCount());
+            assertEquals("simple", new String(model.header(), StandardCharsets.US_ASCII).trim());
+            
+            var facet = model.facets().get(0);
+            assertEquals(1.0f, facet.normal().z());
+        }
     }
 }
