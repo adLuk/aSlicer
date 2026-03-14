@@ -5,6 +5,7 @@ import cz.ad.print3d.aslicer.logic.model.format.mf3.contenttype.Mf3ContentTypes;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.relationship.Mf3Relationship;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.relationship.Mf3Relationships;
 import cz.ad.print3d.aslicer.logic.model.parser.ModelParser;
+import cz.ad.print3d.aslicer.logic.model.storage.FileStorage;
 import jakarta.xml.bind.JAXBContext;
 import jakarta.xml.bind.JAXBException;
 import jakarta.xml.bind.Unmarshaller;
@@ -27,8 +28,11 @@ import java.io.InputStream;
 import java.net.URL;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
+import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -44,6 +48,24 @@ public class Mf3Parser implements ModelParser<Mf3Model> {
     private static final String MAIN_MODEL_REL_TYPE_01 = "http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel/mainmodel";
     private static final String MAIN_MODEL_REL_TYPE_11 = "http://schemas.microsoft.com/3dmanufacturing/2013/11/3dmodel/mainmodel";
     private static final String MAIN_MODEL_REL_TYPE_CORE = "http://schemas.microsoft.com/3dmanufacturing/core/2015/02/mainmodel";
+
+    private final FileStorage storage;
+
+    /**
+     * Creates a new Mf3Parser with the default file storage.
+     */
+    public Mf3Parser() {
+        this(new FileStorage());
+    }
+
+    /**
+     * Creates a new Mf3Parser with the specified file storage.
+     *
+     * @param storage the file storage to use for extracting non-parsed files
+     */
+    public Mf3Parser(final FileStorage storage) {
+        this.storage = storage;
+    }
 
     /**
      * Parses the 3MF content from the given channel.
@@ -69,13 +91,16 @@ public class Mf3Parser implements ModelParser<Mf3Model> {
             }
         }
 
+        final Set<String> parsedEntries = new HashSet<>();
         final Mf3Relationships relationships = new Mf3Relationships();
+        final Map<String, Mf3Relationships> relationshipParts = new HashMap<>();
         String modelPath = DEFAULT_MODEL_ENTRY;
 
         // 1. Parse content types if present
         Mf3ContentTypes contentTypes = null;
         final byte[] contentTypesContent = entries.get(CONTENT_TYPES_ENTRY);
         if (contentTypesContent != null) {
+            parsedEntries.add(CONTENT_TYPES_ENTRY);
             try (InputStream is = new ByteArrayInputStream(contentTypesContent)) {
                 contentTypes = parseContentTypesXml(is);
             }
@@ -84,10 +109,11 @@ public class Mf3Parser implements ModelParser<Mf3Model> {
         // 2. Parse root relationships to find the main model part
         final byte[] rootRelsContent = entries.get(ROOT_RELS_ENTRY);
         if (rootRelsContent != null) {
+            parsedEntries.add(ROOT_RELS_ENTRY);
             try (InputStream is = new ByteArrayInputStream(rootRelsContent)) {
                 final Mf3Relationships rootRels = parseRelsXml(is);
                 if (rootRels.getRelationships() != null) {
-                    relationships.getRelationships().addAll(rootRels.getRelationships());
+                    relationshipParts.put(ROOT_RELS_ENTRY, rootRels);
                     for (final Mf3Relationship rel : rootRels.getRelationships()) {
                         final String type = rel.getType();
                         if (MAIN_MODEL_REL_TYPE_01.equals(type) || MAIN_MODEL_REL_TYPE_11.equals(type) || MAIN_MODEL_REL_TYPE_CORE.equals(type)) {
@@ -106,23 +132,42 @@ public class Mf3Parser implements ModelParser<Mf3Model> {
         if (modelContent == null) {
             throw new IOException("Invalid 3MF file: missing main model part at " + modelPath);
         }
+        parsedEntries.add(modelPath);
 
         // 3. Parse model-specific relationships if they exist
         final String modelRelsPath = getRelsPathFor(modelPath);
         final byte[] modelRelsContent = entries.get(modelRelsPath);
         if (modelRelsContent != null) {
+            parsedEntries.add(modelRelsPath);
             try (InputStream is = new ByteArrayInputStream(modelRelsContent)) {
                 final Mf3Relationships modelRels = parseRelsXml(is);
                 if (modelRels.getRelationships() != null) {
-                    relationships.getRelationships().addAll(modelRels.getRelationships());
+                    relationshipParts.put(modelRelsPath, modelRels);
                 }
             }
         }
 
         try (InputStream is = new ByteArrayInputStream(modelContent)) {
-            final Mf3Model model = parseModelXml(is, relationships);
+            // Combine all relationships for the model unmarshaller (it needs them to resolve references if any)
+            final Mf3Relationships allRels = new Mf3Relationships();
+            relationshipParts.values().forEach(rels -> allRels.getRelationships().addAll(rels.getRelationships()));
+
+            final Mf3Model model = parseModelXml(is, allRels);
             if (model != null) {
                 model.setContentTypes(contentTypes);
+                relationshipParts.forEach(model::setRelationshipPart);
+
+                // Extract all non-parsed files into storage
+                final Path storagePath = storage.createRandomDirectory();
+                model.setStoragePath(storagePath);
+                for (final Map.Entry<String, byte[]> entry : entries.entrySet()) {
+                    final String entryName = entry.getKey();
+                    if (!parsedEntries.contains(entryName)) {
+                        try (InputStream entryStream = new ByteArrayInputStream(entry.getValue())) {
+                            storage.storeFile(entryStream, entryName, storagePath);
+                        }
+                    }
+                }
             }
             return model;
         }

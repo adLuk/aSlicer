@@ -7,15 +7,19 @@ import cz.ad.print3d.aslicer.logic.model.format.mf3.resource.Mf3Object;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.geometry.Mf3Triangle;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.contenttype.Mf3ContentTypes;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.relationship.Mf3Relationship;
+import cz.ad.print3d.aslicer.logic.model.format.mf3.relationship.Mf3Relationships;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.zip.ZipEntry;
@@ -237,9 +241,10 @@ public class Mf3ParserTest {
         Mf3Model model = parser.parse(channel);
         
         assertNotNull(model);
-        assertEquals(2, model.relationships().getRelationships().size());
-        assertTrue(model.relationships().getRelationships().stream().anyMatch(r -> "rel1".equals(r.getId())));
-        assertTrue(model.relationships().getRelationships().stream().anyMatch(r -> "rel2".equals(r.getId())));
+        assertEquals(1, model.relationshipParts().get("_rels/.rels").getRelationships().size());
+        assertEquals(1, model.relationshipParts().get(modelRelsPath).getRelationships().size());
+        assertTrue(model.relationshipParts().get("_rels/.rels").getRelationships().stream().anyMatch(r -> "rel1".equals(r.getId())));
+        assertTrue(model.relationshipParts().get(modelRelsPath).getRelationships().stream().anyMatch(r -> "rel2".equals(r.getId())));
     }
 
     /**
@@ -266,8 +271,10 @@ public class Mf3ParserTest {
             assertFalse(object.vertices().isEmpty());
             
             // Relationships
-            assertFalse(model.relationships().getRelationships().isEmpty());
-            assertTrue(model.relationships().getRelationships().stream().anyMatch(r -> "rel0".equals(r.getId())));
+            assertFalse(model.relationshipParts().isEmpty());
+            Mf3Relationships rootRels = model.relationshipParts().get("_rels/.rels");
+            assertNotNull(rootRels);
+            assertTrue(rootRels.getRelationships().stream().anyMatch(r -> "rel0".equals(r.getId())));
         }
     }
 
@@ -479,5 +486,44 @@ public class Mf3ParserTest {
         assertEquals(1, assembly.getComponents().getComponents().size());
         assertEquals(1, assembly.getComponents().getComponents().get(0).getObjectId());
         assertEquals("1 0 0 0 1 0 0 0 1 10 0 0", assembly.getComponents().getComponents().get(0).getTransform());
+    }
+
+    /**
+     * Verifies that non-parsed files in the 3MF package are extracted to the storage directory.
+     *
+     * @throws IOException if an I/O error occurs
+     */
+    @Test
+    public void testExtractionOfNonParsedFiles() throws IOException {
+        final Map<String, String> files = new HashMap<>();
+        files.put("[Content_Types].xml", "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+                "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">\n" +
+                "  <Default Extension=\"model\" ContentType=\"application/vnd.ms-package.3dmanufacturing-3dmodel+xml\"/>\n" +
+                "  <Default Extension=\"png\" ContentType=\"image/png\"/>\n" +
+                "</Types>");
+        files.put("3D/3dmodel.model", "<model unit=\"millimeter\" xmlns=\"http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel\">\n" +
+                "  <resources></resources><build></build></model>");
+        files.put("3D/Textures/texture1.png", "fake-png-content");
+        files.put("Metadata/custom.xml", "<custom>data</custom>");
+
+        final byte[] zipData = createZipWithFiles(files);
+        final Mf3Parser parser = new Mf3Parser();
+        final Mf3Model model = parser.parse(Channels.newChannel(new ByteArrayInputStream(zipData)));
+
+        assertNotNull(model);
+        final Path storagePath = model.storagePath();
+        assertNotNull(storagePath);
+        assertTrue(Files.exists(storagePath));
+        assertTrue(Files.isDirectory(storagePath));
+
+        // Check extracted files
+        assertTrue(Files.exists(storagePath.resolve("3D/Textures/texture1.png")));
+        assertTrue(Files.exists(storagePath.resolve("Metadata/custom.xml")));
+        assertEquals("fake-png-content", Files.readString(storagePath.resolve("3D/Textures/texture1.png")));
+        assertEquals("<custom>data</custom>", Files.readString(storagePath.resolve("Metadata/custom.xml")));
+
+        // Core files should NOT be in storage
+        assertFalse(Files.exists(storagePath.resolve("3D/3dmodel.model")));
+        assertFalse(Files.exists(storagePath.resolve("[Content_Types].xml")));
     }
 }

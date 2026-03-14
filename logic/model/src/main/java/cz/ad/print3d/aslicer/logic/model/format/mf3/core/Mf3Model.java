@@ -50,11 +50,11 @@ public class Mf3Model implements Model {
     private Mf3Build build;
 
     /**
-     * Package relationships for the 3MF document.
+     * Package relationships for the 3MF document, organized by their path in the package.
      * This field is not part of the model XML itself but is associated with the 3MF package.
      */
     @XmlTransient
-    private Mf3Relationships relationships;
+    private Map<String, Mf3Relationships> relationshipParts = new HashMap<>();
 
     /**
      * Content types for the 3MF document.
@@ -62,6 +62,13 @@ public class Mf3Model implements Model {
      */
     @XmlTransient
     private Mf3ContentTypes contentTypes;
+
+    /**
+     * Location of the extracted files on the filesystem.
+     * This field is not part of the model XML itself but is associated with the 3MF package.
+     */
+    @XmlTransient
+    private java.nio.file.Path storagePath;
 
     /**
      * Default constructor for JAXB.
@@ -90,9 +97,11 @@ public class Mf3Model implements Model {
      * @param relationships package relationships
      * @param contentTypes  package content types
      */
-    public Mf3Model(Map<String, String> metadata, List<Mf3Object> objects, Unit unit, Mf3Relationships relationships, Mf3ContentTypes contentTypes) {
+    public Mf3Model(final Map<String, String> metadata, final List<Mf3Object> objects, final Unit unit, final Mf3Relationships relationships, final Mf3ContentTypes contentTypes) {
         this.unit = unit;
-        this.relationships = relationships;
+        if (relationships != null) {
+            this.relationshipParts.put("_rels/.rels", relationships);
+        }
         this.contentTypes = contentTypes;
         if (metadata != null) {
             this.metadataList = metadata.entrySet().stream()
@@ -140,12 +149,21 @@ public class Mf3Model implements Model {
     }
 
     /**
-     * Returns the package relationships parsed from the {@code /_rels/.rels} part.
+     * Returns the root package relationships parsed from the {@code /_rels/.rels} part.
      *
-     * @return the {@link Mf3Relationships} container
+     * @return the {@link Mf3Relationships} container, or null if not present
      */
     public Mf3Relationships relationships() {
-        return relationships;
+        return relationshipParts.get("_rels/.rels");
+    }
+
+    /**
+     * Returns all relationship parts in the package, keyed by their path.
+     *
+     * @return a map of relationship parts
+     */
+    public Map<String, Mf3Relationships> relationshipParts() {
+        return relationshipParts;
     }
 
     /**
@@ -167,12 +185,30 @@ public class Mf3Model implements Model {
     }
 
     /**
-     * Sets the package relationships.
+     * Sets the root package relationships.
      *
      * @param relationships the relationships to set
      */
     public void setRelationships(final Mf3Relationships relationships) {
-        this.relationships = relationships;
+        if (relationships != null) {
+            this.relationshipParts.put("_rels/.rels", relationships);
+        } else {
+            this.relationshipParts.remove("_rels/.rels");
+        }
+    }
+
+    /**
+     * Sets a specific relationship part in the package.
+     *
+     * @param path          the path to the relationship file (e.g., "_rels/.rels" or "3D/_rels/3dmodel.model.rels")
+     * @param relationships the relationships for this part
+     */
+    public void setRelationshipPart(final String path, final Mf3Relationships relationships) {
+        if (relationships != null) {
+            this.relationshipParts.put(path, relationships);
+        } else {
+            this.relationshipParts.remove(path);
+        }
     }
 
     /**
@@ -182,6 +218,24 @@ public class Mf3Model implements Model {
      */
     public void setContentTypes(final Mf3ContentTypes contentTypes) {
         this.contentTypes = contentTypes;
+    }
+
+    /**
+     * Returns the location of the extracted files on the filesystem.
+     *
+     * @return the storage path
+     */
+    public java.nio.file.Path storagePath() {
+        return storagePath;
+    }
+
+    /**
+     * Sets the location of the extracted files on the filesystem.
+     *
+     * @param storagePath the storage path to set
+     */
+    public void setStoragePath(final java.nio.file.Path storagePath) {
+        this.storagePath = storagePath;
     }
 
     /**
@@ -247,13 +301,14 @@ public class Mf3Model implements Model {
                 java.util.Objects.equals(metadataList, mf3Model.metadataList) &&
                 java.util.Objects.equals(resources, mf3Model.resources) &&
                 java.util.Objects.equals(build, mf3Model.build) &&
-                java.util.Objects.equals(relationships, mf3Model.relationships) &&
-                java.util.Objects.equals(contentTypes, mf3Model.contentTypes);
+                java.util.Objects.equals(relationshipParts, mf3Model.relationshipParts) &&
+                java.util.Objects.equals(contentTypes, mf3Model.contentTypes) &&
+                java.util.Objects.equals(storagePath, mf3Model.storagePath);
     }
 
     @Override
     public int hashCode() {
-        return java.util.Objects.hash(unit, metadataList, resources, build, relationships, contentTypes);
+        return java.util.Objects.hash(unit, metadataList, resources, build, relationshipParts, contentTypes, storagePath);
     }
 
     @Override
@@ -263,8 +318,9 @@ public class Mf3Model implements Model {
                 ", metadataList=" + metadataList +
                 ", resources=" + resources +
                 ", build=" + build +
-                ", relationships=" + relationships +
+                ", relationshipParts=" + relationshipParts +
                 ", contentTypes=" + contentTypes +
+                ", storagePath=" + storagePath +
                 '}';
     }
 }
