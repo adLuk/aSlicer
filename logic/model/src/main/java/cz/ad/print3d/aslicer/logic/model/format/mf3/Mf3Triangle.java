@@ -8,5 +8,5 @@ package cz.ad.print3d.aslicer.logic.model.format.mf3;
  * @param v2 index of the second vertex
  * @param v3 index of the third vertex
  */
-public record ThreeMfTriangle(int v1, int v2, int v3) {
+public record Mf3Triangle(int v1, int v2, int v3) {
 }

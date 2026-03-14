@@ -11,5 +11,5 @@ import java.util.List;
  * @param vertices list of mesh vertices
  * @param triangles list of mesh triangles referencing vertices by index
  */
-public record ThreeMfObject(int id, String name, List<Vector3f> vertices, List<ThreeMfTriangle> triangles) {
+public record Mf3Object(int id, String name, List<Vector3f> vertices, List<Mf3Triangle> triangles) {
 }
