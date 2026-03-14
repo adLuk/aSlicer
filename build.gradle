@@ -1,0 +1,22 @@
+allprojects {
+    group = 'cz.ad.print3d.aslicer'
+    version = '0.1.0-SNAPSHOT'
+
+    repositories {
+        mavenCentral()
+    }
+}
+
+subprojects {
+    apply plugin: 'java'
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(25)
+        }
+    }
+
+    test {
+        useJUnitPlatform()
+    }
+}
