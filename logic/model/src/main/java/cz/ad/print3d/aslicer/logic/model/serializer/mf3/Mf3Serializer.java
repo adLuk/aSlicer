@@ -35,6 +35,8 @@ public class Mf3Serializer implements ModelSerializer<Mf3Model> {
     private static final String DEFAULT_MODEL_ENTRY = "3D/3dmodel.model";
     private static final String ROOT_RELS_ENTRY = "_rels/.rels";
     private static final String CONTENT_TYPES_ENTRY = "[Content_Types].xml";
+    private static final String PRUSA_MODEL_CONFIG_ENTRY = "Metadata/Slic3r_PE_model.config";
+    private static final String PRUSA_SETTINGS_ENTRY = "Metadata/Slic3r_PE.config";
     private static final String MAIN_MODEL_REL_TYPE_01 = "http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel/mainmodel";
     private static final String MAIN_MODEL_REL_TYPE_11 = "http://schemas.microsoft.com/3dmanufacturing/2013/11/3dmodel/mainmodel";
     private static final String MAIN_MODEL_REL_TYPE_CORE = "http://schemas.microsoft.com/3dmanufacturing/core/2015/02/mainmodel";
@@ -88,7 +90,11 @@ public class Mf3Serializer implements ModelSerializer<Mf3Model> {
             // 4. Write the model XML itself
             serializeModelXml(model, modelPath, zos);
 
-            // 5. Copy files from storage if present
+            // 5. Write Prusa-specific configuration if present
+            serializePrusaModelConfig(model, zos);
+            serializePrusaSettings(model, zos);
+
+            // 6. Copy files from storage if present
             serializeStorageFiles(model.storagePath(), zos);
         }
     }
@@ -129,6 +135,22 @@ public class Mf3Serializer implements ModelSerializer<Mf3Model> {
         zos.putNextEntry(new ZipEntry(path));
         marshal(model, zos);
         zos.closeEntry();
+    }
+
+    private void serializePrusaModelConfig(Mf3Model model, ZipOutputStream zos) throws IOException {
+        if (model.getPrusaSlicerModelConfig() != null) {
+            zos.putNextEntry(new ZipEntry(PRUSA_MODEL_CONFIG_ENTRY));
+            marshal(model.getPrusaSlicerModelConfig(), zos);
+            zos.closeEntry();
+        }
+    }
+
+    private void serializePrusaSettings(Mf3Model model, ZipOutputStream zos) throws IOException {
+        if (model.getPrusaSettings() != null) {
+            zos.putNextEntry(new ZipEntry(PRUSA_SETTINGS_ENTRY));
+            zos.write(model.getPrusaSettings().serialize().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            zos.closeEntry();
+        }
     }
 
     private void serializeStorageFiles(Path storagePath, ZipOutputStream zos) throws IOException {

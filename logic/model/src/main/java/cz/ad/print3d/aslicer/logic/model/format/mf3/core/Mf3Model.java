@@ -6,6 +6,9 @@ import cz.ad.print3d.aslicer.logic.model.format.mf3.build.Mf3Build;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.resource.Mf3Object;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.resource.Mf3Resources;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.contenttype.Mf3ContentTypes;
+import cz.ad.print3d.aslicer.logic.model.format.mf3.prusa.Mf3PrusaMainMetadata;
+import cz.ad.print3d.aslicer.logic.model.format.mf3.prusa.Mf3PrusaSettings;
+import cz.ad.print3d.aslicer.logic.model.format.mf3.prusa.Mf3PrusaSlicerModelConfig;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.relationship.Mf3Relationships;
 import jakarta.xml.bind.annotation.*;
 
@@ -69,6 +72,24 @@ public class Mf3Model implements Model {
      */
     @XmlTransient
     private java.nio.file.Path storagePath;
+
+    /**
+     * Prusa-specific metadata from the main model file.
+     */
+    @XmlTransient
+    private Mf3PrusaMainMetadata prusaMainMetadata;
+
+    /**
+     * PrusaSlicer-specific configuration for objects and volumes.
+     */
+    @XmlTransient
+    private Mf3PrusaSlicerModelConfig prusaSlicerModelConfig;
+
+    /**
+     * PrusaSlicer settings (printer, print, and filament settings).
+     */
+    @XmlTransient
+    private Mf3PrusaSettings prusaSettings;
 
     /**
      * Default constructor for JAXB.
@@ -239,6 +260,63 @@ public class Mf3Model implements Model {
     }
 
     /**
+     * Returns the Prusa-specific main metadata.
+     *
+     * @return the Prusa main metadata, or null if not present
+     */
+    public Mf3PrusaMainMetadata getPrusaMainMetadata() {
+        if (prusaMainMetadata == null && metadataList != null) {
+            prusaMainMetadata = Mf3PrusaMainMetadata.fromMap(metadata());
+        }
+        return prusaMainMetadata;
+    }
+
+    /**
+     * Sets the Prusa-specific main metadata.
+     *
+     * @param prusaMainMetadata the metadata to set
+     */
+    public void setPrusaMainMetadata(final Mf3PrusaMainMetadata prusaMainMetadata) {
+        this.prusaMainMetadata = prusaMainMetadata;
+    }
+
+    /**
+     * Returns the PrusaSlicer object and volume configuration.
+     *
+     * @return the Prusa configuration, or null if not present
+     */
+    public Mf3PrusaSlicerModelConfig getPrusaSlicerModelConfig() {
+        return prusaSlicerModelConfig;
+    }
+
+    /**
+     * Sets the PrusaSlicer object and volume configuration.
+     *
+     * @param prusaSlicerModelConfig the configuration to set
+     */
+    public void setPrusaSlicerModelConfig(final Mf3PrusaSlicerModelConfig prusaSlicerModelConfig) {
+        this.prusaSlicerModelConfig = prusaSlicerModelConfig;
+    }
+
+    /**
+     * Returns the PrusaSlicer settings.
+     *
+     * @return the Prusa settings, or null if not present
+     */
+    public Mf3PrusaSettings getPrusaSettings() {
+        return prusaSettings;
+    }
+
+    /**
+     * Sets the PrusaSlicer settings.
+     *
+     * @param prusaSettings the settings to set
+     */
+    public void setPrusaSettings(final Mf3PrusaSettings prusaSettings) {
+        this.prusaSettings = prusaSettings;
+    }
+
+    /**
      * Returns the metadata list.
      *
      * @return the metadata list
@@ -303,12 +381,15 @@ public class Mf3Model implements Model {
                 java.util.Objects.equals(build, mf3Model.build) &&
                 java.util.Objects.equals(relationshipParts, mf3Model.relationshipParts) &&
                 java.util.Objects.equals(contentTypes, mf3Model.contentTypes) &&
-                java.util.Objects.equals(storagePath, mf3Model.storagePath);
+                java.util.Objects.equals(storagePath, mf3Model.storagePath) &&
+                java.util.Objects.equals(prusaMainMetadata, mf3Model.prusaMainMetadata) &&
+                java.util.Objects.equals(prusaSlicerModelConfig, mf3Model.prusaSlicerModelConfig) &&
+                java.util.Objects.equals(prusaSettings, mf3Model.prusaSettings);
     }
 
     @Override
     public int hashCode() {
-        return java.util.Objects.hash(unit, metadataList, resources, build, relationshipParts, contentTypes, storagePath);
+        return java.util.Objects.hash(unit, metadataList, resources, build, relationshipParts, contentTypes, storagePath, prusaMainMetadata, prusaSlicerModelConfig, prusaSettings);
     }
 
     @Override
@@ -321,6 +402,9 @@ public class Mf3Model implements Model {
                 ", relationshipParts=" + relationshipParts +
                 ", contentTypes=" + contentTypes +
                 ", storagePath=" + storagePath +
+                ", prusaMainMetadata=" + prusaMainMetadata +
+                ", prusaSlicerModelConfig=" + prusaSlicerModelConfig +
+                ", prusaSettings=" + prusaSettings +
                 '}';
     }
 }

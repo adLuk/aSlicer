@@ -2,6 +2,8 @@ package cz.ad.print3d.aslicer.logic.model.parser.mf3;
 
 import cz.ad.print3d.aslicer.logic.model.format.mf3.core.Mf3Model;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.contenttype.Mf3ContentTypes;
+import cz.ad.print3d.aslicer.logic.model.format.mf3.prusa.Mf3PrusaSettings;
+import cz.ad.print3d.aslicer.logic.model.format.mf3.prusa.Mf3PrusaSlicerModelConfig;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.relationship.Mf3Relationship;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.relationship.Mf3Relationships;
 import cz.ad.print3d.aslicer.logic.model.parser.ModelParser;
@@ -45,6 +47,8 @@ public class Mf3Parser implements ModelParser<Mf3Model> {
     private static final String DEFAULT_MODEL_ENTRY = "3D/3dmodel.model";
     private static final String ROOT_RELS_ENTRY = "_rels/.rels";
     private static final String CONTENT_TYPES_ENTRY = "[Content_Types].xml";
+    private static final String PRUSA_MODEL_CONFIG_ENTRY = "Metadata/Slic3r_PE_model.config";
+    private static final String PRUSA_SETTINGS_ENTRY = "Metadata/Slic3r_PE.config";
     private static final String MAIN_MODEL_REL_TYPE_01 = "http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel/mainmodel";
     private static final String MAIN_MODEL_REL_TYPE_11 = "http://schemas.microsoft.com/3dmanufacturing/2013/11/3dmodel/mainmodel";
     private static final String MAIN_MODEL_REL_TYPE_CORE = "http://schemas.microsoft.com/3dmanufacturing/core/2015/02/mainmodel";
@@ -106,20 +110,25 @@ public class Mf3Parser implements ModelParser<Mf3Model> {
             }
         }
 
-        // 2. Parse root relationships to find the main model part
-        final byte[] rootRelsContent = entries.get(ROOT_RELS_ENTRY);
-        if (rootRelsContent != null) {
-            parsedEntries.add(ROOT_RELS_ENTRY);
-            try (InputStream is = new ByteArrayInputStream(rootRelsContent)) {
-                final Mf3Relationships rootRels = parseRelsXml(is);
-                if (rootRels.getRelationships() != null) {
-                    relationshipParts.put(ROOT_RELS_ENTRY, rootRels);
-                    for (final Mf3Relationship rel : rootRels.getRelationships()) {
-                        final String type = rel.getType();
-                        if (MAIN_MODEL_REL_TYPE_01.equals(type) || MAIN_MODEL_REL_TYPE_11.equals(type) || MAIN_MODEL_REL_TYPE_CORE.equals(type)) {
-                            modelPath = rel.getTarget();
-                            if (modelPath.startsWith("/")) {
-                                modelPath = modelPath.substring(1);
+        // 2. Parse all relationship files
+        for (final Map.Entry<String, byte[]> entry : entries.entrySet()) {
+            final String entryName = entry.getKey();
+            if (entryName.endsWith(".rels") && (entryName.equals(ROOT_RELS_ENTRY) || entryName.contains("/_rels/"))) {
+                parsedEntries.add(entryName);
+                try (InputStream is = new ByteArrayInputStream(entry.getValue())) {
+                    final Mf3Relationships rels = parseRelsXml(is);
+                    if (rels.getRelationships() != null) {
+                        relationshipParts.put(entryName, rels);
+                        // If it's the root relationships, look for the main model
+                        if (ROOT_RELS_ENTRY.equals(entryName)) {
+                            for (final Mf3Relationship rel : rels.getRelationships()) {
+                                final String type = rel.getType();
+                                if (MAIN_MODEL_REL_TYPE_01.equals(type) || MAIN_MODEL_REL_TYPE_11.equals(type) || MAIN_MODEL_REL_TYPE_CORE.equals(type)) {
+                                    modelPath = rel.getTarget();
+                                    if (modelPath.startsWith("/")) {
+                                        modelPath = modelPath.substring(1);
+                                    }
+                                }
                             }
                         }
                     }
@@ -127,25 +136,12 @@ public class Mf3Parser implements ModelParser<Mf3Model> {
             }
         }
 
-        // 2. Parse model part
+        // 3. Parse model part
         final byte[] modelContent = entries.get(modelPath);
         if (modelContent == null) {
             throw new IOException("Invalid 3MF file: missing main model part at " + modelPath);
         }
         parsedEntries.add(modelPath);
-
-        // 3. Parse model-specific relationships if they exist
-        final String modelRelsPath = getRelsPathFor(modelPath);
-        final byte[] modelRelsContent = entries.get(modelRelsPath);
-        if (modelRelsContent != null) {
-            parsedEntries.add(modelRelsPath);
-            try (InputStream is = new ByteArrayInputStream(modelRelsContent)) {
-                final Mf3Relationships modelRels = parseRelsXml(is);
-                if (modelRels.getRelationships() != null) {
-                    relationshipParts.put(modelRelsPath, modelRels);
-                }
-            }
-        }
 
         try (InputStream is = new ByteArrayInputStream(modelContent)) {
             // Combine all relationships for the model unmarshaller (it needs them to resolve references if any)
@@ -156,6 +152,22 @@ public class Mf3Parser implements ModelParser<Mf3Model> {
             if (model != null) {
                 model.setContentTypes(contentTypes);
                 relationshipParts.forEach(model::setRelationshipPart);
+
+                // 4. Parse Prusa-specific configuration if present
+                final byte[] prusaModelConfigContent = entries.get(PRUSA_MODEL_CONFIG_ENTRY);
+                if (prusaModelConfigContent != null) {
+                    parsedEntries.add(PRUSA_MODEL_CONFIG_ENTRY);
+                    try (InputStream prusaIs = new ByteArrayInputStream(prusaModelConfigContent)) {
+                        model.setPrusaSlicerModelConfig(parsePrusaModelConfigXml(prusaIs));
+                    }
+                }
+
+                final byte[] prusaSettingsContent = entries.get(PRUSA_SETTINGS_ENTRY);
+                if (prusaSettingsContent != null) {
+                    parsedEntries.add(PRUSA_SETTINGS_ENTRY);
+                    final String content = new String(prusaSettingsContent, java.nio.charset.StandardCharsets.UTF_8);
+                    model.setPrusaSettings(Mf3PrusaSettings.parse(content));
+                }
 
                 // Extract all non-parsed files into storage
                 final Path storagePath = storage.createRandomDirectory();
@@ -254,6 +266,23 @@ public class Mf3Parser implements ModelParser<Mf3Model> {
             return (Mf3ContentTypes) unmarshaller.unmarshal(source);
         } catch (final JAXBException | SAXException | ParserConfigurationException e) {
             throw new IOException("Failed to parse [Content_Types].xml", e);
+        }
+    }
+
+    /**
+     * Parses the Prusa-specific model configuration XML.
+     *
+     * @param is the input stream containing the XML
+     * @return the parsed Mf3PrusaSlicerModelConfig
+     * @throws IOException if an I/O error occurs
+     */
+    private Mf3PrusaSlicerModelConfig parsePrusaModelConfigXml(final InputStream is) throws IOException {
+        try {
+            final JAXBContext context = JAXBContext.newInstance(Mf3PrusaSlicerModelConfig.class);
+            final Unmarshaller unmarshaller = context.createUnmarshaller();
+            return (Mf3PrusaSlicerModelConfig) unmarshaller.unmarshal(is);
+        } catch (final JAXBException e) {
+            throw new IOException("Error parsing Prusa model config XML: " + e.getMessage(), e);
         }
     }
 

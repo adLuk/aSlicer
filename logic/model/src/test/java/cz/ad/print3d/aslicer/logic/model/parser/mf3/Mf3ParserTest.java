@@ -8,6 +8,8 @@ import cz.ad.print3d.aslicer.logic.model.format.mf3.geometry.Mf3Triangle;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.contenttype.Mf3ContentTypes;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.relationship.Mf3Relationship;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.relationship.Mf3Relationships;
+import cz.ad.print3d.aslicer.logic.model.format.mf3.prusa.Mf3PrusaSettings;
+import cz.ad.print3d.aslicer.logic.model.format.mf3.prusa.Mf3PrusaSlicerModelConfig;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
@@ -343,6 +345,33 @@ public class Mf3ParserTest {
         Mf3Parser parser = new Mf3Parser();
         // Should throw IOException due to validation failure if XSD is found
         assertThrows(IOException.class, () -> parser.parse(channel));
+    }
+
+    @Test
+    public void testParsePrusaMetadata() throws IOException {
+        Mf3Parser parser = new Mf3Parser();
+        InputStream is = getClass().getResourceAsStream("/3mf/test-prusa.3mf");
+        assertNotNull(is, "Resource test-prusa.3mf not found");
+
+        Mf3Model model = parser.parse(Channels.newChannel(is));
+        assertNotNull(model);
+
+        // Check main model Prusa metadata
+        assertNotNull(model.getPrusaMainMetadata());
+        assertEquals("1", model.getPrusaMainMetadata().getVersion3mf());
+
+        // Check Slic3r_PE_model.config
+        Mf3PrusaSlicerModelConfig config = model.getPrusaSlicerModelConfig();
+        assertNotNull(config);
+        assertFalse(config.getObjects().isEmpty());
+        assertEquals(1, config.getObjects().size());
+        assertEquals(1, config.getObjects().get(0).getId());
+
+        // Check Slic3r_PE.config settings
+        Mf3PrusaSettings settings = model.getPrusaSettings();
+        assertNotNull(settings);
+        assertEquals("60", settings.getBedTemperature());
+        assertNotNull(settings.get("arc_fitting"));
     }
 
     private byte[] createZipWithFile(String path, String content) throws IOException {

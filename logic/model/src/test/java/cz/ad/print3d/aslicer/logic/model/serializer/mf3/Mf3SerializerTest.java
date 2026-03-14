@@ -4,6 +4,8 @@ import cz.ad.print3d.aslicer.logic.model.basic.Unit;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.core.Mf3Model;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.relationship.Mf3Relationships;
 import cz.ad.print3d.aslicer.logic.model.parser.mf3.Mf3Parser;
+import cz.ad.print3d.aslicer.logic.model.format.mf3.prusa.Mf3PrusaSettings;
+import cz.ad.print3d.aslicer.logic.model.format.mf3.prusa.Mf3PrusaSlicerModelConfig;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
@@ -178,6 +180,77 @@ public class Mf3SerializerTest {
         // 4. Re-parse and compare
         Mf3Model reParsedModel = parser.parse(Channels.newChannel(new ByteArrayInputStream(finalZipData)));
         assertEquals(model.relationshipParts(), reParsedModel.relationshipParts());
+    }
+
+    @Test
+    public void testRoundTripWithPrusaModel() throws IOException {
+        Mf3Parser parser = new Mf3Parser();
+        Mf3Serializer serializer = new Mf3Serializer();
+
+        // 1. Parse the Prusa file
+        InputStream is = getClass().getResourceAsStream("/3mf/test-prusa.3mf");
+        assertNotNull(is, "Resource test-prusa.3mf not found");
+        byte[] originalBytes = is.readAllBytes();
+        Mf3Model model = parser.parse(Channels.newChannel(new ByteArrayInputStream(originalBytes)));
+        assertNotNull(model);
+        assertNotNull(model.getPrusaSlicerModelConfig());
+        assertNotNull(model.getPrusaSettings());
+
+        // 2. Serialize back to bytes
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        serializer.serialize(model, Channels.newChannel(baos));
+        byte[] serializedBytes = baos.toByteArray();
+
+        // 3. Parse the serialized bytes
+        Mf3Model reParsedModel = parser.parse(Channels.newChannel(new ByteArrayInputStream(serializedBytes)));
+        assertNotNull(reParsedModel);
+
+        // 4. Compare Prusa-specific data
+        assertEquals(model.getPrusaMainMetadata(), reParsedModel.getPrusaMainMetadata());
+        assertEquals(model.getPrusaSlicerModelConfig(), reParsedModel.getPrusaSlicerModelConfig());
+        assertEquals(model.getPrusaSettings(), reParsedModel.getPrusaSettings());
+
+        // 5. Verify files exist in ZIP
+        Map<String, byte[]> entries = getZipEntries(serializedBytes);
+        assertTrue(entries.containsKey("Metadata/Slic3r_PE_model.config"));
+        assertTrue(entries.containsKey("Metadata/Slic3r_PE.config"));
+    }
+
+    @Test
+    public void testRoundTripWithMetadataRels() throws IOException {
+        Mf3Parser parser = new Mf3Parser();
+        Mf3Serializer serializer = new Mf3Serializer();
+
+        // 1. Parse the file with Metadata/_rels/.rels
+        InputStream is = getClass().getResourceAsStream("/3mf/test-metadata-rels.3mf");
+        assertNotNull(is, "Resource test-metadata-rels.3mf not found");
+        byte[] originalBytes = is.readAllBytes();
+        Mf3Model model = parser.parse(Channels.newChannel(new ByteArrayInputStream(originalBytes)));
+        assertNotNull(model);
+
+        // Verify it parsed 3 relationship parts: _rels/.rels, and Metadata/_rels/.rels (since I didn't add model rels in that test file)
+        // Wait, I should check what exactly I added in the script.
+        // _rels/.rels
+        // Metadata/_rels/.rels
+        assertEquals(2, model.relationshipParts().size());
+        assertTrue(model.relationshipParts().containsKey("_rels/.rels"));
+        assertTrue(model.relationshipParts().containsKey("Metadata/_rels/.rels"));
+
+        // 2. Serialize back
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        serializer.serialize(model, Channels.newChannel(baos));
+        byte[] serializedBytes = baos.toByteArray();
+
+        // 3. Parse again
+        Mf3Model reParsedModel = parser.parse(Channels.newChannel(new ByteArrayInputStream(serializedBytes)));
+        assertNotNull(reParsedModel);
+
+        // 4. Compare
+        assertEquals(model.relationshipParts(), reParsedModel.relationshipParts());
+        
+        // 5. Verify file exists in ZIP
+        Map<String, byte[]> entries = getZipEntries(serializedBytes);
+        assertTrue(entries.containsKey("Metadata/_rels/.rels"));
     }
 
     private Map<String, byte[]> getZipEntries(byte[] data) throws IOException {
