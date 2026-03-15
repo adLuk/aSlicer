@@ -1,13 +1,16 @@
 package cz.ad.print3d.aslicer.logic.model.parser.mf3;
 
-import cz.ad.print3d.aslicer.logic.model.format.mf3.core.Mf3Model;
+import cz.ad.print3d.aslicer.logic.model.format.mf3.bambu.Mf3BambuConfig;
+import cz.ad.print3d.aslicer.logic.model.format.mf3.bambu.Mf3BambuCustomGCode;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.contenttype.Mf3ContentTypes;
+import cz.ad.print3d.aslicer.logic.model.format.mf3.core.Mf3Model;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.prusa.Mf3PrusaSettings;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.prusa.Mf3PrusaSlicerModelConfig;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.relationship.Mf3Relationship;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.relationship.Mf3Relationships;
 import cz.ad.print3d.aslicer.logic.model.parser.ModelParser;
 import cz.ad.print3d.aslicer.logic.model.storage.FileStorage;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.xml.bind.JAXBContext;
 import jakarta.xml.bind.JAXBException;
 import jakarta.xml.bind.Unmarshaller;
@@ -53,6 +56,8 @@ public class Mf3Parser implements ModelParser<Mf3Model> {
     private static final String CONTENT_TYPES_ENTRY = "[Content_Types].xml";
     private static final String PRUSA_MODEL_CONFIG_ENTRY = "Metadata/Slic3r_PE_model.config";
     private static final String PRUSA_SETTINGS_ENTRY = "Metadata/Slic3r_PE.config";
+    private static final String BAMBU_MODEL_CONFIG_ENTRY = "Metadata/model_settings.config";
+    private static final String BAMBU_CUSTOM_GCODE_ENTRY = "Metadata/Bambu_Custom_GCode";
     private static final String MAIN_MODEL_REL_TYPE_01 = "http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel/mainmodel";
     private static final String MAIN_MODEL_REL_TYPE_11 = "http://schemas.microsoft.com/3dmanufacturing/2013/11/3dmodel/mainmodel";
     private static final String MAIN_MODEL_REL_TYPE_CORE = "http://schemas.microsoft.com/3dmanufacturing/core/2015/02/mainmodel";
@@ -183,6 +188,25 @@ public class Mf3Parser implements ModelParser<Mf3Model> {
                     model.setPrusaSettings(Mf3PrusaSettings.parse(content));
                 }
 
+                // 6. Parse Bambu-specific configuration if present
+                final byte[] bambuModelConfigContent = entries.get(BAMBU_MODEL_CONFIG_ENTRY);
+                if (bambuModelConfigContent != null) {
+                    LOGGER.debug("Parsing Bambu model configuration from {}", BAMBU_MODEL_CONFIG_ENTRY);
+                    parsedEntries.add(BAMBU_MODEL_CONFIG_ENTRY);
+                    try (InputStream bambuConfigIs = new ByteArrayInputStream(bambuModelConfigContent)) {
+                        model.setBambuConfig(parseBambuModelConfigXml(bambuConfigIs));
+                    }
+                }
+
+                final byte[] bambuCustomGCodeContent = entries.get(BAMBU_CUSTOM_GCODE_ENTRY);
+                if (bambuCustomGCodeContent != null) {
+                    LOGGER.debug("Parsing Bambu custom G-code from {}", BAMBU_CUSTOM_GCODE_ENTRY);
+                    parsedEntries.add(BAMBU_CUSTOM_GCODE_ENTRY);
+                    try (InputStream bambuGCodeIs = new ByteArrayInputStream(bambuCustomGCodeContent)) {
+                        model.setBambuCustomGCode(parseBambuCustomGCodeJson(bambuGCodeIs));
+                    }
+                }
+
                 // Extract all non-parsed files into storage
                 final Path storagePath = storage.createRandomDirectory();
                 LOGGER.info("Extracting non-parsed files to temporary storage: {}", storagePath);
@@ -300,6 +324,39 @@ public class Mf3Parser implements ModelParser<Mf3Model> {
             return (Mf3PrusaSlicerModelConfig) unmarshaller.unmarshal(is);
         } catch (final JAXBException e) {
             throw new IOException("Error parsing Prusa model config XML: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Parses the Bambu model configuration from the XML content.
+     *
+     * @param is the input stream containing the XML
+     * @return the parsed Mf3BambuConfig
+     * @throws IOException if an I/O error occurs
+     */
+    private Mf3BambuConfig parseBambuModelConfigXml(final InputStream is) throws IOException {
+        try {
+            final JAXBContext context = JAXBContext.newInstance(Mf3BambuConfig.class);
+            final Unmarshaller unmarshaller = context.createUnmarshaller();
+            return (Mf3BambuConfig) unmarshaller.unmarshal(is);
+        } catch (final JAXBException e) {
+            throw new IOException("Error parsing Bambu model config XML: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Parses the Bambu custom G-code from the JSON content.
+     *
+     * @param is the input stream containing the JSON
+     * @return the parsed Mf3BambuCustomGCode
+     * @throws IOException if an I/O error occurs
+     */
+    private Mf3BambuCustomGCode parseBambuCustomGCodeJson(final InputStream is) throws IOException {
+        try {
+            final ObjectMapper mapper = new ObjectMapper();
+            return mapper.readValue(is, Mf3BambuCustomGCode.class);
+        } catch (final IOException e) {
+            throw new IOException("Error parsing Bambu custom G-code JSON: " + e.getMessage(), e);
         }
     }
 

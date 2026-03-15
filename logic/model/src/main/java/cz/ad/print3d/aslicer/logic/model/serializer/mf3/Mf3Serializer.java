@@ -1,5 +1,7 @@
 package cz.ad.print3d.aslicer.logic.model.serializer.mf3;
 
+import cz.ad.print3d.aslicer.logic.model.format.mf3.bambu.Mf3BambuConfig;
+import cz.ad.print3d.aslicer.logic.model.format.mf3.bambu.Mf3BambuCustomGCode;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.contenttype.Mf3ContentTypes;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.contenttype.Mf3Default;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.contenttype.Mf3Override;
@@ -7,6 +9,7 @@ import cz.ad.print3d.aslicer.logic.model.format.mf3.core.Mf3Model;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.relationship.Mf3Relationship;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.relationship.Mf3Relationships;
 import cz.ad.print3d.aslicer.logic.model.serializer.ModelSerializer;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.xml.bind.JAXBContext;
 import jakarta.xml.bind.JAXBException;
 import jakarta.xml.bind.Marshaller;
@@ -42,6 +45,8 @@ public class Mf3Serializer implements ModelSerializer<Mf3Model> {
     private static final String CONTENT_TYPES_ENTRY = "[Content_Types].xml";
     private static final String PRUSA_MODEL_CONFIG_ENTRY = "Metadata/Slic3r_PE_model.config";
     private static final String PRUSA_SETTINGS_ENTRY = "Metadata/Slic3r_PE.config";
+    private static final String BAMBU_MODEL_CONFIG_ENTRY = "Metadata/model_settings.config";
+    private static final String BAMBU_CUSTOM_GCODE_ENTRY = "Metadata/Bambu_Custom_GCode";
     private static final String MAIN_MODEL_REL_TYPE_01 = "http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel/mainmodel";
     private static final String MAIN_MODEL_REL_TYPE_11 = "http://schemas.microsoft.com/3dmanufacturing/2013/11/3dmodel/mainmodel";
     private static final String MAIN_MODEL_REL_TYPE_CORE = "http://schemas.microsoft.com/3dmanufacturing/core/2015/02/mainmodel";
@@ -104,7 +109,11 @@ public class Mf3Serializer implements ModelSerializer<Mf3Model> {
             serializePrusaModelConfig(model, zos);
             serializePrusaSettings(model, zos);
 
-            // 6. Copy files from storage if present
+            // 6. Write Bambu-specific configuration if present
+            serializeBambuModelConfig(model, zos);
+            serializeBambuCustomGCode(model, zos);
+
+            // 7. Copy files from storage if present
             serializeStorageFiles(model.storagePath(), zos);
         }
         LOGGER.info("Finished 3MF package serialization successfully");
@@ -164,6 +173,27 @@ public class Mf3Serializer implements ModelSerializer<Mf3Model> {
             LOGGER.debug("Serializing Prusa settings to {}", PRUSA_SETTINGS_ENTRY);
             zos.putNextEntry(new ZipEntry(PRUSA_SETTINGS_ENTRY));
             zos.write(model.getPrusaSettings().serialize().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            zos.closeEntry();
+        }
+    }
+
+    private void serializeBambuModelConfig(Mf3Model model, ZipOutputStream zos) throws IOException {
+        if (model.getBambuConfig() != null) {
+            LOGGER.debug("Serializing Bambu model config to {}", BAMBU_MODEL_CONFIG_ENTRY);
+            zos.putNextEntry(new ZipEntry(BAMBU_MODEL_CONFIG_ENTRY));
+            marshal(model.getBambuConfig(), zos);
+            zos.closeEntry();
+        }
+    }
+
+    private void serializeBambuCustomGCode(Mf3Model model, ZipOutputStream zos) throws IOException {
+        if (model.getBambuCustomGCode() != null) {
+            LOGGER.debug("Serializing Bambu custom G-code to {}", BAMBU_CUSTOM_GCODE_ENTRY);
+            zos.putNextEntry(new ZipEntry(BAMBU_CUSTOM_GCODE_ENTRY));
+            final ObjectMapper mapper = new ObjectMapper();
+            // Don't use mapper.writeValue(zos, ...) because it closes the stream
+            byte[] bytes = mapper.writeValueAsBytes(model.getBambuCustomGCode());
+            zos.write(bytes);
             zos.closeEntry();
         }
     }

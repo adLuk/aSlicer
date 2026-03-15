@@ -5,6 +5,8 @@ import cz.ad.print3d.aslicer.logic.model.basic.Unit;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.build.Mf3Build;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.resource.Mf3Object;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.resource.Mf3Resources;
+import cz.ad.print3d.aslicer.logic.model.format.mf3.bambu.Mf3BambuConfig;
+import cz.ad.print3d.aslicer.logic.model.format.mf3.bambu.Mf3BambuCustomGCode;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.contenttype.Mf3ContentTypes;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.prusa.Mf3PrusaMainMetadata;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.prusa.Mf3PrusaSettings;
@@ -90,6 +92,18 @@ public class Mf3Model implements Model {
      */
     @XmlTransient
     private Mf3PrusaSettings prusaSettings;
+
+    /**
+     * Bambu-specific configuration for plates.
+     */
+    @XmlTransient
+    private Mf3BambuConfig bambuConfig;
+
+    /**
+     * Bambu-specific custom G-code.
+     */
+    @XmlTransient
+    private Mf3BambuCustomGCode bambuCustomGCode;
 
     /**
      * Default constructor for JAXB.
@@ -317,6 +331,42 @@ public class Mf3Model implements Model {
     }
 
     /**
+     * Returns the Bambu-specific plate configuration.
+     *
+     * @return the Bambu configuration, or null if not present
+     */
+    public Mf3BambuConfig getBambuConfig() {
+        return bambuConfig;
+    }
+
+    /**
+     * Sets the Bambu-specific plate configuration.
+     *
+     * @param bambuConfig the configuration to set
+     */
+    public void setBambuConfig(final Mf3BambuConfig bambuConfig) {
+        this.bambuConfig = bambuConfig;
+    }
+
+    /**
+     * Returns the Bambu-specific custom G-code.
+     *
+     * @return the Bambu custom G-code, or null if not present
+     */
+    public Mf3BambuCustomGCode getBambuCustomGCode() {
+        return bambuCustomGCode;
+    }
+
+    /**
+     * Sets the Bambu-specific custom G-code.
+     *
+     * @param bambuCustomGCode the custom G-code to set
+     */
+    public void setBambuCustomGCode(final Mf3BambuCustomGCode bambuCustomGCode) {
+        this.bambuCustomGCode = bambuCustomGCode;
+    }
+
+    /**
      * Returns the metadata list.
      *
      * @return the metadata list
@@ -392,7 +442,9 @@ public class Mf3Model implements Model {
                 java.util.Objects.equals(storagePath, mf3Model.storagePath) &&
                 java.util.Objects.equals(prusaMainMetadata, mf3Model.prusaMainMetadata) &&
                 java.util.Objects.equals(prusaSlicerModelConfig, mf3Model.prusaSlicerModelConfig) &&
-                java.util.Objects.equals(prusaSettings, mf3Model.prusaSettings);
+                java.util.Objects.equals(prusaSettings, mf3Model.prusaSettings) &&
+                java.util.Objects.equals(bambuConfig, mf3Model.bambuConfig) &&
+                java.util.Objects.equals(bambuCustomGCode, mf3Model.bambuCustomGCode);
     }
 
     /**
@@ -402,7 +454,7 @@ public class Mf3Model implements Model {
      */
     @Override
     public int hashCode() {
-        return java.util.Objects.hash(unit, metadataList, resources, build, relationshipParts, contentTypes, storagePath, prusaMainMetadata, prusaSlicerModelConfig, prusaSettings);
+        return java.util.Objects.hash(unit, metadataList, resources, build, relationshipParts, contentTypes, storagePath, prusaMainMetadata, prusaSlicerModelConfig, prusaSettings, bambuConfig, bambuCustomGCode);
     }
 
     /**
@@ -423,6 +475,8 @@ public class Mf3Model implements Model {
                 ", prusaMainMetadata=" + prusaMainMetadata +
                 ", prusaSlicerModelConfig=" + prusaSlicerModelConfig +
                 ", prusaSettings=" + prusaSettings +
+                ", bambuConfig=" + bambuConfig +
+                ", bambuCustomGCode=" + bambuCustomGCode +
                 '}';
     }
 }
