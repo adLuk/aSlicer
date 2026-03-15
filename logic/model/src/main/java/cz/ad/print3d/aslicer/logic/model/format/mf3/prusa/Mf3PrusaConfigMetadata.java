@@ -84,6 +84,12 @@ public class Mf3PrusaConfigMetadata {
         return value;
     }
 
+    /**
+     * Compares this metadata entry with another for equality.
+     *
+     * @param o the object to compare with
+     * @return true if both have identical values
+     */
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -94,11 +100,21 @@ public class Mf3PrusaConfigMetadata {
                 java.util.Objects.equals(value, that.value);
     }
 
+    /**
+     * Returns the hash code for this metadata entry.
+     *
+     * @return the hash code
+     */
     @Override
     public int hashCode() {
         return java.util.Objects.hash(type, key, value);
     }
 
+    /**
+     * Returns a string representation of this metadata entry.
+     *
+     * @return a string containing metadata values
+     */
     @Override
     public String toString() {
         return "Mf3PrusaConfigMetadata{" +

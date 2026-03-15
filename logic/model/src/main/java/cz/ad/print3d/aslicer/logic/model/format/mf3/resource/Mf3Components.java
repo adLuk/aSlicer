@@ -48,6 +48,12 @@ public class Mf3Components {
         this.componentList = components;
     }
 
+    /**
+     * Compares this components container with another for equality.
+     *
+     * @param o the object to compare with
+     * @return true if both containers have identical components
+     */
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -56,11 +62,21 @@ public class Mf3Components {
         return java.util.Objects.equals(componentList, that.componentList);
     }
 
+    /**
+     * Returns the hash code for this components container.
+     *
+     * @return the hash code
+     */
     @Override
     public int hashCode() {
         return java.util.Objects.hash(componentList);
     }
 
+    /**
+     * Returns a string representation of this components container.
+     *
+     * @return a string containing components data
+     */
     @Override
     public String toString() {
         return "Mf3Components{" +

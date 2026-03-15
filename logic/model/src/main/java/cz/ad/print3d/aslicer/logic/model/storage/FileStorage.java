@@ -1,5 +1,8 @@
 package cz.ad.print3d.aslicer.logic.model.storage;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -13,6 +16,8 @@ import java.util.UUID;
  * The default location is a folder named 'storage' within the system's temporary directory.
  */
 public class FileStorage {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(FileStorage.class);
 
     private final Path basePath;
 
@@ -41,6 +46,7 @@ public class FileStorage {
      */
     public Path createRandomDirectory() throws IOException {
         final Path randomPath = basePath.resolve(UUID.randomUUID().toString());
+        LOGGER.debug("Creating random storage directory at {}", randomPath);
         Files.createDirectories(randomPath);
         return randomPath;
     }
@@ -56,6 +62,7 @@ public class FileStorage {
      */
     public Path storeFile(final InputStream input, final String fileName, final Path targetDir) throws IOException {
         final Path filePath = targetDir.resolve(fileName);
+        LOGGER.trace("Storing file {} to {}", fileName, filePath);
         // Ensure any subdirectories in fileName also exist
         Files.createDirectories(filePath.getParent());
         Files.copy(input, filePath, StandardCopyOption.REPLACE_EXISTING);

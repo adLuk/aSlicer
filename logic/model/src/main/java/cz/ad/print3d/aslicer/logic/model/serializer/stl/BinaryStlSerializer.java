@@ -5,6 +5,9 @@ import cz.ad.print3d.aslicer.logic.model.format.stl.StlFacet;
 import cz.ad.print3d.aslicer.logic.model.format.stl.StlModel;
 import cz.ad.print3d.aslicer.logic.model.serializer.ModelSerializer;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -14,6 +17,8 @@ import java.nio.channels.WritableByteChannel;
  * Implementation of ModelSerializer for binary STL files.
  */
 public class BinaryStlSerializer implements ModelSerializer<StlModel> {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(BinaryStlSerializer.class);
 
     /**
      * Size of the binary STL header in bytes.
@@ -39,6 +44,7 @@ public class BinaryStlSerializer implements ModelSerializer<StlModel> {
      */
     @Override
     public void serialize(final StlModel model, final WritableByteChannel channel) throws IOException {
+        LOGGER.info("Starting binary STL serialization");
         // Write 80-byte header
         final ByteBuffer headerBuffer = ByteBuffer.allocate(HEADER_SIZE);
         if (model.header() != null) {
@@ -51,19 +57,24 @@ public class BinaryStlSerializer implements ModelSerializer<StlModel> {
         }
         headerBuffer.flip();
         writeFully(channel, headerBuffer);
+        LOGGER.debug("Wrote 80-byte STL header");
 
         // Write 4-byte triangle count (Little Endian)
         final ByteBuffer countBuffer = ByteBuffer.allocate(TRIANGLE_COUNT_SIZE);
         countBuffer.order(ByteOrder.LITTLE_ENDIAN);
-        countBuffer.putInt(model.facetCount());
+        final int facetCount = model.facetCount();
+        countBuffer.putInt(facetCount);
         countBuffer.flip();
         writeFully(channel, countBuffer);
+        LOGGER.info("Writing {} facets to binary STL", facetCount);
 
         // Write facets
         final ByteBuffer facetBuffer = ByteBuffer.allocate(FACET_SIZE);
         facetBuffer.order(ByteOrder.LITTLE_ENDIAN);
 
+        int i = 0;
         for (final StlFacet facet : model.facets()) {
+            LOGGER.trace("Writing facet {}: normal={}, v1={}, v2={}, v3={}, attrs={}", i++, facet.normal(), facet.v1(), facet.v2(), facet.v3(), facet.attributeByteCount());
             facetBuffer.clear();
             writeVector(facetBuffer, facet.normal());
             writeVector(facetBuffer, facet.v1());
@@ -73,6 +84,7 @@ public class BinaryStlSerializer implements ModelSerializer<StlModel> {
             facetBuffer.flip();
             writeFully(channel, facetBuffer);
         }
+        LOGGER.info("Finished binary STL serialization successfully");
     }
 
     /**

@@ -370,6 +370,14 @@ public class Mf3Model implements Model {
         this.build = build;
     }
 
+    /**
+     * Compares this Mf3Model with another object for equality.
+     * Two models are considered equal if all their fields (unit, metadata, resources, 
+     * build items, relationships, content types, and storage path) are equal.
+     *
+     * @param o the object to compare with
+     * @return true if the models are equal, false otherwise
+     */
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -387,11 +395,21 @@ public class Mf3Model implements Model {
                 java.util.Objects.equals(prusaSettings, mf3Model.prusaSettings);
     }
 
+    /**
+     * Returns the hash code for this Mf3Model.
+     *
+     * @return the hash code
+     */
     @Override
     public int hashCode() {
         return java.util.Objects.hash(unit, metadataList, resources, build, relationshipParts, contentTypes, storagePath, prusaMainMetadata, prusaSlicerModelConfig, prusaSettings);
     }
 
+    /**
+     * Returns a string representation of this Mf3Model.
+     *
+     * @return a string containing model details
+     */
     @Override
     public String toString() {
         return "Mf3Model{" +

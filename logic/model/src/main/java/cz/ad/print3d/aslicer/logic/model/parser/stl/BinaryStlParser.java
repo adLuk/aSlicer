@@ -6,6 +6,9 @@ import cz.ad.print3d.aslicer.logic.model.format.stl.StlFacet;
 import cz.ad.print3d.aslicer.logic.model.format.stl.StlModel;
 import cz.ad.print3d.aslicer.logic.model.parser.ModelParser;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -17,6 +20,9 @@ import java.util.List;
  * Implementation of ModelParser for binary STL files.
  */
 public class BinaryStlParser implements ModelParser<StlModel> {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(BinaryStlParser.class);
+
     /**
      * The unit used for coordinate values in the parsed model.
      */
@@ -55,10 +61,12 @@ public class BinaryStlParser implements ModelParser<StlModel> {
      */
     @Override
     public StlModel parse(final ReadableByteChannel channel) throws IOException {
+        LOGGER.info("Starting binary STL parsing");
         // Read 80-byte header
         final ByteBuffer headerBuffer = ByteBuffer.allocate(HEADER_SIZE);
         readFully(channel, headerBuffer);
         final byte[] header = headerBuffer.array();
+        LOGGER.debug("Read 80-byte STL header");
 
         // Read 4-byte triangle count (Little Endian)
         final ByteBuffer countBuffer = ByteBuffer.allocate(TRIANGLE_COUNT_SIZE);
@@ -66,6 +74,7 @@ public class BinaryStlParser implements ModelParser<StlModel> {
         readFully(channel, countBuffer);
         countBuffer.flip();
         final int triangleCount = countBuffer.getInt();
+        LOGGER.info("Expecting {} facets from binary STL", triangleCount);
 
         // Read facets
         final List<StlFacet> facets = new ArrayList<>(triangleCount);
@@ -83,9 +92,11 @@ public class BinaryStlParser implements ModelParser<StlModel> {
             final Vector3f v3 = readVector(facetBuffer);
             final int attributeByteCount = facetBuffer.getShort() & 0xFFFF;
 
+            LOGGER.trace("Read facet {}: normal={}, v1={}, v2={}, v3={}, attrs={}", i, normal, v1, v2, v3, attributeByteCount);
             facets.add(new StlFacet(normal, v1, v2, v3, attributeByteCount));
         }
 
+        LOGGER.info("Finished binary STL parsing successfully");
         return new StlModel(header, facets, unit);
     }
 

@@ -47,6 +47,12 @@ public class Mf3Build {
         this.items = items;
     }
 
+    /**
+     * Compares this build section with another for equality.
+     *
+     * @param o the object to compare with
+     * @return true if both have identical items
+     */
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -55,11 +61,21 @@ public class Mf3Build {
         return java.util.Objects.equals(items, build.items);
     }
 
+    /**
+     * Returns the hash code for this build section.
+     *
+     * @return the hash code
+     */
     @Override
     public int hashCode() {
         return java.util.Objects.hash(items);
     }
 
+    /**
+     * Returns a string representation of this build section.
+     *
+     * @return a string containing build items
+     */
     @Override
     public String toString() {
         return "Mf3Build{" +

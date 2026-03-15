@@ -106,6 +106,12 @@ public class Mf3Triangle {
         this.v3 = v3;
     }
 
+    /**
+     * Compares this triangle with another for equality.
+     *
+     * @param o the object to compare with
+     * @return true if both triangles reference the same vertex indices
+     */
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -116,11 +122,21 @@ public class Mf3Triangle {
                 v3 == that.v3;
     }
 
+    /**
+     * Returns the hash code for this triangle.
+     *
+     * @return the hash code
+     */
     @Override
     public int hashCode() {
         return java.util.Objects.hash(v1, v2, v3);
     }
 
+    /**
+     * Returns a string representation of this triangle.
+     *
+     * @return a string containing vertex indices
+     */
     @Override
     public String toString() {
         return "Mf3Triangle{" +

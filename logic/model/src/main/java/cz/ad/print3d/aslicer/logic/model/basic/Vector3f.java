@@ -105,6 +105,12 @@ public class Vector3f {
         this.z = z;
     }
 
+    /**
+     * Compares this vector with another object for equality.
+     *
+     * @param o the object to compare with
+     * @return true if the vectors have identical coordinates
+     */
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -115,11 +121,21 @@ public class Vector3f {
                 Float.compare(vector3f.z, z) == 0;
     }
 
+    /**
+     * Returns the hash code for this vector.
+     *
+     * @return the hash code
+     */
     @Override
     public int hashCode() {
         return java.util.Objects.hash(x, y, z);
     }
 
+    /**
+     * Returns a string representation of this vector.
+     *
+     * @return a string containing coordinates
+     */
     @Override
     public String toString() {
         return "Vector3f{" +

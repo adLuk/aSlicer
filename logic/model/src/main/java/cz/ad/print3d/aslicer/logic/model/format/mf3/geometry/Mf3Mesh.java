@@ -66,6 +66,12 @@ public class Mf3Mesh {
         this.triangles = triangles;
     }
 
+    /**
+     * Compares this mesh with another object for equality.
+     *
+     * @param o the object to compare with
+     * @return true if both meshes have identical vertices and triangles
+     */
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -75,11 +81,21 @@ public class Mf3Mesh {
                 java.util.Objects.equals(triangles, mesh.triangles);
     }
 
+    /**
+     * Returns the hash code for this mesh.
+     *
+     * @return the hash code
+     */
     @Override
     public int hashCode() {
         return java.util.Objects.hash(vertices, triangles);
     }
 
+    /**
+     * Returns a string representation of this mesh.
+     *
+     * @return a string containing mesh data
+     */
     @Override
     public String toString() {
         return "Mf3Mesh{" +

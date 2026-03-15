@@ -6,6 +6,9 @@ import cz.ad.print3d.aslicer.logic.model.format.stl.StlFacet;
 import cz.ad.print3d.aslicer.logic.model.format.stl.StlModel;
 import cz.ad.print3d.aslicer.logic.model.parser.ModelParser;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.channels.Channels;
@@ -19,6 +22,9 @@ import java.util.Scanner;
  * Implementation of ModelParser for ASCII STL files.
  */
 public class AsciiStlParser implements ModelParser<StlModel> {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(AsciiStlParser.class);
+
     /**
      * The unit used for coordinate values in the parsed model.
      */
@@ -42,6 +48,7 @@ public class AsciiStlParser implements ModelParser<StlModel> {
      */
     @Override
     public StlModel parse(final ReadableByteChannel channel) throws IOException {
+        LOGGER.info("Starting ASCII STL parsing");
         // Use a BufferedReader to read line by line. 
         // Note: this will wrap the channel, and it might read more than necessary.
         // But since we are parsing the whole file, it's fine.
@@ -59,13 +66,16 @@ public class AsciiStlParser implements ModelParser<StlModel> {
 
             if (line.startsWith("solid")) {
                 headerName = line.substring(5).trim();
+                LOGGER.debug("Found solid: {}", headerName);
             } else if (line.startsWith("facet normal")) {
                 facets.add(parseFacet(line, reader));
             } else if (line.startsWith("endsolid")) {
+                LOGGER.debug("Finished solid section");
                 break;
             }
         }
 
+        LOGGER.info("Finished ASCII STL parsing, found {} facets", facets.size());
         // For StlModel, we need a byte[80] header. 
         // We'll store the name in it, truncated or padded with zeros.
         final byte[] header = new byte[80];
@@ -84,6 +94,7 @@ public class AsciiStlParser implements ModelParser<StlModel> {
      * @throws IOException if an I/O error occurs or the facet format is invalid
      */
     private StlFacet parseFacet(final String facetLine, final BufferedReader reader) throws IOException {
+        LOGGER.trace("Parsing facet Normal: {}", facetLine);
         final Vector3f normal = parseVector(facetLine.substring("facet normal".length()).trim());
 
         Vector3f v1 = null;
@@ -97,6 +108,7 @@ public class AsciiStlParser implements ModelParser<StlModel> {
                 continue;
             }
             if (line.startsWith("vertex")) {
+                LOGGER.trace("Parsing vertex: {}", line);
                 final Vector3f v = parseVector(line.substring("vertex".length()).trim());
                 if (v1 == null) {
                     v1 = v;
@@ -113,6 +125,7 @@ public class AsciiStlParser implements ModelParser<StlModel> {
         }
 
         if (v1 == null || v2 == null || v3 == null) {
+            LOGGER.error("Invalid facet: missing vertices");
             throw new IOException("Invalid ASCII STL facet: missing vertices");
         }
 

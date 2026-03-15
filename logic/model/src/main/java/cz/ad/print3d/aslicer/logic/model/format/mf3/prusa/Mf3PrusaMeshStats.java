@@ -86,6 +86,12 @@ public class Mf3PrusaMeshStats {
         return backwardsEdges;
     }
 
+    /**
+     * Compares this mesh statistics with another for equality.
+     *
+     * @param o the object to compare with
+     * @return true if both have identical stats
+     */
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -98,11 +104,21 @@ public class Mf3PrusaMeshStats {
                 java.util.Objects.equals(backwardsEdges, that.backwardsEdges);
     }
 
+    /**
+     * Returns the hash code for this mesh statistics.
+     *
+     * @return the hash code
+     */
     @Override
     public int hashCode() {
         return java.util.Objects.hash(edgesFixed, degenerateFacets, facetsRemoved, facetsReversed, backwardsEdges);
     }
 
+    /**
+     * Returns a string representation of this mesh statistics.
+     *
+     * @return a string containing stats values
+     */
     @Override
     public String toString() {
         return "Mf3PrusaMeshStats{" +

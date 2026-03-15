@@ -107,6 +107,12 @@ public class Mf3PrusaVolume {
         return null;
     }
 
+    /**
+     * Compares this volume with another for equality.
+     *
+     * @param o the object to compare with
+     * @return true if both have identical values
+     */
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -118,11 +124,21 @@ public class Mf3PrusaVolume {
                 java.util.Objects.equals(mesh, that.mesh);
     }
 
+    /**
+     * Returns the hash code for this volume.
+     *
+     * @return the hash code
+     */
     @Override
     public int hashCode() {
         return java.util.Objects.hash(firstId, lastId, metadataList, mesh);
     }
 
+    /**
+     * Returns a string representation of this volume.
+     *
+     * @return a string containing volume data
+     */
     @Override
     public String toString() {
         return "Mf3PrusaVolume{" +

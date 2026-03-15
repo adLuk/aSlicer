@@ -5,6 +5,9 @@ import cz.ad.print3d.aslicer.logic.model.format.stl.StlFacet;
 import cz.ad.print3d.aslicer.logic.model.format.stl.StlModel;
 import cz.ad.print3d.aslicer.logic.model.serializer.ModelSerializer;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.channels.Channels;
@@ -17,6 +20,8 @@ import java.util.Locale;
  */
 public class AsciiStlSerializer implements ModelSerializer<StlModel> {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(AsciiStlSerializer.class);
+
     /**
      * Serializes the given model to the specified channel in ASCII STL format.
      *
@@ -26,6 +31,7 @@ public class AsciiStlSerializer implements ModelSerializer<StlModel> {
      */
     @Override
     public void serialize(final StlModel model, final WritableByteChannel channel) throws IOException {
+        LOGGER.info("Starting ASCII STL serialization");
         final PrintWriter writer = new PrintWriter(Channels.newWriter(channel, StandardCharsets.US_ASCII));
 
         String solidName = "aSlicer";
@@ -35,10 +41,13 @@ public class AsciiStlSerializer implements ModelSerializer<StlModel> {
                 solidName = headerContent;
             }
         }
+        LOGGER.debug("Solid name: {}", solidName);
 
         writer.printf(Locale.US, "solid %s%n", solidName);
 
+        int count = 0;
         for (final StlFacet facet : model.facets()) {
+            LOGGER.trace("Serializing facet {}", count++);
             writer.printf(Locale.US, "  facet normal %e %e %e%n", 
                 facet.normal().x(), facet.normal().y(), facet.normal().z());
             writer.println("    outer loop");
@@ -51,6 +60,7 @@ public class AsciiStlSerializer implements ModelSerializer<StlModel> {
 
         writer.printf(Locale.US, "endsolid %s%n", solidName);
         writer.flush();
+        LOGGER.info("Finished ASCII STL serialization, wrote {} facets", count);
         // We do NOT close the writer because it would close the underlying channel,
         // which might be managed elsewhere. But flush is necessary.
     }

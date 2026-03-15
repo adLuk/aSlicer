@@ -75,6 +75,12 @@ public class Mf3PrusaObject {
         return volumes;
     }
 
+    /**
+     * Compares this Prusa object configuration with another for equality.
+     *
+     * @param o the object to compare with
+     * @return true if both have identical configuration values
+     */
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -86,11 +92,21 @@ public class Mf3PrusaObject {
                 java.util.Objects.equals(volumes, that.volumes);
     }
 
+    /**
+     * Returns the hash code for this Prusa object configuration.
+     *
+     * @return the hash code
+     */
     @Override
     public int hashCode() {
         return java.util.Objects.hash(id, instancesCount, metadataList, volumes);
     }
 
+    /**
+     * Returns a string representation of this Prusa object configuration.
+     *
+     * @return a string containing object configuration data
+     */
     @Override
     public String toString() {
         return "Mf3PrusaObject{" +

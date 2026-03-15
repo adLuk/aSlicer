@@ -11,6 +11,9 @@ import jakarta.xml.bind.JAXBContext;
 import jakarta.xml.bind.JAXBException;
 import jakarta.xml.bind.Marshaller;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -32,6 +35,8 @@ import java.util.zip.ZipOutputStream;
  */
 public class Mf3Serializer implements ModelSerializer<Mf3Model> {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(Mf3Serializer.class);
+
     private static final String DEFAULT_MODEL_ENTRY = "3D/3dmodel.model";
     private static final String ROOT_RELS_ENTRY = "_rels/.rels";
     private static final String CONTENT_TYPES_ENTRY = "[Content_Types].xml";
@@ -52,6 +57,7 @@ public class Mf3Serializer implements ModelSerializer<Mf3Model> {
      */
     @Override
     public void serialize(Mf3Model model, WritableByteChannel channel) throws IOException {
+        LOGGER.info("Starting 3MF package serialization");
         try (ZipOutputStream zos = new ZipOutputStream(Channels.newOutputStream(channel))) {
             // 1. Write [Content_Types].xml
             serializeContentTypes(model, zos);
@@ -70,9 +76,11 @@ public class Mf3Serializer implements ModelSerializer<Mf3Model> {
                     }
                 }
             }
+            LOGGER.debug("Target model path in 3MF: {}", modelPath);
 
             // Ensure we have a root relationship to the main model if none exists
             if (rootRels == null) {
+                LOGGER.debug("Root relationships missing, creating default rels pointing to {}", modelPath);
                 rootRels = new Mf3Relationships();
                 Mf3Relationship modelRel = new Mf3Relationship();
                 modelRel.setId("rel1");
@@ -84,10 +92,12 @@ public class Mf3Serializer implements ModelSerializer<Mf3Model> {
 
             // 3. Write all relationship parts from the model DTO
             for (Map.Entry<String, Mf3Relationships> entry : model.relationshipParts().entrySet()) {
+                LOGGER.trace("Serializing relationship part: {}", entry.getKey());
                 serializeRelationships(entry.getValue(), entry.getKey(), zos);
             }
 
             // 4. Write the model XML itself
+            LOGGER.debug("Serializing model XML to {}", modelPath);
             serializeModelXml(model, modelPath, zos);
 
             // 5. Write Prusa-specific configuration if present
@@ -97,13 +107,16 @@ public class Mf3Serializer implements ModelSerializer<Mf3Model> {
             // 6. Copy files from storage if present
             serializeStorageFiles(model.storagePath(), zos);
         }
+        LOGGER.info("Finished 3MF package serialization successfully");
     }
 
     private void serializeContentTypes(Mf3Model model, ZipOutputStream zos) throws IOException {
         Mf3ContentTypes contentTypes = model.contentTypes();
         if (contentTypes == null) {
+            LOGGER.debug("Content types missing, creating default ones");
             contentTypes = createDefaultContentTypes();
         }
+        LOGGER.trace("Serializing content types to {}", CONTENT_TYPES_ENTRY);
         zos.putNextEntry(new ZipEntry(CONTENT_TYPES_ENTRY));
         marshal(contentTypes, zos);
         zos.closeEntry();
@@ -139,6 +152,7 @@ public class Mf3Serializer implements ModelSerializer<Mf3Model> {
 
     private void serializePrusaModelConfig(Mf3Model model, ZipOutputStream zos) throws IOException {
         if (model.getPrusaSlicerModelConfig() != null) {
+            LOGGER.debug("Serializing Prusa model config to {}", PRUSA_MODEL_CONFIG_ENTRY);
             zos.putNextEntry(new ZipEntry(PRUSA_MODEL_CONFIG_ENTRY));
             marshal(model.getPrusaSlicerModelConfig(), zos);
             zos.closeEntry();
@@ -147,6 +161,7 @@ public class Mf3Serializer implements ModelSerializer<Mf3Model> {
 
     private void serializePrusaSettings(Mf3Model model, ZipOutputStream zos) throws IOException {
         if (model.getPrusaSettings() != null) {
+            LOGGER.debug("Serializing Prusa settings to {}", PRUSA_SETTINGS_ENTRY);
             zos.putNextEntry(new ZipEntry(PRUSA_SETTINGS_ENTRY));
             zos.write(model.getPrusaSettings().serialize().getBytes(java.nio.charset.StandardCharsets.UTF_8));
             zos.closeEntry();
@@ -157,10 +172,12 @@ public class Mf3Serializer implements ModelSerializer<Mf3Model> {
         if (storagePath == null || !Files.exists(storagePath)) {
             return;
         }
+        LOGGER.info("Including supplementary files from storage: {}", storagePath);
         try (Stream<Path> paths = Files.walk(storagePath)) {
             List<Path> filePaths = paths.filter(Files::isRegularFile).toList();
             for (Path filePath : filePaths) {
                 String entryName = storagePath.relativize(filePath).toString().replace('\\', '/');
+                LOGGER.trace("Adding supplementary entry to ZIP: {}", entryName);
                 zos.putNextEntry(new ZipEntry(entryName));
                 try (InputStream is = Files.newInputStream(filePath)) {
                     is.transferTo(zos);

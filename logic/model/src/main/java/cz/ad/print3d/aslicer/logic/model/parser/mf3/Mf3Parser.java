@@ -11,6 +11,8 @@ import cz.ad.print3d.aslicer.logic.model.storage.FileStorage;
 import jakarta.xml.bind.JAXBContext;
 import jakarta.xml.bind.JAXBException;
 import jakarta.xml.bind.Unmarshaller;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
@@ -43,6 +45,8 @@ import java.util.zip.ZipInputStream;
  * This parser is responsible for reading and extracting 3D model data from the ZIP-based 3MF structure.
  */
 public class Mf3Parser implements ModelParser<Mf3Model> {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(Mf3Parser.class);
 
     private static final String DEFAULT_MODEL_ENTRY = "3D/3dmodel.model";
     private static final String ROOT_RELS_ENTRY = "_rels/.rels";
@@ -82,11 +86,13 @@ public class Mf3Parser implements ModelParser<Mf3Model> {
      */
     @Override
     public Mf3Model parse(final ReadableByteChannel channel) throws IOException {
+        LOGGER.info("Starting 3MF package parsing");
         final Map<String, byte[]> entries = new HashMap<>();
         try (ZipInputStream zis = new ZipInputStream(Channels.newInputStream(channel))) {
             ZipEntry entry;
             while ((entry = zis.getNextEntry()) != null) {
                 if (!entry.isDirectory()) {
+                    LOGGER.trace("Reading ZIP entry: {}", entry.getName());
                     final ByteArrayOutputStream baos = new ByteArrayOutputStream();
                     zis.transferTo(baos);
                     entries.put(entry.getName(), baos.toByteArray());
@@ -94,6 +100,7 @@ public class Mf3Parser implements ModelParser<Mf3Model> {
                 zis.closeEntry();
             }
         }
+        LOGGER.debug("Read {} entries from 3MF package", entries.size());
 
         final Set<String> parsedEntries = new HashSet<>();
         final Mf3Relationships relationships = new Mf3Relationships();
@@ -104,6 +111,7 @@ public class Mf3Parser implements ModelParser<Mf3Model> {
         Mf3ContentTypes contentTypes = null;
         final byte[] contentTypesContent = entries.get(CONTENT_TYPES_ENTRY);
         if (contentTypesContent != null) {
+            LOGGER.debug("Parsing content types from {}", CONTENT_TYPES_ENTRY);
             parsedEntries.add(CONTENT_TYPES_ENTRY);
             try (InputStream is = new ByteArrayInputStream(contentTypesContent)) {
                 contentTypes = parseContentTypesXml(is);
@@ -114,6 +122,7 @@ public class Mf3Parser implements ModelParser<Mf3Model> {
         for (final Map.Entry<String, byte[]> entry : entries.entrySet()) {
             final String entryName = entry.getKey();
             if (entryName.endsWith(".rels") && (entryName.equals(ROOT_RELS_ENTRY) || entryName.contains("/_rels/"))) {
+                LOGGER.debug("Parsing relationships from {}", entryName);
                 parsedEntries.add(entryName);
                 try (InputStream is = new ByteArrayInputStream(entry.getValue())) {
                     final Mf3Relationships rels = parseRelsXml(is);
@@ -128,6 +137,7 @@ public class Mf3Parser implements ModelParser<Mf3Model> {
                                     if (modelPath.startsWith("/")) {
                                         modelPath = modelPath.substring(1);
                                     }
+                                    LOGGER.debug("Discovered main model path from relationships: {}", modelPath);
                                 }
                             }
                         }
@@ -139,8 +149,10 @@ public class Mf3Parser implements ModelParser<Mf3Model> {
         // 3. Parse model part
         final byte[] modelContent = entries.get(modelPath);
         if (modelContent == null) {
+            LOGGER.error("Main model part not found at path: {}", modelPath);
             throw new IOException("Invalid 3MF file: missing main model part at " + modelPath);
         }
+        LOGGER.info("Parsing main model part: {}", modelPath);
         parsedEntries.add(modelPath);
 
         try (InputStream is = new ByteArrayInputStream(modelContent)) {
@@ -156,6 +168,7 @@ public class Mf3Parser implements ModelParser<Mf3Model> {
                 // 4. Parse Prusa-specific configuration if present
                 final byte[] prusaModelConfigContent = entries.get(PRUSA_MODEL_CONFIG_ENTRY);
                 if (prusaModelConfigContent != null) {
+                    LOGGER.debug("Parsing Prusa model configuration from {}", PRUSA_MODEL_CONFIG_ENTRY);
                     parsedEntries.add(PRUSA_MODEL_CONFIG_ENTRY);
                     try (InputStream prusaIs = new ByteArrayInputStream(prusaModelConfigContent)) {
                         model.setPrusaSlicerModelConfig(parsePrusaModelConfigXml(prusaIs));
@@ -164,6 +177,7 @@ public class Mf3Parser implements ModelParser<Mf3Model> {
 
                 final byte[] prusaSettingsContent = entries.get(PRUSA_SETTINGS_ENTRY);
                 if (prusaSettingsContent != null) {
+                    LOGGER.debug("Parsing Prusa slicer settings from {}", PRUSA_SETTINGS_ENTRY);
                     parsedEntries.add(PRUSA_SETTINGS_ENTRY);
                     final String content = new String(prusaSettingsContent, java.nio.charset.StandardCharsets.UTF_8);
                     model.setPrusaSettings(Mf3PrusaSettings.parse(content));
@@ -171,16 +185,19 @@ public class Mf3Parser implements ModelParser<Mf3Model> {
 
                 // Extract all non-parsed files into storage
                 final Path storagePath = storage.createRandomDirectory();
+                LOGGER.info("Extracting non-parsed files to temporary storage: {}", storagePath);
                 model.setStoragePath(storagePath);
                 for (final Map.Entry<String, byte[]> entry : entries.entrySet()) {
                     final String entryName = entry.getKey();
                     if (!parsedEntries.contains(entryName)) {
+                        LOGGER.trace("Extracting non-parsed entry: {}", entryName);
                         try (InputStream entryStream = new ByteArrayInputStream(entry.getValue())) {
                             storage.storeFile(entryStream, entryName, storagePath);
                         }
                     }
                 }
             }
+            LOGGER.info("Finished 3MF package parsing successfully");
             return model;
         }
     }

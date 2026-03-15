@@ -85,6 +85,12 @@ public class Mf3Component {
         this.transform = transform;
     }
 
+    /**
+     * Compares this component with another for equality.
+     *
+     * @param o the object to compare with
+     * @return true if both reference the same object and have identical transform
+     */
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -94,11 +100,21 @@ public class Mf3Component {
                 java.util.Objects.equals(transform, component.transform);
     }
 
+    /**
+     * Returns the hash code for this component.
+     *
+     * @return the hash code
+     */
     @Override
     public int hashCode() {
         return java.util.Objects.hash(objectId, transform);
     }
 
+    /**
+     * Returns a string representation of this component.
+     *
+     * @return a string containing component data
+     */
     @Override
     public String toString() {
         return "Mf3Component{" +

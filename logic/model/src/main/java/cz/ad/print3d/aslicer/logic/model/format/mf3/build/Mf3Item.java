@@ -87,6 +87,12 @@ public class Mf3Item {
         this.transform = transform;
     }
 
+    /**
+     * Compares this build item with another for equality.
+     *
+     * @param o the object to compare with
+     * @return true if both reference the same object and have identical transform
+     */
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -96,11 +102,21 @@ public class Mf3Item {
                 java.util.Objects.equals(transform, item.transform);
     }
 
+    /**
+     * Returns the hash code for this build item.
+     *
+     * @return the hash code
+     */
     @Override
     public int hashCode() {
         return java.util.Objects.hash(objectId, transform);
     }
 
+    /**
+     * Returns a string representation of this build item.
+     *
+     * @return a string containing item data
+     */
     @Override
     public String toString() {
         return "Mf3Item{" +

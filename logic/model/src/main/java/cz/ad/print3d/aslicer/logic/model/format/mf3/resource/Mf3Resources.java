@@ -37,6 +37,12 @@ public class Mf3Resources {
         this.objects = objects;
     }
 
+    /**
+     * Compares this resources container with another for equality.
+     *
+     * @param o the object to compare with
+     * @return true if both containers have identical objects
+     */
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -45,11 +51,21 @@ public class Mf3Resources {
         return java.util.Objects.equals(objects, resources.objects);
     }
 
+    /**
+     * Returns the hash code for this resources container.
+     *
+     * @return the hash code
+     */
     @Override
     public int hashCode() {
         return java.util.Objects.hash(objects);
     }
 
+    /**
+     * Returns a string representation of this resources container.
+     *
+     * @return a string containing resources data
+     */
     @Override
     public String toString() {
         return "Mf3Resources{" +

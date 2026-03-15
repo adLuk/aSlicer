@@ -77,6 +77,12 @@ public class Mf3Metadata {
         this.value = value;
     }
 
+    /**
+     * Compares this metadata entry with another for equality.
+     *
+     * @param o the object to compare with
+     * @return true if both entries have identical name and value
+     */
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -86,11 +92,21 @@ public class Mf3Metadata {
                 java.util.Objects.equals(value, metadata.value);
     }
 
+    /**
+     * Returns the hash code for this metadata entry.
+     *
+     * @return the hash code
+     */
     @Override
     public int hashCode() {
         return java.util.Objects.hash(name, value);
     }
 
+    /**
+     * Returns a string representation of this metadata entry.
+     *
+     * @return a string containing name and value
+     */
     @Override
     public String toString() {
         return "Mf3Metadata{" +

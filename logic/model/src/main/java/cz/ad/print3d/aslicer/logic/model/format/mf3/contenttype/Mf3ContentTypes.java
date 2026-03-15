@@ -73,6 +73,12 @@ public class Mf3ContentTypes {
         this.overrides = overrides;
     }
 
+    /**
+     * Compares this content types container with another for equality.
+     *
+     * @param o the object to compare with
+     * @return true if both have identical defaults and overrides
+     */
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -82,11 +88,21 @@ public class Mf3ContentTypes {
                 java.util.Objects.equals(overrides, that.overrides);
     }
 
+    /**
+     * Returns the hash code for this content types container.
+     *
+     * @return the hash code
+     */
     @Override
     public int hashCode() {
         return java.util.Objects.hash(defaults, overrides);
     }
 
+    /**
+     * Returns a string representation of this content types container.
+     *
+     * @return a string containing defaults and overrides
+     */
     @Override
     public String toString() {
         return "Mf3ContentTypes{" +

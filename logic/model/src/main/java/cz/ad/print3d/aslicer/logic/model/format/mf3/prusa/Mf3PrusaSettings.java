@@ -134,6 +134,12 @@ public class Mf3PrusaSettings {
         return get("extrusion_multiplier");
     }
 
+    /**
+     * Compares this settings object with another for equality.
+     *
+     * @param o the object to compare with
+     * @return true if both have identical settings
+     */
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -142,11 +148,21 @@ public class Mf3PrusaSettings {
         return java.util.Objects.equals(settings, that.settings);
     }
 
+    /**
+     * Returns the hash code for this settings object.
+     *
+     * @return the hash code
+     */
     @Override
     public int hashCode() {
         return java.util.Objects.hash(settings);
     }
 
+    /**
+     * Returns a string representation of this settings object.
+     *
+     * @return a string containing settings count
+     */
     @Override
     public String toString() {
         return "Mf3PrusaSettings{" +

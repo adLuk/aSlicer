@@ -203,6 +203,12 @@ public class Mf3Object {
         this.components = components;
     }
 
+    /**
+     * Compares this object with another for equality.
+     *
+     * @param o the object to compare with
+     * @return true if both objects have identical data
+     */
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -216,11 +222,21 @@ public class Mf3Object {
                 java.util.Objects.equals(components, mf3Object.components);
     }
 
+    /**
+     * Returns the hash code for this object.
+     *
+     * @return the hash code
+     */
     @Override
     public int hashCode() {
         return java.util.Objects.hash(id, name, type, partNumber, mesh, components);
     }
 
+    /**
+     * Returns a string representation of this object.
+     *
+     * @return a string containing object data
+     */
     @Override
     public String toString() {
         return "Mf3Object{" +

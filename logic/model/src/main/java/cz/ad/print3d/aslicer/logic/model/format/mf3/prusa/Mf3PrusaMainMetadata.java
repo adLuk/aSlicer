@@ -79,6 +79,12 @@ public class Mf3PrusaMainMetadata {
         return filamentSettingsId;
     }
 
+    /**
+     * Compares this metadata with another for equality.
+     *
+     * @param o the object to compare with
+     * @return true if both have identical values
+     */
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -90,11 +96,21 @@ public class Mf3PrusaMainMetadata {
                 java.util.Objects.equals(filamentSettingsId, that.filamentSettingsId);
     }
 
+    /**
+     * Returns the hash code for this metadata.
+     *
+     * @return the hash code
+     */
     @Override
     public int hashCode() {
         return java.util.Objects.hash(version3mf, printSettingsId, printerSettingsId, filamentSettingsId);
     }
 
+    /**
+     * Returns a string representation of this metadata.
+     *
+     * @return a string containing metadata values
+     */
     @Override
     public String toString() {
         return "Mf3PrusaMainMetadata{" +
