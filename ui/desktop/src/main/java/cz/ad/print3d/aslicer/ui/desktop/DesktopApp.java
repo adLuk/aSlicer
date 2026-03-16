@@ -19,13 +19,11 @@ package cz.ad.print3d.aslicer.ui.desktop;
 
 import com.badlogic.gdx.ApplicationListener;
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.Input;
 import com.badlogic.gdx.InputMultiplexer;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Application;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration;
 import com.badlogic.gdx.graphics.*;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
-import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.g3d.Environment;
 import com.badlogic.gdx.graphics.g3d.Model;
 import com.badlogic.gdx.graphics.g3d.ModelBatch;
@@ -35,12 +33,8 @@ import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight;
 import com.badlogic.gdx.graphics.g3d.utils.CameraInputController;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.math.collision.BoundingBox;
-import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
-import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
-import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
-import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import cz.ad.print3d.aslicer.logic.core.ModelGdxConverter;
@@ -49,7 +43,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
@@ -67,12 +60,14 @@ public class DesktopApp implements ApplicationListener {
     ModelBatch modelBatch;
     final Array<Model> models = new Array<>();
     final Array<ModelInstance> instances = new Array<>();
+    final Array<String> loadedModelPaths = new Array<>();
     private final Vector3 tempVector = new Vector3();
     private final BoundingBox tempBounds = new BoundingBox();
     Environment environment;
     Stage stage;
     Skin skin;
     SettingsWindow settingsWindow;
+    AppGrid appGrid;
     int currentWidth;
     int currentHeight;
     String lastDir = "";
@@ -108,6 +103,17 @@ public class DesktopApp implements ApplicationListener {
         dto.setLastDir(lastDir);
         dto.setLastFile(currentModelPath);
 
+        java.util.List<String> paths = new java.util.ArrayList<>();
+        for (String path : loadedModelPaths) {
+            paths.add(path);
+        }
+        dto.setLoadedFiles(paths);
+        LOGGER.info("Saving list of loaded files ({}): {}", paths.size(), paths);
+
+        if (appGrid != null) {
+            dto.setGridSize(appGrid.getStep());
+        }
+
         if (camController != null) {
             dto.setRotateButton(camController.rotateButton);
             dto.setTranslateButton(camController.translateButton);
@@ -135,6 +141,11 @@ public class DesktopApp implements ApplicationListener {
         appConfig.saveFromDto(dto);
     }
 
+    /**
+     * Initializes the application, including the 3D environment, camera, configuration,
+     * and UI. It also reloads any models that were active in the previous session.
+     * If no models were active (or if this is the first run), the scene starts empty.
+     */
     @Override
     public void create() {
         environment = new Environment();
@@ -155,7 +166,7 @@ public class DesktopApp implements ApplicationListener {
             cam.lookAt(0, 0, 0);
         }
         cam.near = 1f;
-        cam.far = 300f;
+        cam.far = 1500f;
         cam.update();
 
         camController = new CameraInputController(cam);
@@ -165,26 +176,37 @@ public class DesktopApp implements ApplicationListener {
         camController.rotateButton = dto.getRotateButton();
         camController.translateButton = dto.getTranslateButton();
         camController.forwardButton = dto.getForwardButton();
+
+        appGrid = new AppGrid(dto.getGridSize());
         camController.forwardKey = dto.getForwardKey();
         camController.backwardKey = dto.getBackwardKey();
         lastDir = dto.getLastDir();
-        String lastFile = dto.getLastFile();
 
         setupUI();
 
         InputMultiplexer multiplexer = new InputMultiplexer();
-        multiplexer.addProcessor(stage);
+        if (stage != null) {
+            multiplexer.addProcessor(stage);
+        }
         multiplexer.addProcessor(camController);
         Gdx.input.setInputProcessor(multiplexer);
 
-        String stlPath = "logic/model/src/test/resources/stl/test-binary.stl";
-        if (lastFile != null && !lastFile.isEmpty() && Files.exists(Paths.get(lastFile))) {
-            stlPath = lastFile;
+        java.util.List<String> loadedFiles = dto.getLoadedFiles();
+        if (!loadedFiles.isEmpty()) {
+            LOGGER.info("Reloading {} files from previous session in preserved order", loadedFiles.size());
+            for (String file : loadedFiles) {
+                loadModel(file);
+            }
+        } else {
+            LOGGER.info("No previously loaded models to restore; starting with a clean scene");
         }
-        loadModel(stlPath);
     }
 
-    private void setupUI() {
+    /**
+     * Sets up the user interface components (stage, skin, toolbar, etc.).
+     * Package-private to allow unit tests to override and avoid GL-related initializations.
+     */
+    void setupUI() {
         stage = new Stage(new ScreenViewport());
         skin = createSkin();
 
@@ -200,6 +222,7 @@ public class DesktopApp implements ApplicationListener {
                 }
                 models.clear();
                 instances.clear();
+                loadedModelPaths.clear();
                 currentModelPath = null;
                 LOGGER.info("Cleared all models");
             }
@@ -260,7 +283,8 @@ public class DesktopApp implements ApplicationListener {
 
     private void toggleSettingsWindow() {
         if (settingsWindow == null) {
-            settingsWindow = new SettingsWindow(skin, camController, this::saveAllConfig);
+            float initialGridSize = appGrid != null ? appGrid.getStep() : 5.0f;
+            settingsWindow = new SettingsWindow(skin, camController, initialGridSize, this::updateGrid, this::saveAllConfig);
             stage.addActor(settingsWindow);
         } else {
             settingsWindow.setVisible(!settingsWindow.isVisible());
@@ -271,12 +295,29 @@ public class DesktopApp implements ApplicationListener {
     }
 
     /**
-     * Loads a 3D model from the specified file path and adds it to the current scene.
-     * The model is automatically placed near existing objects to avoid collision.
+     * Updates the grid with a new step size.
+     * Recreates the grid model if the step size has changed.
+     *
+     * @param newStep the new distance between grid lines
+     */
+    private void updateGrid(float newStep) {
+        if (appGrid != null) {
+            if (Math.abs(appGrid.getStep() - newStep) < 0.0001f) return;
+            appGrid.dispose();
+        }
+        appGrid = new AppGrid(newStep);
+        LOGGER.info("Grid updated to step size: {}", newStep);
+    }
+
+    /**
+     * Loads a 3D model from the given path, converts it to a GDX model, computes
+     * its non-colliding placement near already loaded instances (ensuring the bottom
+     * is at Z=0) and adds it to the scene.
+     * Package-private to allow unit tests in the same package to exercise loading logic.
      *
      * @param filePath the path to the 3D model file to load
      */
-    private void loadModel(String filePath) {
+    void loadModel(String filePath) {
         if (filePath == null) return;
         Path path = Paths.get(filePath);
         if (!java.nio.file.Files.exists(path)) {
@@ -289,6 +330,7 @@ public class DesktopApp implements ApplicationListener {
             if (modelData != null) {
                 LOGGER.info("Loading model from {}", filePath);
                 currentModelPath = filePath;
+                loadedModelPaths.add(filePath);
 
                 Model gdxModel = ModelGdxConverter.convertToGdxModel(modelData);
                 ModelInstance gdxInstance = new ModelInstance(gdxModel);
@@ -305,43 +347,56 @@ public class DesktopApp implements ApplicationListener {
     }
 
     /**
-     * Places the new model instance near already existing objects to avoid collision.
-     * Uses the configured distance from settings.
+     * Places the new model instance near already existing objects to avoid collision
+     * and ensures the bottom part of the model is placed at Z=0 coordinates.
      *
-     * @param newInstance the model instance to position
+     * <p>This method calculates the bounding box of the new instance and detects if its
+     * bottom part (minimum Z coordinate) is different from zero. If so, it computes
+     * the necessary Z-offset to bring it to the ground level (Z=0). For horizontal
+     * placement, it uses the configured distance to position the model along the X-axis
+     * relative to the currently loaded models.</p>
+     *
+     * @param newInstance the model instance to position; its transform matrix will be updated
      */
     void placeNearExisting(ModelInstance newInstance) {
-        if (instances.isEmpty()) {
-            LOGGER.debug("First model, placing at origin");
-            newInstance.transform.idt();
-            return;
-        }
-
-        float distance = appConfig.loadToDto().getDistance();
-
-        // Calculate total bounding box of all existing instances
-        BoundingBox totalBounds = new BoundingBox();
-        totalBounds.inf();
-
-        for (ModelInstance inst : instances) {
-            BoundingBox currentBounds = new BoundingBox();
-            inst.calculateBoundingBox(currentBounds);
-            currentBounds.mul(inst.transform);
-            totalBounds.ext(currentBounds);
-        }
-
-        // Calculate bounding box of the new instance
+        // Calculate bounding box of the new instance in its local space
         BoundingBox newBounds = new BoundingBox();
         newInstance.calculateBoundingBox(newBounds);
 
-        // Place along X axis
-        float currentMaxX = totalBounds.max.x;
-        float newMinX = newBounds.min.x;
+        // Calculate offset to bring bottom Z to 0
+        float offsetZ = -newBounds.min.z;
+        float offsetX = 0;
 
-        float offsetX = currentMaxX - newMinX + distance;
-        newInstance.transform.setToTranslation(offsetX, 0, 0);
+        if (instances.isEmpty()) {
+            LOGGER.debug("First model, placing at origin (X=0, Y=0) with Z adjusted to 0");
+        } else {
+            float distance = appConfig.loadToDto().getDistance();
 
-        LOGGER.info("Placed new model near existing ones with offset X: {}. Configured distance: {}", offsetX, distance);
+            // Calculate total bounding box of all existing instances in world space
+            BoundingBox totalBounds = new BoundingBox();
+            totalBounds.inf();
+
+            for (ModelInstance inst : instances) {
+                BoundingBox currentBounds = new BoundingBox();
+                inst.calculateBoundingBox(currentBounds);
+                currentBounds.mul(inst.transform);
+                totalBounds.ext(currentBounds);
+            }
+
+            // Place along X axis after the existing objects
+            float currentMaxX = totalBounds.max.x;
+            float newMinX = newBounds.min.x;
+
+            offsetX = currentMaxX - newMinX + distance;
+            LOGGER.info("Placed new model near existing ones with offset X: {}. Configured distance: {}", offsetX, distance);
+        }
+
+        // Apply translation
+        newInstance.transform.setToTranslation(offsetX, 0, offsetZ);
+
+        if (offsetZ != 0) {
+            LOGGER.info("Detected model bottom Z at {}, moved to 0 by offset: {}", newBounds.min.z, offsetZ);
+        }
     }
 
     @Override
@@ -361,11 +416,14 @@ public class DesktopApp implements ApplicationListener {
         Gdx.gl.glViewport(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
 
-        if (instances.size > 0) {
-            modelBatch.begin(cam);
-            modelBatch.render(instances, environment);
-            modelBatch.end();
+        modelBatch.begin(cam);
+        if (appGrid != null) {
+            modelBatch.render(appGrid.getInstance());
         }
+        if (instances.size > 0) {
+            modelBatch.render(instances, environment);
+        }
+        modelBatch.end();
 
         stage.act(Gdx.graphics.getDeltaTime());
         stage.draw();
@@ -382,6 +440,9 @@ public class DesktopApp implements ApplicationListener {
     @Override
     public void dispose() {
         saveAllConfig();
+        if (appGrid != null) {
+            appGrid.dispose();
+        }
         modelBatch.dispose();
         for (Model m : models) {
             m.dispose();

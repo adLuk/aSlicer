@@ -89,7 +89,7 @@ public class ModelPlacementTest {
                     inst1.transform.getTranslation(pos1);
                     assertEquals(0f, pos1.x, 0.001f);
                     assertEquals(0f, pos1.y, 0.001f);
-                    assertEquals(0f, pos1.z, 0.001f);
+                    assertEquals(0.5f, pos1.z, 0.001f);
                     
                     ModelInstance inst2 = new ModelInstance(model);
                     // Second model should be placed near first
@@ -104,6 +104,7 @@ public class ModelPlacementTest {
                     Vector3 pos2 = new Vector3();
                     inst2.transform.getTranslation(pos2);
                     assertEquals(1.5f, pos2.x, 0.001f);
+                    assertEquals(0.5f, pos2.z, 0.001f);
                     
                     app.instances.add(inst2);
                     
@@ -116,6 +117,7 @@ public class ModelPlacementTest {
                     Vector3 pos3 = new Vector3();
                     inst3.transform.getTranslation(pos3);
                     assertEquals(3.0f, pos3.x, 0.001f);
+                    assertEquals(0.5f, pos3.z, 0.001f);
 
                     model.dispose();
                 } catch (Throwable t) {
@@ -183,6 +185,64 @@ public class ModelPlacementTest {
                     Vector3 pos2 = new Vector3();
                     inst2.transform.getTranslation(pos2);
                     assertEquals(2.0f, pos2.x, 0.001f);
+                    assertEquals(0.5f, pos2.z, 0.001f);
+
+                    model.dispose();
+                } catch (Throwable t) {
+                    errorRef.set(t);
+                } finally {
+                    latch.countDown();
+                    Gdx.app.exit();
+                }
+            }
+
+            private void mockGdxGL() {
+                Gdx.gl20 = (com.badlogic.gdx.graphics.GL20) java.lang.reflect.Proxy.newProxyInstance(
+                        com.badlogic.gdx.graphics.GL20.class.getClassLoader(),
+                        new Class[]{com.badlogic.gdx.graphics.GL20.class},
+                        (proxy, method, args) -> {
+                            if (method.getName().equals("glGenBuffer") || method.getName().equals("glGenTexture")) return 1;
+                            if (method.getReturnType().equals(int.class)) return 0;
+                            if (method.getReturnType().equals(boolean.class)) return true;
+                            return null;
+                        }
+                );
+                Gdx.gl = Gdx.gl20;
+            }
+        }, new HeadlessApplicationConfiguration());
+
+        assertTrue(latch.await(5, TimeUnit.SECONDS), "Test should complete within 5 seconds");
+        if (errorRef.get() != null) {
+            throw new RuntimeException(errorRef.get());
+        }
+    }
+
+    @Test
+    void testZPlacement() throws InterruptedException {
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<Throwable> errorRef = new AtomicReference<>();
+
+        new HeadlessApplication(new ApplicationAdapter() {
+            @Override
+            public void create() {
+                try {
+                    mockGdxGL();
+                    DesktopApp app = new DesktopApp();
+
+                    ModelBuilder modelBuilder = new ModelBuilder();
+                    // Box 1x1x1 centered at 0,0,0 has min.z = -0.5
+                    Model model = modelBuilder.createBox(1f, 1f, 1f,
+                            new Material(ColorAttribute.createDiffuse(Color.WHITE)),
+                            VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal);
+
+                    ModelInstance inst1 = new ModelInstance(model);
+                    // Bottom of model (min.z = -0.5) should be shifted to Z=0
+                    // Translation Z should be 0.5
+                    app.placeNearExisting(inst1);
+
+                    Vector3 pos1 = new Vector3();
+                    inst1.transform.getTranslation(pos1);
+                    assertEquals(0.5f, pos1.z, 0.001f, "First model should be shifted up to Z=0.5 because its min.z is -0.5");
 
                     model.dispose();
                 } catch (Throwable t) {

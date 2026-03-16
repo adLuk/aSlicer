@@ -17,6 +17,9 @@
  */
 package cz.ad.print3d.aslicer.ui.desktop;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Data Transfer Object for application configuration settings.
  * Holds all persistent settings for the desktop application.
@@ -63,6 +66,12 @@ public class AppConfigDto {
 
     // Distance between objects
     private float distance = 0.5f;
+
+    // Grid settings
+    private float gridSize = 5.0f;
+
+    // List of loaded model paths in order they were added
+    private List<String> loadedFiles = new ArrayList<>();
 
     /**
      * @return the width of the application window
@@ -398,5 +407,33 @@ public class AppConfigDto {
      */
     public void setDistance(float distance) {
         this.distance = distance;
+    }
+
+    /**
+     * @return the size of the grid cells
+     */
+    public float getGridSize() {
+        return gridSize;
+    }
+
+    /**
+     * @param gridSize the grid size to set
+     */
+    public void setGridSize(float gridSize) {
+        this.gridSize = gridSize;
+    }
+
+    /**
+     * @return the list of loaded model paths in the order they were added
+     */
+    public List<String> getLoadedFiles() {
+        return loadedFiles;
+    }
+
+    /**
+     * @param loadedFiles the list of loaded model paths to set
+     */
+    public void setLoadedFiles(List<String> loadedFiles) {
+        this.loadedFiles = loadedFiles != null ? loadedFiles : new ArrayList<>();
     }
 }

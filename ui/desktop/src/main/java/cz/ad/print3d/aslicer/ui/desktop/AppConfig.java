@@ -26,6 +26,8 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 
 /**
@@ -184,6 +186,17 @@ public class AppConfig {
         dto.setLastDir(getProperty("last.dir", ""));
         dto.setLastFile(getProperty("last.file", ""));
         dto.setDistance(getFloat("model.distance", 0.5f));
+        dto.setGridSize(getFloat("grid.size", 5.0f));
+
+        int loadedFileCount = getInt("loaded.file.count", 0);
+        List<String> loadedFiles = new ArrayList<>();
+        for (int i = 0; i < loadedFileCount; i++) {
+            String path = getProperty("loaded.file." + i);
+            if (path != null) {
+                loadedFiles.add(path);
+            }
+        }
+        dto.setLoadedFiles(loadedFiles);
 
         dto.setRotateButton(getInt("control.rotateButton", 0));
         dto.setTranslateButton(getInt("control.translateButton", 1));
@@ -230,6 +243,13 @@ public class AppConfig {
         setProperty("last.dir", dto.getLastDir());
         setProperty("last.file", dto.getLastFile());
         setProperty("model.distance", dto.getDistance());
+        setProperty("grid.size", dto.getGridSize());
+
+        List<String> loadedFiles = dto.getLoadedFiles();
+        setProperty("loaded.file.count", loadedFiles.size());
+        for (int i = 0; i < loadedFiles.size(); i++) {
+            props.setProperty("loaded.file." + i, loadedFiles.get(i));
+        }
 
         setProperty("control.rotateButton", dto.getRotateButton());
         setProperty("control.translateButton", dto.getTranslateButton());

@@ -23,6 +23,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -54,6 +56,9 @@ public class AppConfigDtoTest {
         assertEquals("", dto.getLastDir());
         assertEquals("", dto.getLastFile());
         assertEquals(0.5f, dto.getDistance());
+        assertEquals(5.0f, dto.getGridSize());
+        assertNotNull(dto.getLoadedFiles());
+        assertTrue(dto.getLoadedFiles().isEmpty());
         assertFalse(dto.isCameraStateLoaded());
         assertFalse(dto.isCameraTargetLoaded());
     }
@@ -80,6 +85,8 @@ public class AppConfigDtoTest {
         dto.setCameraTargetY(6.0f);
         dto.setCameraTargetZ(7.0f);
         dto.setDistance(1.5f);
+        dto.setGridSize(2.0f);
+        dto.setLoadedFiles(Arrays.asList("file1.stl", "file2.stl", "file1.stl"));
 
         // Save DTO to properties
         config.saveFromDto(dto);
@@ -99,6 +106,14 @@ public class AppConfigDtoTest {
         assertEquals(6.0f, loadedDto.getCameraTargetY());
         assertEquals(7.0f, loadedDto.getCameraTargetZ());
         assertEquals(1.5f, loadedDto.getDistance());
+        assertEquals(2.0f, loadedDto.getGridSize());
+        
+        List<String> files = loadedDto.getLoadedFiles();
+        assertEquals(3, files.size());
+        assertEquals("file1.stl", files.get(0));
+        assertEquals("file2.stl", files.get(1));
+        assertEquals("file1.stl", files.get(2));
+
         assertTrue(loadedDto.isCameraStateLoaded());
         assertTrue(loadedDto.isCameraTargetLoaded());
     }

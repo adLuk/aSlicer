@@ -59,11 +59,19 @@ public class SettingsWindowTest {
                     PerspectiveCamera cam = new PerspectiveCamera();
                     CameraInputController camController = new CameraInputController(cam);
                     AtomicBoolean saved = new AtomicBoolean(false);
+                    AtomicReference<Float> updatedGridSize = new AtomicReference<>(0.5f);
 
-                    SettingsWindow window = new SettingsWindow(skin, camController, () -> saved.set(true));
+                    SettingsWindow window = new SettingsWindow(skin, camController, 0.5f, updatedGridSize::set, () -> saved.set(true));
 
                     assertEquals("Settings", window.getTitleLabel().getText().toString());
                     assertTrue(window.isVisible());
+
+                    // Find grid size button and test cycling
+                    TextButton gridBtn = findButton(window, "0.5");
+                    assertNotNull(gridBtn, "Grid size button should be found");
+                    gridBtn.fire(new ChangeListener.ChangeEvent());
+                    assertEquals(1.0f, updatedGridSize.get(), 0.001f);
+                    assertEquals("1.0", gridBtn.getText().toString());
 
                     // Find and click the save button
                     TextButton saveBtn = findButton(window, "Save");

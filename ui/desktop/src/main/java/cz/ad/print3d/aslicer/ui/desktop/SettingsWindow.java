@@ -34,23 +34,29 @@ import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 
+import java.util.function.Consumer;
+
 /**
  * Settings window for configuring application controls and other options.
  */
 public class SettingsWindow extends Window {
 
     private final CameraInputController camController;
+    private final Consumer<Float> gridSizeCallback;
     private final Runnable saveCallback;
+    private float currentGridSize;
 
-    public SettingsWindow(Skin skin, CameraInputController camController, Runnable saveCallback) {
+    public SettingsWindow(Skin skin, CameraInputController camController, float initialGridSize, Consumer<Float> gridSizeCallback, Runnable saveCallback) {
         super("Settings", skin);
         this.camController = camController;
+        this.currentGridSize = initialGridSize;
+        this.gridSizeCallback = gridSizeCallback;
         this.saveCallback = saveCallback;
 
         setMovable(true);
         setResizable(true);
-        setSize(300, 250);
-        setPosition(Gdx.graphics.getWidth() / 2f - 150, Gdx.graphics.getHeight() / 2f - 125);
+        setSize(300, 300);
+        setPosition(Gdx.graphics.getWidth() / 2f - 150, Gdx.graphics.getHeight() / 2f - 150);
 
         Table content = new Table();
         content.pad(10);
@@ -110,6 +116,28 @@ public class SettingsWindow extends Window {
             }
         });
         content.add(backwardBtn).width(80).padLeft(10).row();
+
+        content.add(new Label("Grid Size:", skin)).left();
+        TextButton gridBtn = new TextButton(String.valueOf(currentGridSize), skin);
+        gridBtn.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                float[] sizes = {0.1f, 0.5f, 1.0f, 2.0f, 5.0f, 10.0f};
+                int currentIndex = -1;
+                for (int i = 0; i < sizes.length; i++) {
+                    if (Math.abs(sizes[i] - currentGridSize) < 0.001f) {
+                        currentIndex = i;
+                        break;
+                    }
+                }
+                currentGridSize = sizes[(currentIndex + 1) % sizes.length];
+                gridBtn.setText(String.valueOf(currentGridSize));
+                if (gridSizeCallback != null) {
+                    gridSizeCallback.accept(currentGridSize);
+                }
+            }
+        });
+        content.add(gridBtn).width(50).padLeft(10).row();
 
         TextButton saveButton = new TextButton("Save", skin);
         saveButton.addListener(new ChangeListener() {
