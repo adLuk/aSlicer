@@ -34,7 +34,9 @@ import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
+import cz.ad.print3d.aslicer.logic.model.format.mf3.core.Mf3Model;
 import cz.ad.print3d.aslicer.logic.model.format.stl.StlModel;
+import cz.ad.print3d.aslicer.logic.model.parser.mf3.Mf3Parser;
 import cz.ad.print3d.aslicer.logic.model.parser.stl.StlParser;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
@@ -268,12 +270,13 @@ public class DesktopApp implements ApplicationListener {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
                 try (MemoryStack stack = MemoryStack.stackPush()) {
-                    PointerBuffer filters = stack.mallocPointer(2);
+                    PointerBuffer filters = stack.mallocPointer(3);
                     filters.put(stack.UTF8("*.stl"));
                     filters.put(stack.UTF8("*.ast"));
+                    filters.put(stack.UTF8("*.3mf"));
                     filters.flip();
 
-                    String result = TinyFileDialogs.tinyfd_openFileDialog("Open STL File", lastDir, filters, "STL Files", false);
+                    String result = TinyFileDialogs.tinyfd_openFileDialog("Open 3D Model File", lastDir, filters, "3D Model Files", false);
                     if (result != null) {
                         Path path = Paths.get(result);
                         if (Files.exists(path)) {
@@ -478,18 +481,47 @@ public class DesktopApp implements ApplicationListener {
 
     private void loadModel(String filePath) {
         if (filePath == null) return;
-        StlModel stlModel = loadStlModel(filePath);
-
-        if (stlModel != null) {
-            LOGGER.info("Loaded STL model with {} facets", stlModel.facetCount());
-            currentModelPath = filePath;
-            if (model != null) {
-                model.dispose();
+        if (filePath.toLowerCase().endsWith(".3mf")) {
+            Mf3Model mf3Model = loadMf3Model(filePath);
+            if (mf3Model != null) {
+                LOGGER.info("Loaded 3MF model with {} objects", mf3Model.objects().size());
+                currentModelPath = filePath;
+                if (model != null) {
+                    model.dispose();
+                }
+                model = Mf3GdxConverter.convertToGdxModel(mf3Model);
+                instance = new ModelInstance(model);
+            } else {
+                LOGGER.warn("Failed to load 3MF: {}", filePath);
             }
-            model = StlGdxConverter.convertToGdxModel(stlModel);
-            instance = new ModelInstance(model);
         } else {
-            LOGGER.warn("Failed to load STL: {}", filePath);
+            StlModel stlModel = loadStlModel(filePath);
+            if (stlModel != null) {
+                LOGGER.info("Loaded STL model with {} facets", stlModel.facetCount());
+                currentModelPath = filePath;
+                if (model != null) {
+                    model.dispose();
+                }
+                model = StlGdxConverter.convertToGdxModel(stlModel);
+                instance = new ModelInstance(model);
+            } else {
+                LOGGER.warn("Failed to load STL: {}", filePath);
+            }
+        }
+    }
+
+    private Mf3Model loadMf3Model(String pathStr) {
+        Path path = Paths.get(pathStr);
+        if (!java.nio.file.Files.exists(path)) {
+            LOGGER.error("3MF file not found at: {}", path.toAbsolutePath());
+            return null;
+        }
+        try (FileChannel channel = FileChannel.open(path, StandardOpenOption.READ)) {
+            Mf3Parser parser = new Mf3Parser();
+            return parser.parse(channel);
+        } catch (IOException e) {
+            LOGGER.error("Error parsing 3MF file: {}", pathStr, e);
+            return null;
         }
     }
 

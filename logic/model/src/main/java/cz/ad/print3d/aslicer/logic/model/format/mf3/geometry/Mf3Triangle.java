@@ -34,6 +34,18 @@ public class Mf3Triangle {
     private int v3;
 
     /**
+     * Property ID referencing a property group (e.g., base materials).
+     */
+    @XmlAttribute(name = "pid")
+    private Integer pid;
+
+    /**
+     * Index of the property within the referenced group.
+     */
+    @XmlAttribute(name = "pindex")
+    private Integer pindex;
+
+    /**
      * Default constructor for JAXB.
      */
     public Mf3Triangle() {
@@ -80,6 +92,42 @@ public class Mf3Triangle {
     }
 
     /**
+     * Returns the property ID for the triangle.
+     *
+     * @return the property ID
+     */
+    public Integer getPid() {
+        return pid;
+    }
+
+    /**
+     * Sets the property ID for the triangle.
+     *
+     * @param pid the property ID to set
+     */
+    public void setPid(Integer pid) {
+        this.pid = pid;
+    }
+
+    /**
+     * Returns the property index for the triangle.
+     *
+     * @return the property index
+     */
+    public Integer getPindex() {
+        return pindex;
+    }
+
+    /**
+     * Sets the property index for the triangle.
+     *
+     * @param pindex the property index to set
+     */
+    public void setPindex(Integer pindex) {
+        this.pindex = pindex;
+    }
+
+    /**
      * Sets the index of the first vertex.
      *
      * @param v1 the vertex index to set
@@ -119,7 +167,9 @@ public class Mf3Triangle {
         Mf3Triangle that = (Mf3Triangle) o;
         return v1 == that.v1 &&
                 v2 == that.v2 &&
-                v3 == that.v3;
+                v3 == that.v3 &&
+                java.util.Objects.equals(pid, that.pid) &&
+                java.util.Objects.equals(pindex, that.pindex);
     }
 
     /**
@@ -129,13 +179,13 @@ public class Mf3Triangle {
      */
     @Override
     public int hashCode() {
-        return java.util.Objects.hash(v1, v2, v3);
+        return java.util.Objects.hash(v1, v2, v3, pid, pindex);
     }
 
     /**
      * Returns a string representation of this triangle.
      *
-     * @return a string containing vertex indices
+     * @return a string containing triangle data
      */
     @Override
     public String toString() {
@@ -143,6 +193,8 @@ public class Mf3Triangle {
                 "v1=" + v1 +
                 ", v2=" + v2 +
                 ", v3=" + v3 +
+                ", pid=" + pid +
+                ", pindex=" + pindex +
                 '}';
     }
 }

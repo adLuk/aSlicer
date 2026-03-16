@@ -3,6 +3,8 @@ package cz.ad.print3d.aslicer.logic.model.parser.mf3;
 import cz.ad.print3d.aslicer.logic.model.basic.Unit;
 import cz.ad.print3d.aslicer.logic.model.basic.Vector3f;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.core.Mf3Model;
+import cz.ad.print3d.aslicer.logic.model.format.mf3.resource.Mf3Base;
+import cz.ad.print3d.aslicer.logic.model.format.mf3.resource.Mf3BaseMaterials;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.resource.Mf3Object;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.geometry.Mf3Triangle;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.contenttype.Mf3ContentTypes;
@@ -554,5 +556,61 @@ public class Mf3ParserTest {
         // Core files should NOT be in storage
         assertFalse(Files.exists(storagePath.resolve("3D/3dmodel.model")));
         assertFalse(Files.exists(storagePath.resolve("[Content_Types].xml")));
+    }
+
+    /**
+     * Verifies that the parser correctly handles materials and property references.
+     *
+     * @throws IOException if an I/O error occurs
+     */
+    @Test
+    public void testParseMaterials() throws IOException {
+        final String xmlContent = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+                "<model unit=\"millimeter\" xmlns=\"http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel\">\n" +
+                "  <resources>\n" +
+                "    <basematerials id=\"5\">\n" +
+                "      <base name=\"Red Material\" displaycolor=\"#FF0000\" />\n" +
+                "      <base name=\"Green Material\" displaycolor=\"#00FF00\" />\n" +
+                "    </basematerials>\n" +
+                "    <object id=\"1\" name=\"Cube\" pid=\"5\" pindex=\"0\">\n" +
+                "      <mesh>\n" +
+                "        <vertices>\n" +
+                "          <vertex x=\"0\" y=\"0\" z=\"0\" />\n" +
+                "          <vertex x=\"1\" y=\"0\" z=\"0\" />\n" +
+                "          <vertex x=\"0\" y=\"1\" z=\"0\" />\n" +
+                "        </vertices>\n" +
+                "        <triangles>\n" +
+                "          <triangle v1=\"0\" v2=\"1\" v3=\"2\" pid=\"5\" pindex=\"1\" />\n" +
+                "          <triangle v1=\"0\" v2=\"1\" v3=\"2\" />\n" +
+                "        </triangles>\n" +
+                "      </mesh>\n" +
+                "    </object>\n" +
+                "  </resources>\n" +
+                "</model>";
+
+        final byte[] zipData = createZipWithFile("3D/3dmodel.model", xmlContent);
+        final Mf3Parser parser = new Mf3Parser();
+        final Mf3Model model = parser.parse(Channels.newChannel(new ByteArrayInputStream(zipData)));
+
+        assertNotNull(model);
+        assertNotNull(model.getResources());
+        assertEquals(1, model.getResources().getBaseMaterials().size());
+
+        final Mf3BaseMaterials bm = model.getResources().getBaseMaterials().get(0);
+        assertEquals(5, bm.getId());
+        assertEquals(2, bm.getBases().size());
+        assertEquals("#FF0000", bm.getBases().get(0).getDisplayColor());
+
+        final Mf3Object object = model.objects().get(0);
+        assertEquals(Integer.valueOf(5), object.getPid());
+        assertEquals(Integer.valueOf(0), object.getPindex());
+
+        final Mf3Triangle tri1 = object.triangles().get(0);
+        assertEquals(Integer.valueOf(5), tri1.getPid());
+        assertEquals(Integer.valueOf(1), tri1.getPindex());
+
+        final Mf3Triangle tri2 = object.triangles().get(1);
+        assertNull(tri2.getPid());
+        assertNull(tri2.getPindex());
     }
 }

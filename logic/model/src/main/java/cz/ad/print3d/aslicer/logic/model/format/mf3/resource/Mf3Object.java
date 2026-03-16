@@ -32,6 +32,18 @@ public class Mf3Object {
     private String name;
 
     /**
+     * Property ID referencing a property group (e.g., base materials).
+     */
+    @XmlAttribute(name = "pid")
+    private Integer pid;
+
+    /**
+     * Index of the property within the referenced group.
+     */
+    @XmlAttribute(name = "pindex")
+    private Integer pindex;
+
+    /**
      * The type of the object (e.g., "model", "support", "other").
      */
     @XmlAttribute(name = "type")
@@ -93,6 +105,42 @@ public class Mf3Object {
      */
     public String name() {
         return name;
+    }
+
+    /**
+     * Returns the property ID for the object.
+     *
+     * @return the property ID
+     */
+    public Integer getPid() {
+        return pid;
+    }
+
+    /**
+     * Sets the property ID for the object.
+     *
+     * @param pid the property ID to set
+     */
+    public void setPid(Integer pid) {
+        this.pid = pid;
+    }
+
+    /**
+     * Returns the property index for the object.
+     *
+     * @return the property index
+     */
+    public Integer getPindex() {
+        return pindex;
+    }
+
+    /**
+     * Sets the property index for the object.
+     *
+     * @param pindex the property index to set
+     */
+    public void setPindex(Integer pindex) {
+        this.pindex = pindex;
     }
 
     /**
@@ -216,6 +264,8 @@ public class Mf3Object {
         Mf3Object mf3Object = (Mf3Object) o;
         return id == mf3Object.id &&
                 java.util.Objects.equals(name, mf3Object.name) &&
+                java.util.Objects.equals(pid, mf3Object.pid) &&
+                java.util.Objects.equals(pindex, mf3Object.pindex) &&
                 java.util.Objects.equals(type, mf3Object.type) &&
                 java.util.Objects.equals(partNumber, mf3Object.partNumber) &&
                 java.util.Objects.equals(mesh, mf3Object.mesh) &&
@@ -229,7 +279,7 @@ public class Mf3Object {
      */
     @Override
     public int hashCode() {
-        return java.util.Objects.hash(id, name, type, partNumber, mesh, components);
+        return java.util.Objects.hash(id, name, pid, pindex, type, partNumber, mesh, components);
     }
 
     /**
@@ -242,6 +292,8 @@ public class Mf3Object {
         return "Mf3Object{" +
                 "id=" + id +
                 ", name='" + name + '\'' +
+                ", pid=" + pid +
+                ", pindex=" + pindex +
                 ", type='" + type + '\'' +
                 ", partNumber='" + partNumber + '\'' +
                 ", mesh=" + mesh +

@@ -20,6 +20,12 @@ public class Mf3Resources {
     private List<Mf3Object> objects = new ArrayList<>();
 
     /**
+     * The list of base materials defined in the resources.
+     */
+    @XmlElement(name = "basematerials", namespace = "http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel")
+    private List<Mf3BaseMaterials> baseMaterials = new ArrayList<>();
+
+    /**
      * Returns the list of objects in the resources.
      *
      * @return the list of objects
@@ -38,6 +44,24 @@ public class Mf3Resources {
     }
 
     /**
+     * Returns the list of base materials in the resources.
+     *
+     * @return the list of base materials
+     */
+    public List<Mf3BaseMaterials> getBaseMaterials() {
+        return baseMaterials;
+    }
+
+    /**
+     * Sets the list of base materials in the resources.
+     *
+     * @param baseMaterials the list of base materials to set
+     */
+    public void setBaseMaterials(final List<Mf3BaseMaterials> baseMaterials) {
+        this.baseMaterials = baseMaterials;
+    }
+
+    /**
      * Compares this resources container with another for equality.
      *
      * @param o the object to compare with
@@ -48,7 +72,8 @@ public class Mf3Resources {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Mf3Resources resources = (Mf3Resources) o;
-        return java.util.Objects.equals(objects, resources.objects);
+        return java.util.Objects.equals(objects, resources.objects) &&
+                java.util.Objects.equals(baseMaterials, resources.baseMaterials);
     }
 
     /**
@@ -58,7 +83,7 @@ public class Mf3Resources {
      */
     @Override
     public int hashCode() {
-        return java.util.Objects.hash(objects);
+        return java.util.Objects.hash(objects, baseMaterials);
     }
 
     /**
@@ -70,6 +95,7 @@ public class Mf3Resources {
     public String toString() {
         return "Mf3Resources{" +
                 "objects=" + objects +
+                ", baseMaterials=" + baseMaterials +
                 '}';
     }
 }
