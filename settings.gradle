@@ -18,6 +18,7 @@
 rootProject.name = 'aSlicer'
 include 'logic'
 include ':logic:model'
+include ':logic:core'
 include 'ui'
 include ':ui:cli'
 include ':ui:desktop'

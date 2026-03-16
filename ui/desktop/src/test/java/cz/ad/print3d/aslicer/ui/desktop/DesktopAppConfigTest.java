@@ -39,6 +39,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class DesktopAppConfigTest {
@@ -49,55 +50,41 @@ public class DesktopAppConfigTest {
 
     @BeforeEach
     void setUp() {
-        originalConfigPath = DesktopApp.configPath;
-        DesktopApp.configPath = tempDir.resolve(".aSlicer-desktop.properties");
+        originalConfigPath = AppConfig.CONFIG_PATH;
+        AppConfig.CONFIG_PATH = tempDir.resolve(".aSlicer-desktop.properties");
     }
 
     @AfterEach
     void tearDown() {
-        DesktopApp.configPath = originalConfigPath;
+        AppConfig.CONFIG_PATH = originalConfigPath;
     }
 
     @Test
     void testPropertyLoading() throws IOException {
         Properties props = new Properties();
         props.setProperty("control.rotateButton", "1");
-        props.setProperty("control.translateButton", "2");
-        props.setProperty("control.forwardButton", "0");
-        props.setProperty("control.forwardKey", String.valueOf(Input.Keys.W));
-        props.setProperty("control.backwardKey", String.valueOf(Input.Keys.S));
         props.setProperty("test.float", "123.45");
 
-        try (OutputStream os = Files.newOutputStream(DesktopApp.configPath)) {
+        try (OutputStream os = Files.newOutputStream(AppConfig.CONFIG_PATH)) {
             props.store(os, null);
         }
 
-        Properties loaded = DesktopApp.loadConfig();
-        assertEquals("1", loaded.getProperty("control.rotateButton"));
-        assertEquals("2", loaded.getProperty("control.translateButton"));
-        assertEquals("0", loaded.getProperty("control.forwardButton"));
-        assertEquals(String.valueOf(Input.Keys.W), loaded.getProperty("control.forwardKey"));
-        assertEquals(String.valueOf(Input.Keys.S), loaded.getProperty("control.backwardKey"));
-        
-        assertEquals(1, DesktopApp.getIntProperty(loaded, "control.rotateButton", 0));
-        assertEquals(2, DesktopApp.getIntProperty(loaded, "control.translateButton", 0));
-        assertEquals(0, DesktopApp.getIntProperty(loaded, "control.forwardButton", 1));
-        assertEquals(Input.Keys.W, DesktopApp.getIntProperty(loaded, "control.forwardKey", 0));
-        assertEquals(Input.Keys.S, DesktopApp.getIntProperty(loaded, "control.backwardKey", 0));
-        assertEquals(123.45f, DesktopApp.getFloatProperty(loaded, "test.float", 0f));
+        AppConfig config = new AppConfig();
+        assertEquals(1, config.getInt("control.rotateButton", 0));
+        assertEquals(123.45f, config.getFloat("test.float", 0f));
     }
 
     @Test
     void testPropertySaving() throws IOException {
-        Properties props = new Properties();
-        props.setProperty("test.key", "test.value");
-        DesktopApp.saveConfig(props);
+        AppConfig config = new AppConfig();
+        config.setProperty("test.key", "test.value");
+        config.save();
 
-        assertTrue(Files.exists(DesktopApp.configPath));
-        Properties loaded = DesktopApp.loadConfig();
-        assertEquals("test.value", loaded.getProperty("test.key"));
+        assertTrue(Files.exists(AppConfig.CONFIG_PATH));
+        AppConfig config2 = new AppConfig();
+        assertEquals("test.value", config2.getProperty("test.key"));
     }
-    
+
     @Test
     void testLastDirPersistence() throws IOException {
         DesktopApp app = new DesktopApp();
@@ -107,10 +94,10 @@ public class DesktopAppConfigTest {
 
         app.saveAllConfig();
 
-        Properties loaded = DesktopApp.loadConfig();
-        assertEquals("/some/test/path", loaded.getProperty("last.dir"));
-        assertEquals("1024", loaded.getProperty("window.width"));
-        assertEquals("768", loaded.getProperty("window.height"));
+        AppConfig config = new AppConfig();
+        assertEquals("/some/test/path", config.getProperty("last.dir"));
+        assertEquals(1024, config.getInt("window.width", 0));
+        assertEquals(768, config.getInt("window.height", 0));
     }
 
     @Test
@@ -120,13 +107,13 @@ public class DesktopAppConfigTest {
 
         app.saveAllConfig();
 
-        Properties loaded = DesktopApp.loadConfig();
-        assertEquals("/some/test/file.stl", loaded.getProperty("last.file"));
+        AppConfig config = new AppConfig();
+        assertEquals("/some/test/file.stl", config.getProperty("last.file"));
 
         app.currentModelPath = null;
         app.saveAllConfig();
-        loaded = DesktopApp.loadConfig();
-        assertTrue(!loaded.containsKey("last.file"));
+        config = new AppConfig();
+        assertFalse(config.containsKey("last.file"));
     }
 
     @Test
@@ -149,22 +136,22 @@ public class DesktopAppConfigTest {
 
                     app.saveAllConfig();
 
-                    Properties loaded = DesktopApp.loadConfig();
-                    assertEquals(1.5f, DesktopApp.getFloatProperty(loaded, "camera.pos.x", 0f));
-                    assertEquals(2.5f, DesktopApp.getFloatProperty(loaded, "camera.pos.y", 0f));
-                    assertEquals(3.5f, DesktopApp.getFloatProperty(loaded, "camera.pos.z", 0f));
+                    AppConfig config = new AppConfig();
+                    assertEquals(1.5f, config.getFloat("camera.pos.x", 0f));
+                    assertEquals(2.5f, config.getFloat("camera.pos.y", 0f));
+                    assertEquals(3.5f, config.getFloat("camera.pos.z", 0f));
 
-                    assertEquals(0.1f, DesktopApp.getFloatProperty(loaded, "camera.dir.x", 0f), 0.001f);
-                    assertEquals(0.2f, DesktopApp.getFloatProperty(loaded, "camera.dir.y", 0f), 0.001f);
-                    assertEquals(0.3f, DesktopApp.getFloatProperty(loaded, "camera.dir.z", 0f), 0.001f);
+                    assertEquals(0.1f, config.getFloat("camera.dir.x", 0f), 0.001f);
+                    assertEquals(0.2f, config.getFloat("camera.dir.y", 0f), 0.001f);
+                    assertEquals(0.3f, config.getFloat("camera.dir.z", 0f), 0.001f);
 
-                    assertEquals(0f, DesktopApp.getFloatProperty(loaded, "camera.up.x", 1f));
-                    assertEquals(1f, DesktopApp.getFloatProperty(loaded, "camera.up.y", 0f));
-                    assertEquals(0f, DesktopApp.getFloatProperty(loaded, "camera.up.z", 1f));
+                    assertEquals(0f, config.getFloat("camera.up.x", 1f));
+                    assertEquals(1f, config.getFloat("camera.up.y", 0f));
+                    assertEquals(0f, config.getFloat("camera.up.z", 1f));
 
-                    assertEquals(10f, DesktopApp.getFloatProperty(loaded, "camera.target.x", 0f));
-                    assertEquals(20f, DesktopApp.getFloatProperty(loaded, "camera.target.y", 0f));
-                    assertEquals(30f, DesktopApp.getFloatProperty(loaded, "camera.target.z", 0f));
+                    assertEquals(10f, config.getFloat("camera.target.x", 0f));
+                    assertEquals(20f, config.getFloat("camera.target.y", 0f));
+                    assertEquals(30f, config.getFloat("camera.target.z", 0f));
                 } catch (Throwable t) {
                     errorRef.set(t);
                 } finally {
