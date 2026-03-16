@@ -117,10 +117,11 @@ public class AppToolbar extends Table {
 
     private Drawable createClearIcon() {
         Pixmap pixmap = new Pixmap(32, 32, Pixmap.Format.RGBA8888);
+        pixmap.setColor(Color.LIGHT_GRAY);
+        // Clear icon represented as a '-' sign to match the '+' and gear style
+        pixmap.fillRectangle(4, 14, 24, 4);
         pixmap.setColor(Color.BLACK);
-        pixmap.fill();
-        pixmap.setColor(Color.WHITE);
-        pixmap.drawRectangle(0, 0, 32, 32);
+        pixmap.fillCircle(16, 16, 4);
         Texture texture = new Texture(pixmap);
         pixmap.dispose();
         skin.add("clearIcon", texture);
@@ -130,10 +131,11 @@ public class AppToolbar extends Table {
     private Drawable createOpenIcon() {
         Pixmap pixmap = new Pixmap(32, 32, Pixmap.Format.RGBA8888);
         pixmap.setColor(Color.LIGHT_GRAY);
-        pixmap.fill();
+        // Open icon represented as a '+' sign to match the gear wheel style
+        pixmap.fillRectangle(14, 4, 4, 24); // vertical
+        pixmap.fillRectangle(4, 14, 24, 4); // horizontal
         pixmap.setColor(Color.BLACK);
-        pixmap.drawRectangle(0, 0, 32, 32);
-        pixmap.fillRectangle(4, 8, 24, 16);
+        pixmap.fillCircle(16, 16, 4);
         Texture texture = new Texture(pixmap);
         pixmap.dispose();
         skin.add("openIcon", texture);

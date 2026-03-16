@@ -67,6 +67,7 @@ public class DesktopApp implements ApplicationListener {
     Stage stage;
     Skin skin;
     SettingsWindow settingsWindow;
+    ModelListWindow modelListWindow;
     AppGrid appGrid;
     int currentWidth;
     int currentHeight;
@@ -224,6 +225,9 @@ public class DesktopApp implements ApplicationListener {
                 instances.clear();
                 loadedModelPaths.clear();
                 currentModelPath = null;
+                if (modelListWindow != null) {
+                    modelListWindow.updateList();
+                }
                 LOGGER.info("Cleared all models");
             }
 
@@ -248,7 +252,16 @@ public class DesktopApp implements ApplicationListener {
             }
         });
 
-        root.add(menuBar).expandX().fillX();
+        AppSideToolbar sideBar = new AppSideToolbar(skin, new AppSideToolbar.SideToolbarListener() {
+            @Override
+            public void onToggleModelList() {
+                toggleModelListWindow();
+            }
+        });
+
+        root.add(menuBar).expandX().fillX().colspan(2).row();
+        root.add(sideBar).expandY().fillY().left();
+        root.add().expand().fill();
 
         stage.addActor(root);
     }
@@ -273,6 +286,16 @@ public class DesktopApp implements ApplicationListener {
         textButtonStyle.font = font;
         skin.add("default", textButtonStyle);
 
+        List.ListStyle listStyle = new List.ListStyle();
+        listStyle.font = font;
+        listStyle.fontColorSelected = Color.BLACK;
+        listStyle.fontColorUnselected = Color.WHITE;
+        listStyle.selection = skin.newDrawable("white", Color.LIGHT_GRAY);
+        skin.add("default", listStyle);
+
+        ScrollPane.ScrollPaneStyle scrollPaneStyle = new ScrollPane.ScrollPaneStyle();
+        skin.add("default", scrollPaneStyle);
+
         Window.WindowStyle windowStyle = new Window.WindowStyle();
         windowStyle.titleFont = font;
         windowStyle.background = skin.newDrawable("white", new Color(0.2f, 0.2f, 0.2f, 0.9f));
@@ -290,6 +313,19 @@ public class DesktopApp implements ApplicationListener {
             settingsWindow.setVisible(!settingsWindow.isVisible());
             if (settingsWindow.isVisible()) {
                 settingsWindow.toFront();
+            }
+        }
+    }
+
+    private void toggleModelListWindow() {
+        if (modelListWindow == null) {
+            modelListWindow = new ModelListWindow(skin, loadedModelPaths);
+            stage.addActor(modelListWindow);
+        } else {
+            modelListWindow.setVisible(!modelListWindow.isVisible());
+            if (modelListWindow.isVisible()) {
+                modelListWindow.toFront();
+                modelListWindow.updateList();
             }
         }
     }
@@ -339,6 +375,9 @@ public class DesktopApp implements ApplicationListener {
 
                 models.add(gdxModel);
                 instances.add(gdxInstance);
+                if (modelListWindow != null) {
+                    modelListWindow.updateList();
+                }
                 LOGGER.info("Successfully loaded and placed model from {}", filePath);
             }
         } catch (IOException e) {
