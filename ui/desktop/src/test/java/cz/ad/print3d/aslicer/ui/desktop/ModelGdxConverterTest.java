@@ -1,3 +1,20 @@
+/*
+ * aSlicer - 3D model processing tool.
+ * Copyright (C) 2026 cz.ad.print3d.aslicer contributors
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 package cz.ad.print3d.aslicer.ui.desktop;
 
 import com.badlogic.gdx.ApplicationAdapter;
@@ -17,6 +34,8 @@ import cz.ad.print3d.aslicer.logic.model.format.mf3.resource.Mf3Base;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.resource.Mf3BaseMaterials;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.resource.Mf3Object;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.resource.Mf3Resources;
+import cz.ad.print3d.aslicer.logic.model.format.stl.StlFacet;
+import cz.ad.print3d.aslicer.logic.model.format.stl.StlModel;
 import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
@@ -27,9 +46,41 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class Mf3GdxConverterTest {
+public class ModelGdxConverterTest {
     @Test
-    void testConversion() throws InterruptedException {
+    void testStlConversion() throws InterruptedException {
+        HeadlessApplicationConfiguration config = new HeadlessApplicationConfiguration();
+        AtomicReference<Model> modelRef = new AtomicReference<>();
+        CountDownLatch latch = new CountDownLatch(1);
+        
+        new HeadlessApplication(new ApplicationAdapter() {
+            @Override
+            public void create() {
+                Vector3f normal = new Vector3f(0, 0, 1);
+                Vector3f v1 = new Vector3f(0, 0, 0);
+                Vector3f v2 = new Vector3f(1, 0, 0);
+                Vector3f v3 = new Vector3f(0, 1, 0);
+                StlFacet facet = new StlFacet(normal, v1, v2, v3, 0);
+                StlModel stlModel = new StlModel(new byte[80], Collections.singletonList(facet), Unit.MILLIMETER);
+
+                try {
+                    mockGdxGL();
+                    modelRef.set(ModelGdxConverter.convertToGdxModel(stlModel));
+                } catch (Throwable t) {
+                    t.printStackTrace();
+                } finally {
+                    latch.countDown();
+                    com.badlogic.gdx.Gdx.app.exit();
+                }
+            }
+        }, config);
+
+        assertTrue(latch.await(5, TimeUnit.SECONDS), "Conversion should complete within 5 seconds");
+        assertNotNull(modelRef.get(), "Model should not be null after conversion");
+    }
+
+    @Test
+    void testMf3Conversion() throws InterruptedException {
         HeadlessApplicationConfiguration config = new HeadlessApplicationConfiguration();
         AtomicReference<Model> modelRef = new AtomicReference<>();
         CountDownLatch latch = new CountDownLatch(1);
@@ -55,20 +106,8 @@ public class Mf3GdxConverterTest {
                 mf3Model.setUnit(Unit.MILLIMETER);
 
                 try {
-                    // Mock GL20 to avoid NPE during Mesh creation
-                    com.badlogic.gdx.Gdx.gl20 = (com.badlogic.gdx.graphics.GL20) java.lang.reflect.Proxy.newProxyInstance(
-                            com.badlogic.gdx.graphics.GL20.class.getClassLoader(),
-                            new Class[]{com.badlogic.gdx.graphics.GL20.class},
-                            (proxy, method, args) -> {
-                                if (method.getName().equals("glGenBuffer")) return 1;
-                                if (method.getReturnType().equals(int.class)) return 0;
-                                if (method.getReturnType().equals(boolean.class)) return true;
-                                return null;
-                            }
-                    );
-                    com.badlogic.gdx.Gdx.gl = com.badlogic.gdx.Gdx.gl20;
-
-                    modelRef.set(Mf3GdxConverter.convertToGdxModel(mf3Model));
+                    mockGdxGL();
+                    modelRef.set(ModelGdxConverter.convertToGdxModel(mf3Model));
                 } catch (Throwable t) {
                     t.printStackTrace();
                 } finally {
@@ -83,7 +122,7 @@ public class Mf3GdxConverterTest {
     }
 
     @Test
-    void testMaterialConversion() throws InterruptedException {
+    void testMf3MaterialConversion() throws InterruptedException {
         HeadlessApplicationConfiguration config = new HeadlessApplicationConfiguration();
         AtomicReference<Model> modelRef = new AtomicReference<>();
         CountDownLatch latch = new CountDownLatch(1);
@@ -114,19 +153,8 @@ public class Mf3GdxConverterTest {
                 mf3Model.setResources(resources);
 
                 try {
-                    com.badlogic.gdx.Gdx.gl20 = (com.badlogic.gdx.graphics.GL20) java.lang.reflect.Proxy.newProxyInstance(
-                            com.badlogic.gdx.graphics.GL20.class.getClassLoader(),
-                            new Class[]{com.badlogic.gdx.graphics.GL20.class},
-                            (proxy, method, args) -> {
-                                if (method.getName().equals("glGenBuffer")) return 1;
-                                if (method.getReturnType().equals(int.class)) return 0;
-                                if (method.getReturnType().equals(boolean.class)) return true;
-                                return null;
-                            }
-                    );
-                    com.badlogic.gdx.Gdx.gl = com.badlogic.gdx.Gdx.gl20;
-
-                    modelRef.set(Mf3GdxConverter.convertToGdxModel(mf3Model));
+                    mockGdxGL();
+                    modelRef.set(ModelGdxConverter.convertToGdxModel(mf3Model));
                 } catch (Throwable t) {
                     t.printStackTrace();
                 } finally {
@@ -152,5 +180,19 @@ public class Mf3GdxConverterTest {
             }
         }
         assertTrue(foundRed, "Model should contain at least one part with RED color");
+    }
+
+    private void mockGdxGL() {
+        com.badlogic.gdx.Gdx.gl20 = (com.badlogic.gdx.graphics.GL20) java.lang.reflect.Proxy.newProxyInstance(
+                com.badlogic.gdx.graphics.GL20.class.getClassLoader(),
+                new Class[]{com.badlogic.gdx.graphics.GL20.class},
+                (proxy, method, args) -> {
+                    if (method.getName().equals("glGenBuffer")) return 1;
+                    if (method.getReturnType().equals(int.class)) return 0;
+                    if (method.getReturnType().equals(boolean.class)) return true;
+                    return null;
+                }
+        );
+        com.badlogic.gdx.Gdx.gl = com.badlogic.gdx.Gdx.gl20;
     }
 }

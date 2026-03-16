@@ -1,8 +1,28 @@
+/*
+ * aSlicer - 3D model processing tool.
+ * Copyright (C) 2026 cz.ad.print3d.aslicer contributors
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 package cz.ad.print3d.aslicer.logic.model.format.mf3.core;
 
 import cz.ad.print3d.aslicer.logic.model.Model;
 import cz.ad.print3d.aslicer.logic.model.basic.Unit;
+import cz.ad.print3d.aslicer.logic.model.basic.Vector3f;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.build.Mf3Build;
+import cz.ad.print3d.aslicer.logic.model.format.mf3.geometry.Mf3Triangle;
+import cz.ad.print3d.aslicer.logic.model.format.mf3.resource.Mf3BaseMaterials;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.resource.Mf3Object;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.resource.Mf3Resources;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.bambu.Mf3BambuConfig;
@@ -145,6 +165,85 @@ public class Mf3Model implements Model {
         }
         this.resources = new Mf3Resources();
         this.resources.setObjects(objects);
+    }
+
+    @Override
+    public List<MeshPart> parts() {
+        List<MeshPart> allParts = new ArrayList<>();
+        Map<Integer, Mf3BaseMaterials> materialsMap = new HashMap<>();
+        if (getResources() != null && getResources().getBaseMaterials() != null) {
+            for (Mf3BaseMaterials bm : getResources().getBaseMaterials()) {
+                materialsMap.put(bm.getId(), bm);
+            }
+        }
+
+        for (Mf3Object obj : objects()) {
+            List<Vector3f> vertices = obj.vertices();
+            List<Mf3Triangle> triangles = obj.triangles();
+
+            if (triangles == null || triangles.isEmpty()) {
+                continue;
+            }
+
+            Map<String, List<Mf3Triangle>> groupedTriangles = new HashMap<>();
+            for (Mf3Triangle tri : triangles) {
+                Integer pid = tri.getPid() != null ? tri.getPid() : obj.getPid();
+                Integer pindex = tri.getPindex() != null ? tri.getPindex() : obj.getPindex();
+                String key = (pid != null && pindex != null) ? (pid + ":" + pindex) : "default";
+
+                groupedTriangles.computeIfAbsent(key, k -> new ArrayList<>()).add(tri);
+            }
+
+            for (Map.Entry<String, List<Mf3Triangle>> entry : groupedTriangles.entrySet()) {
+                String materialKey = entry.getKey();
+                List<Mf3Triangle> tris = entry.getValue();
+
+                Integer color = null;
+                if (!"default".equals(materialKey)) {
+                    String[] materialParts = materialKey.split(":");
+                    int pid = Integer.parseInt(materialParts[0]);
+                    int pindex = Integer.parseInt(materialParts[1]);
+                    Mf3BaseMaterials bm = materialsMap.get(pid);
+                    if (bm != null && pindex >= 0 && pindex < bm.getBases().size()) {
+                        color = parseColor(bm.getBases().get(pindex).getDisplayColor());
+                    }
+                }
+
+                allParts.add(new Mf3MeshPart("mf3_obj_" + obj.id() + "_" + materialKey, color, tris, vertices));
+            }
+        }
+        return allParts;
+    }
+
+    private Integer parseColor(String colorStr) {
+        if (colorStr == null || !colorStr.startsWith("#")) {
+            return null;
+        }
+        try {
+            String hex = colorStr.substring(1);
+            if (hex.length() >= 6) {
+                return Integer.parseInt(hex.substring(0, 6), 16);
+            }
+        } catch (Exception e) {
+            // ignore
+        }
+        return null;
+    }
+
+    private record Mf3MeshPart(String name, Integer color, List<Mf3Triangle> mf3Triangles, List<Vector3f> vertices) implements MeshPart {
+        @Override
+        public List<? extends Triangle> triangles() {
+            List<Triangle> result = new ArrayList<>(mf3Triangles.size());
+            for (Mf3Triangle tri : mf3Triangles) {
+                result.add(new Triangle() {
+                    @Override public Vector3f v1() { return vertices.get(tri.v1()); }
+                    @Override public Vector3f v2() { return vertices.get(tri.v2()); }
+                    @Override public Vector3f v3() { return vertices.get(tri.v3()); }
+                    @Override public Vector3f normal() { return null; }
+                });
+            }
+            return result;
+        }
     }
 
     /**

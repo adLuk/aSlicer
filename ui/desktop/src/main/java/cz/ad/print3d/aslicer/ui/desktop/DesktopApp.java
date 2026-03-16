@@ -1,3 +1,20 @@
+/*
+ * aSlicer - 3D model processing tool.
+ * Copyright (C) 2026 cz.ad.print3d.aslicer contributors
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 package cz.ad.print3d.aslicer.ui.desktop;
 
 import com.badlogic.gdx.ApplicationListener;
@@ -6,12 +23,7 @@ import com.badlogic.gdx.Input;
 import com.badlogic.gdx.InputMultiplexer;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Application;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration;
-import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.graphics.GL20;
-import com.badlogic.gdx.graphics.PerspectiveCamera;
-import com.badlogic.gdx.graphics.Pixmap;
-import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.VertexAttributes;
+import com.badlogic.gdx.graphics.*;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.g3d.Environment;
@@ -21,23 +33,14 @@ import com.badlogic.gdx.graphics.g3d.ModelInstance;
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
 import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight;
 import com.badlogic.gdx.graphics.g3d.utils.CameraInputController;
-import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.Stage;
-import com.badlogic.gdx.scenes.scene2d.ui.ImageButton;
-import com.badlogic.gdx.scenes.scene2d.ui.Label;
-import com.badlogic.gdx.scenes.scene2d.ui.Skin;
-import com.badlogic.gdx.scenes.scene2d.ui.Table;
-import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
-import com.badlogic.gdx.scenes.scene2d.ui.Window;
+import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
-import cz.ad.print3d.aslicer.logic.model.format.mf3.core.Mf3Model;
-import cz.ad.print3d.aslicer.logic.model.format.stl.StlModel;
-import cz.ad.print3d.aslicer.logic.model.parser.mf3.Mf3Parser;
-import cz.ad.print3d.aslicer.logic.model.parser.stl.StlParser;
+import cz.ad.print3d.aslicer.logic.model.parser.ModelParserFactory;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.util.tinyfd.TinyFileDialogs;
@@ -47,11 +50,9 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.util.Properties;
 
 public class DesktopApp implements ApplicationListener {
@@ -481,62 +482,25 @@ public class DesktopApp implements ApplicationListener {
 
     private void loadModel(String filePath) {
         if (filePath == null) return;
-        if (filePath.toLowerCase().endsWith(".3mf")) {
-            Mf3Model mf3Model = loadMf3Model(filePath);
-            if (mf3Model != null) {
-                LOGGER.info("Loaded 3MF model with {} objects", mf3Model.objects().size());
+        Path path = Paths.get(filePath);
+        if (!java.nio.file.Files.exists(path)) {
+            LOGGER.error("Model file not found at: {}", path.toAbsolutePath());
+            return;
+        }
+
+        try {
+            cz.ad.print3d.aslicer.logic.model.Model modelData = ModelParserFactory.parse(path);
+            if (modelData != null) {
+                LOGGER.info("Loaded model from {}", filePath);
                 currentModelPath = filePath;
                 if (model != null) {
                     model.dispose();
                 }
-                model = Mf3GdxConverter.convertToGdxModel(mf3Model);
+                model = ModelGdxConverter.convertToGdxModel(modelData);
                 instance = new ModelInstance(model);
-            } else {
-                LOGGER.warn("Failed to load 3MF: {}", filePath);
             }
-        } else {
-            StlModel stlModel = loadStlModel(filePath);
-            if (stlModel != null) {
-                LOGGER.info("Loaded STL model with {} facets", stlModel.facetCount());
-                currentModelPath = filePath;
-                if (model != null) {
-                    model.dispose();
-                }
-                model = StlGdxConverter.convertToGdxModel(stlModel);
-                instance = new ModelInstance(model);
-            } else {
-                LOGGER.warn("Failed to load STL: {}", filePath);
-            }
-        }
-    }
-
-    private Mf3Model loadMf3Model(String pathStr) {
-        Path path = Paths.get(pathStr);
-        if (!java.nio.file.Files.exists(path)) {
-            LOGGER.error("3MF file not found at: {}", path.toAbsolutePath());
-            return null;
-        }
-        try (FileChannel channel = FileChannel.open(path, StandardOpenOption.READ)) {
-            Mf3Parser parser = new Mf3Parser();
-            return parser.parse(channel);
         } catch (IOException e) {
-            LOGGER.error("Error parsing 3MF file: {}", pathStr, e);
-            return null;
-        }
-    }
-
-    private StlModel loadStlModel(String pathStr) {
-        Path path = Paths.get(pathStr);
-        if (!java.nio.file.Files.exists(path)) {
-            LOGGER.error("STL file not found at: {}", path.toAbsolutePath());
-            return null;
-        }
-        try (FileChannel channel = FileChannel.open(path, StandardOpenOption.READ)) {
-            StlParser parser = new StlParser();
-            return parser.parse(channel);
-        } catch (IOException e) {
-            LOGGER.error("Error parsing STL file: {}", pathStr, e);
-            return null;
+            LOGGER.error("Error parsing model file: {}", filePath, e);
         }
     }
 

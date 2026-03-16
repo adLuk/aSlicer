@@ -18,22 +18,24 @@
 package cz.ad.print3d.aslicer.logic.model.parser;
 
 import cz.ad.print3d.aslicer.logic.model.Model;
+import cz.ad.print3d.aslicer.logic.model.parser.mf3.Mf3Parser;
+import cz.ad.print3d.aslicer.logic.model.parser.stl.StlParser;
 
 import java.io.IOException;
-import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.FileChannel;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 
-/**
- * Interface for parsing 3D model data from a binary input channel.
- *
- * @param <T> the type of model to parse
- */
-public interface ModelParser<T extends Model> {
-    /**
-     * Parses the binary content from the given channel and returns a model.
-     *
-     * @param channel the input binary channel
-     * @return the parsed model
-     * @throws IOException if an I/O error occurs during parsing
-     */
-    T parse(ReadableByteChannel channel) throws IOException;
+public class ModelParserFactory {
+    public static Model parse(Path path) throws IOException {
+        String fileName = path.getFileName().toString().toLowerCase();
+        try (FileChannel channel = FileChannel.open(path, StandardOpenOption.READ)) {
+            if (fileName.endsWith(".stl")) {
+                return new StlParser().parse(channel);
+            } else if (fileName.endsWith(".3mf")) {
+                return new Mf3Parser().parse(channel);
+            }
+        }
+        throw new IOException("Unsupported file format: " + fileName);
+    }
 }
