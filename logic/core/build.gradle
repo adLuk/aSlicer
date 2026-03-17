@@ -21,11 +21,14 @@ plugins {
 
 repositories {
     mavenCentral()
+    maven { url 'https://jitpack.io' }
 }
 
 dependencies {
     api project(':logic:model')
     implementation "com.badlogicgames.gdx:gdx:1.12.1"
+    // Source: https://github.com/micycle1/Clipper2-java
+    implementation("com.github.micycle1:Clipper2-java:v1.3.0-SNAPSHOT")
     
     testImplementation platform('org.junit:junit-bom:5.10.2')
     testImplementation 'org.junit.jupiter:junit-jupiter'
