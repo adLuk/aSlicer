@@ -19,20 +19,26 @@ package cz.ad.print3d.aslicer.ui.desktop;
 
 import com.badlogic.gdx.ApplicationListener;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
+import com.badlogic.gdx.InputAdapter;
 import com.badlogic.gdx.InputMultiplexer;
+import com.badlogic.gdx.InputProcessor;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Application;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration;
 import com.badlogic.gdx.graphics.*;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g3d.Environment;
+import com.badlogic.gdx.graphics.g3d.Material;
 import com.badlogic.gdx.graphics.g3d.Model;
 import com.badlogic.gdx.graphics.g3d.ModelBatch;
 import com.badlogic.gdx.graphics.g3d.ModelInstance;
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
 import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight;
 import com.badlogic.gdx.graphics.g3d.utils.CameraInputController;
+import com.badlogic.gdx.math.Intersector;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.math.collision.BoundingBox;
+import com.badlogic.gdx.math.collision.Ray;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.utils.Array;
@@ -102,6 +108,11 @@ public class DesktopApp implements ApplicationListener {
     public final Array<String> loadedModelPaths = new Array<>();
 
     /**
+     * Indices of the currently selected models.
+     */
+    public final Array<Integer> selectedIndices = new Array<>();
+
+    /**
      * Temporary vector for calculations.
      */
     private final Vector3 tempVector = new Vector3();
@@ -135,6 +146,11 @@ public class DesktopApp implements ApplicationListener {
      * Window for listing loaded models.
      */
     public ModelListWindow modelListWindow;
+
+    /**
+     * Input processor for handling model selection in the 3D scene.
+     */
+    public InputProcessor selectionProcessor;
 
     /**
      * Grid rendered on the ground.
@@ -273,11 +289,41 @@ public class DesktopApp implements ApplicationListener {
         lastDir = dto.getLastDir();
 
         setupUI();
+        selectionProcessor = new InputAdapter() {
+            @Override
+            public boolean touchDown(int screenX, int screenY, int pointer, int button) {
+                if (button == Input.Buttons.LEFT) {
+                    int index = getObject(screenX, screenY);
+                    if (index >= 0) {
+                        if (Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT) || Gdx.input.isKeyPressed(Input.Keys.CONTROL_RIGHT)) {
+                            if (selectedIndices.contains(index, true)) {
+                                selectedIndices.removeValue(index, true);
+                            } else {
+                                selectedIndices.add(index);
+                            }
+                        } else {
+                            selectedIndices.clear();
+                            selectedIndices.add(index);
+                        }
+                    } else {
+                        if (!Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT) && !Gdx.input.isKeyPressed(Input.Keys.CONTROL_RIGHT)) {
+                            selectedIndices.clear();
+                        }
+                    }
+                    updateHighlights();
+                    if (modelListWindow != null) {
+                        modelListWindow.setSelectedIndices(selectedIndices);
+                    }
+                }
+                return false; // Let camera controller handle rotation
+            }
+        };
 
         InputMultiplexer multiplexer = new InputMultiplexer();
         if (stage != null) {
             multiplexer.addProcessor(stage);
         }
+        multiplexer.addProcessor(selectionProcessor);
         multiplexer.addProcessor(camController);
         Gdx.input.setInputProcessor(multiplexer);
 
@@ -374,7 +420,7 @@ public class DesktopApp implements ApplicationListener {
         stage.addActor(root);
     }
 
-    private Skin createSkin() {
+    public Skin createSkin() {
         Skin skin = new Skin();
         Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
         pixmap.setColor(Color.WHITE);
@@ -443,13 +489,24 @@ public class DesktopApp implements ApplicationListener {
                 public void onDuplicateModel(int index) {
                     duplicateModel(index);
                 }
+
+                @Override
+                public void onSelectModels(Array<Integer> indices) {
+                    selectedIndices.clear();
+                    selectedIndices.addAll(indices);
+                    updateHighlights();
+                }
             });
-            stage.addActor(modelListWindow);
+            modelListWindow.setSelectedIndices(selectedIndices);
+            if (stage != null) {
+                stage.addActor(modelListWindow);
+            }
         } else {
             modelListWindow.setVisible(!modelListWindow.isVisible());
             if (modelListWindow.isVisible()) {
                 modelListWindow.toFront();
-                modelListWindow.updateList();
+                modelListWindow.setSelectedIndices(selectedIndices);
+                modelListWindow.updateList(false);
             }
         }
     }
@@ -490,6 +547,67 @@ public class DesktopApp implements ApplicationListener {
         String path = loadedModelPaths.get(index);
         LOGGER.info("Duplicating model at index {}: {}", index, path);
         loadModel(path);
+    }
+
+    /**
+     * Identifies the model instance at the specified screen coordinates using ray casting.
+     * <p>
+     * This method projects a ray from the camera through the screen coordinates and
+     * tests for intersection with the bounding boxes of all model instances in the scene.
+     * If multiple instances intersect the ray, the one closest to the camera is returned.
+     * </p>
+     *
+     * @param screenX the x-coordinate of the mouse click in screen space
+     * @param screenY the y-coordinate of the mouse click in screen space
+     * @return the index of the intersected model instance, or -1 if no intersection is found
+     */
+    public int getObject(int screenX, int screenY) {
+        Ray ray = cam.getPickRay(screenX, screenY);
+        int result = -1;
+        float distance = -1;
+
+        for (int i = 0; i < instances.size; ++i) {
+            final ModelInstance instance = instances.get(i);
+            instance.calculateBoundingBox(tempBounds);
+            tempBounds.mul(instance.transform);
+
+            if (Intersector.intersectRayBounds(ray, tempBounds, tempVector)) {
+                float dist2 = ray.origin.dst2(tempVector);
+                if (result == -1 || dist2 < distance) {
+                    result = i;
+                    distance = dist2;
+                }
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Updates the material highlights of all model instances in the scene
+     * based on the current selection.
+     * <p>
+     * Selected models are highlighted using a distinct color (orange).
+     * Unselected models have their original material colors restored from
+     * the underlying GDX models.
+     * </p>
+     */
+    public void updateHighlights() {
+        for (int i = 0; i < instances.size; i++) {
+            ModelInstance inst = instances.get(i);
+            Model model = models.get(i);
+            boolean selected = selectedIndices.contains(i, false);
+
+            for (int j = 0; j < inst.materials.size; j++) {
+                Material instMat = inst.materials.get(j);
+                if (selected) {
+                    instMat.set(ColorAttribute.createDiffuse(Color.ORANGE));
+                } else {
+                    // Restore from original model material
+                    Material modelMat = model.materials.get(j);
+                    instMat.set(modelMat.get(ColorAttribute.Diffuse));
+                }
+            }
+        }
     }
 
     /**

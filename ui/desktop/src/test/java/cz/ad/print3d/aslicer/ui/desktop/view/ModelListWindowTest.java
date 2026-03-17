@@ -86,6 +86,11 @@ public class ModelListWindowTest {
                                 windowRef[0].updateList();
                             }
                         }
+
+                        @Override
+                        public void onSelectModels(Array<Integer> indices) {
+                            // Mock implementation for test
+                        }
                     });
                     ModelListWindow window = windowRef[0];
                     assertNotNull(window);

@@ -76,6 +76,13 @@ public class ModelListWindow extends Window {
          * @param index the zero-based index of the model to be duplicated
          */
         void onDuplicateModel(int index);
+
+        /**
+         * Called when the selection of models changes in the UI.
+         *
+         * @param indices the indices of the currently selected models
+         */
+        void onSelectModels(Array<Integer> indices);
     }
 
     /**
@@ -147,7 +154,7 @@ public class ModelListWindow extends Window {
         listTable = new Table(skin);
         listTable.top().left();
 
-        updateList();
+        updateList(false);
 
         ScrollPane scrollPane = new ScrollPane(listTable, skin);
         scrollPane.setFadeScrollBars(false);
@@ -165,6 +172,15 @@ public class ModelListWindow extends Window {
      * </p>
      */
     public void updateList() {
+        updateList(true);
+    }
+
+    /**
+     * Updates the displayed list of models with an option to suppress selection change notification.
+     *
+     * @param notify true to notify the listener about selection changes, false otherwise
+     */
+    public void updateList(boolean notify) {
         boolean needsRebuild = false;
         if (listItems.size == modelPaths.size) {
             for (int i = 0; i < listItems.size; i++) {
@@ -192,6 +208,9 @@ public class ModelListWindow extends Window {
         }
 
         rebuildTable();
+        if (notify) {
+            notifySelectionChanged();
+        }
     }
 
     /**
@@ -318,6 +337,44 @@ public class ModelListWindow extends Window {
             selection.add(item);
         }
         rebuildTable();
+        notifySelectionChanged();
+    }
+
+    /**
+     * Updates the selection in the list to match the specified indices.
+     * This method is used when models are selected from outside the list, e.g., via 3D picking.
+     *
+     * @param indices the indices of models to select
+     */
+    public void setSelectedIndices(Array<Integer> indices) {
+        list.getSelection().clear();
+        for (Integer index : indices) {
+            if (index >= 0 && index < listItems.size) {
+                list.getSelection().add(listItems.get(index));
+            }
+        }
+        rebuildTable();
+    }
+
+    /**
+     * Notifies the listener about the current selection of models.
+     * <p>
+     * Collects all selected indices from the underlying {@link List} and
+     * passes them to the {@link ModelListListener#onSelectModels(Array)} method.
+     * </p>
+     */
+    private void notifySelectionChanged() {
+        if (listener != null) {
+            Array<Integer> selectedIndices = new Array<>();
+            Selection<ModelListItem> selection = list.getSelection();
+            for (ModelListItem item : selection) {
+                int index = listItems.indexOf(item, true);
+                if (index != -1) {
+                    selectedIndices.add(index);
+                }
+            }
+            listener.onSelectModels(selectedIndices);
+        }
     }
 
     /**
