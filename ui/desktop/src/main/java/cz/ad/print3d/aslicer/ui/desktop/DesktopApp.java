@@ -319,7 +319,17 @@ public class DesktopApp implements ApplicationListener {
 
     private void toggleModelListWindow() {
         if (modelListWindow == null) {
-            modelListWindow = new ModelListWindow(skin, loadedModelPaths);
+            modelListWindow = new ModelListWindow(skin, loadedModelPaths, new ModelListWindow.ModelListListener() {
+                @Override
+                public void onRemoveModel(int index) {
+                    removeModel(index);
+                }
+
+                @Override
+                public void onDuplicateModel(int index) {
+                    duplicateModel(index);
+                }
+            });
             stage.addActor(modelListWindow);
         } else {
             modelListWindow.setVisible(!modelListWindow.isVisible());
@@ -328,6 +338,43 @@ public class DesktopApp implements ApplicationListener {
                 modelListWindow.updateList();
             }
         }
+    }
+
+    /**
+     * Removes a loaded model from the application state, disposing of its resources
+     * and updating the scene and UI accordingly.
+     *
+     * @param index the index of the model to remove from the loaded files
+     */
+    void removeModel(int index) {
+        if (index < 0 || index >= loadedModelPaths.size) return;
+
+        LOGGER.info("Removing model at index {}: {}", index, loadedModelPaths.get(index));
+
+        loadedModelPaths.removeIndex(index);
+        Model gdxModel = models.removeIndex(index);
+        if (gdxModel != null) {
+            gdxModel.dispose();
+        }
+        instances.removeIndex(index);
+
+        if (modelListWindow != null) {
+            modelListWindow.updateList();
+        }
+    }
+
+    /**
+     * Duplicates a loaded model at the specified index, creating a new instance
+     * in the scene and adding it to the list of loaded models.
+     *
+     * @param index the index of the model to duplicate
+     */
+    void duplicateModel(int index) {
+        if (index < 0 || index >= loadedModelPaths.size) return;
+
+        String path = loadedModelPaths.get(index);
+        LOGGER.info("Duplicating model at index {}: {}", index, path);
+        loadModel(path);
     }
 
     /**
