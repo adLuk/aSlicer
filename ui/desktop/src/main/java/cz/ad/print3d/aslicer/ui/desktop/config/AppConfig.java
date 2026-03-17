@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package cz.ad.print3d.aslicer.ui.desktop;
+package cz.ad.print3d.aslicer.ui.desktop.config;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,7 +35,7 @@ import java.util.Properties;
  */
 public class AppConfig {
     private static final Logger LOGGER = LoggerFactory.getLogger(AppConfig.class);
-    static Path CONFIG_PATH = Paths.get(System.getProperty("user.home"), ".aSlicer-desktop.properties");
+    public static Path CONFIG_PATH = Paths.get(System.getProperty("user.home"), ".aslicer", "aslicer.properties");
 
     private final Properties props;
 
@@ -59,8 +59,11 @@ public class AppConfig {
      * Saves the current properties to the configuration file.
      */
     public void save() {
-        try (OutputStream os = Files.newOutputStream(CONFIG_PATH)) {
-            props.store(os, "aSlicer Desktop Settings");
+        try {
+            Files.createDirectories(CONFIG_PATH.getParent());
+            try (OutputStream os = Files.newOutputStream(CONFIG_PATH)) {
+                props.store(os, "aSlicer Desktop Settings");
+            }
         } catch (IOException e) {
             LOGGER.error("Could not save config: {}", e.getMessage());
         }

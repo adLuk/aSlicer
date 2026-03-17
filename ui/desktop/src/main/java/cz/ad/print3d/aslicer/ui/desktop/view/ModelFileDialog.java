@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package cz.ad.print3d.aslicer.ui.desktop;
+package cz.ad.print3d.aslicer.ui.desktop.view;
 
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
@@ -33,17 +33,18 @@ import java.nio.file.Paths;
 public class ModelFileDialog {
 
     /**
-     * Shows a native open file dialog for 3D model files (*.stl, *.ast, *.3mf).
+     * Shows a native open file dialog for 3D model files (*.stl, *.ast, *.3mf, *.gcode).
      *
      * @param lastDir the initial directory to show in the dialog
      * @return an array of absolute paths of the selected files, or null if canceled
      */
     public String[] showOpenDialog(String lastDir) {
         try (MemoryStack stack = MemoryStack.stackPush()) {
-            PointerBuffer filters = stack.mallocPointer(3);
+            PointerBuffer filters = stack.mallocPointer(4);
             filters.put(stack.UTF8("*.stl"));
             filters.put(stack.UTF8("*.ast"));
             filters.put(stack.UTF8("*.3mf"));
+            filters.put(stack.UTF8("*.gcode"));
             filters.flip();
 
             String result = openNativeDialog("Open 3D Model Files", lastDir, filters, "3D Model Files");

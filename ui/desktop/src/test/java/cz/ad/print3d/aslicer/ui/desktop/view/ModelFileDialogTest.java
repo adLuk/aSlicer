@@ -15,7 +15,11 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package cz.ad.print3d.aslicer.ui.desktop;
+package cz.ad.print3d.aslicer.ui.desktop.view;
+import cz.ad.print3d.aslicer.ui.desktop.DesktopApp;
+import cz.ad.print3d.aslicer.ui.desktop.config.*;
+import cz.ad.print3d.aslicer.ui.desktop.persistence.*;
+import cz.ad.print3d.aslicer.ui.desktop.view.*;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

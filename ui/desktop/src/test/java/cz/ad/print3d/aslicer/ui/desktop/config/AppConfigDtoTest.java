@@ -15,7 +15,11 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package cz.ad.print3d.aslicer.ui.desktop;
+package cz.ad.print3d.aslicer.ui.desktop.config;
+import cz.ad.print3d.aslicer.ui.desktop.DesktopApp;
+import cz.ad.print3d.aslicer.ui.desktop.config.*;
+import cz.ad.print3d.aslicer.ui.desktop.persistence.*;
+import cz.ad.print3d.aslicer.ui.desktop.view.*;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,7 +44,7 @@ public class AppConfigDtoTest {
     @BeforeEach
     void setUp() {
         originalConfigPath = AppConfig.CONFIG_PATH;
-        AppConfig.CONFIG_PATH = tempDir.resolve(".aSlicer-desktop-test.properties");
+        AppConfig.CONFIG_PATH = tempDir.resolve(".aslicer").resolve("aslicer-test.properties");
     }
 
     @AfterEach

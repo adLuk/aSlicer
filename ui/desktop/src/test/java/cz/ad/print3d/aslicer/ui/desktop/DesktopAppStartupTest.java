@@ -1,4 +1,7 @@
 package cz.ad.print3d.aslicer.ui.desktop;
+import cz.ad.print3d.aslicer.ui.desktop.config.*;
+import cz.ad.print3d.aslicer.ui.desktop.persistence.*;
+import cz.ad.print3d.aslicer.ui.desktop.view.*;
 
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
@@ -25,16 +28,20 @@ public class DesktopAppStartupTest {
     Path tempDir;
 
     private Path originalConfigPath;
+    private Path originalWorkspacePath;
 
     @BeforeEach
     void setUp() {
         originalConfigPath = AppConfig.CONFIG_PATH;
-        AppConfig.CONFIG_PATH = tempDir.resolve(".aSlicer-desktop-startup.properties");
+        AppConfig.CONFIG_PATH = tempDir.resolve(".aslicer").resolve("startup.properties");
+        originalWorkspacePath = ScenePersistence.WORKSPACE_PATH;
+        ScenePersistence.WORKSPACE_PATH = tempDir.resolve(".aslicer").resolve("workspace.g3db");
     }
 
     @AfterEach
     void tearDown() {
         AppConfig.CONFIG_PATH = originalConfigPath;
+        ScenePersistence.WORKSPACE_PATH = originalWorkspacePath;
     }
 
     @Test
@@ -73,7 +80,7 @@ public class DesktopAppStartupTest {
 
                     DesktopApp app = new DesktopApp() {
                         @Override
-                        void setupUI() {
+                        public void setupUI() {
                             // No-op for headless tests
                         }
                     };
@@ -130,7 +137,7 @@ public class DesktopAppStartupTest {
 
                     DesktopApp app = new DesktopApp() {
                         @Override
-                        void setupUI() {
+                        public void setupUI() {
                             // No-op for headless tests
                         }
                     };
@@ -192,7 +199,7 @@ public class DesktopAppStartupTest {
 
                     DesktopApp app = new DesktopApp() {
                         @Override
-                        void setupUI() {
+                        public void setupUI() {
                             // No-op for headless tests
                         }
                     };

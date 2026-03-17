@@ -39,6 +39,10 @@ import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import cz.ad.print3d.aslicer.logic.core.ModelGdxConverter;
 import cz.ad.print3d.aslicer.logic.model.parser.ModelParserFactory;
+import cz.ad.print3d.aslicer.ui.desktop.config.AppConfig;
+import cz.ad.print3d.aslicer.ui.desktop.config.AppConfigDto;
+import cz.ad.print3d.aslicer.ui.desktop.persistence.ScenePersistence;
+import cz.ad.print3d.aslicer.ui.desktop.view.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,31 +56,115 @@ import java.nio.file.Paths;
  */
 public class DesktopApp implements ApplicationListener {
     private static final Logger LOGGER = LoggerFactory.getLogger(DesktopApp.class);
-    final AppConfig appConfig;
+    /**
+     * Application configuration handler.
+     */
+    public final AppConfig appConfig;
+
+    /**
+     * File dialog for selecting models.
+     */
     private final ModelFileDialog fileDialog;
 
-    PerspectiveCamera cam;
-    CameraInputController camController;
-    ModelBatch modelBatch;
-    final Array<Model> models = new Array<>();
-    final Array<ModelInstance> instances = new Array<>();
-    final Array<String> loadedModelPaths = new Array<>();
+    /**
+     * Scene persistence handler for workspace saving/loading.
+     */
+    private final ScenePersistence scenePersistence;
+
+    /**
+     * The perspective camera used for 3D visualization.
+     */
+    public PerspectiveCamera cam;
+
+    /**
+     * Controller for handling user camera input.
+     */
+    public CameraInputController camController;
+
+    /**
+     * Batch for rendering models.
+     */
+    public ModelBatch modelBatch;
+
+    /**
+     * List of loaded GDX models.
+     */
+    public final Array<Model> models = new Array<>();
+
+    /**
+     * List of rendered model instances in the scene.
+     */
+    public final Array<ModelInstance> instances = new Array<>();
+
+    /**
+     * List of file paths for the loaded models.
+     */
+    public final Array<String> loadedModelPaths = new Array<>();
+
+    /**
+     * Temporary vector for calculations.
+     */
     private final Vector3 tempVector = new Vector3();
+
+    /**
+     * Temporary bounding box for calculations.
+     */
     private final BoundingBox tempBounds = new BoundingBox();
-    Environment environment;
-    Stage stage;
-    Skin skin;
-    SettingsWindow settingsWindow;
-    ModelListWindow modelListWindow;
-    AppGrid appGrid;
-    int currentWidth;
-    int currentHeight;
-    String lastDir = "";
-    String currentModelPath;
+
+    /**
+     * 3D environment including lights.
+     */
+    public Environment environment;
+
+    /**
+     * 2D stage for UI components.
+     */
+    public Stage stage;
+
+    /**
+     * UI skin for styling.
+     */
+    public Skin skin;
+
+    /**
+     * Window for application settings.
+     */
+    public SettingsWindow settingsWindow;
+
+    /**
+     * Window for listing loaded models.
+     */
+    public ModelListWindow modelListWindow;
+
+    /**
+     * Grid rendered on the ground.
+     */
+    public AppGrid appGrid;
+
+    /**
+     * Current width of the application window.
+     */
+    public int currentWidth;
+
+    /**
+     * Current height of the application window.
+     */
+    public int currentHeight;
+
+    /**
+     * Last used directory for opening models.
+     */
+    public String lastDir = "";
+
+    /**
+     * Path to the last opened model.
+     */
+    public String currentModelPath;
 
     public DesktopApp() {
         this.appConfig = new AppConfig();
         this.fileDialog = new ModelFileDialog();
+        this.scenePersistence = new ScenePersistence();
     }
 
     public static void main(String[] args) {
@@ -97,7 +185,7 @@ public class DesktopApp implements ApplicationListener {
      * This includes window dimensions, the last used directory and file,
      * camera state, and user input settings.
      */
-    void saveAllConfig() {
+    public void saveAllConfig() {
         AppConfigDto dto = appConfig.loadToDto();
         dto.setWindowWidth(currentWidth);
         dto.setWindowHeight(currentHeight);
@@ -140,6 +228,7 @@ public class DesktopApp implements ApplicationListener {
             dto.setCameraTargetZ(camController.target.z);
         }
         appConfig.saveFromDto(dto);
+        scenePersistence.saveScene(loadedModelPaths, instances);
     }
 
     /**
@@ -192,22 +281,40 @@ public class DesktopApp implements ApplicationListener {
         multiplexer.addProcessor(camController);
         Gdx.input.setInputProcessor(multiplexer);
 
-        java.util.List<String> loadedFiles = dto.getLoadedFiles();
-        if (!loadedFiles.isEmpty()) {
-            LOGGER.info("Reloading {} files from previous session in preserved order", loadedFiles.size());
-            for (String file : loadedFiles) {
-                loadModel(file);
+        loadInitialScene();
+    }
+
+    /**
+     * Loads the initial scene state on application startup.
+     * It first attempts to load the scene from the workspace file (workspace.g3db).
+     * If no workspace file is found, it falls back to the list of loaded files from the application configuration.
+     * This method ensures that the 3D scene is restored to its previous state, including model transformations.
+     */
+    public void loadInitialScene() {
+        AppConfigDto dto = appConfig.loadToDto();
+        Array<ScenePersistence.SceneEntry> savedScene = scenePersistence.loadScene();
+        if (savedScene.size > 0) {
+            LOGGER.info("Restoring scene from workspace ({} models)", savedScene.size);
+            for (ScenePersistence.SceneEntry entry : savedScene) {
+                loadModel(entry.filePath, entry.transform);
             }
         } else {
-            LOGGER.info("No previously loaded models to restore; starting with a clean scene");
+            java.util.List<String> loadedFiles = dto.getLoadedFiles();
+            if (!loadedFiles.isEmpty()) {
+                LOGGER.info("No workspace found, falling back to reloading {} files from config", loadedFiles.size());
+                for (String file : loadedFiles) {
+                    loadModel(file);
+                }
+            } else {
+                LOGGER.info("Starting with a clean scene");
+            }
         }
     }
 
     /**
      * Sets up the user interface components (stage, skin, toolbar, etc.).
-     * Package-private to allow unit tests to override and avoid GL-related initializations.
      */
-    void setupUI() {
+    public void setupUI() {
         stage = new Stage(new ScreenViewport());
         skin = createSkin();
 
@@ -228,6 +335,7 @@ public class DesktopApp implements ApplicationListener {
                 if (modelListWindow != null) {
                     modelListWindow.updateList();
                 }
+                saveAllConfig();
                 LOGGER.info("Cleared all models");
             }
 
@@ -304,7 +412,10 @@ public class DesktopApp implements ApplicationListener {
         return skin;
     }
 
-    private void toggleSettingsWindow() {
+    /**
+     * Toggles the visibility of the settings window.
+     */
+    public void toggleSettingsWindow() {
         if (settingsWindow == null) {
             float initialGridSize = appGrid != null ? appGrid.getStep() : 5.0f;
             settingsWindow = new SettingsWindow(skin, camController, initialGridSize, this::updateGrid, this::saveAllConfig);
@@ -317,7 +428,10 @@ public class DesktopApp implements ApplicationListener {
         }
     }
 
-    private void toggleModelListWindow() {
+    /**
+     * Toggles the visibility of the model list window.
+     */
+    public void toggleModelListWindow() {
         if (modelListWindow == null) {
             modelListWindow = new ModelListWindow(skin, loadedModelPaths, new ModelListWindow.ModelListListener() {
                 @Override
@@ -346,7 +460,7 @@ public class DesktopApp implements ApplicationListener {
      *
      * @param index the index of the model to remove from the loaded files
      */
-    void removeModel(int index) {
+    public void removeModel(int index) {
         if (index < 0 || index >= loadedModelPaths.size) return;
 
         LOGGER.info("Removing model at index {}: {}", index, loadedModelPaths.get(index));
@@ -361,6 +475,7 @@ public class DesktopApp implements ApplicationListener {
         if (modelListWindow != null) {
             modelListWindow.updateList();
         }
+        scenePersistence.saveScene(loadedModelPaths, instances);
     }
 
     /**
@@ -369,7 +484,7 @@ public class DesktopApp implements ApplicationListener {
      *
      * @param index the index of the model to duplicate
      */
-    void duplicateModel(int index) {
+    public void duplicateModel(int index) {
         if (index < 0 || index >= loadedModelPaths.size) return;
 
         String path = loadedModelPaths.get(index);
@@ -393,14 +508,24 @@ public class DesktopApp implements ApplicationListener {
     }
 
     /**
-     * Loads a 3D model from the given path, converts it to a GDX model, computes
-     * its non-colliding placement near already loaded instances (ensuring the bottom
-     * is at Z=0) and adds it to the scene.
-     * Package-private to allow unit tests in the same package to exercise loading logic.
+     * Loads a model from the specified file path and adds it to the scene.
+     *
+     * @param filePath the path to the model file to load
+     */
+    public void loadModel(String filePath) {
+        loadModel(filePath, null);
+    }
+
+    /**
+     * Loads a 3D model from the given path, converts it to a GDX model, and adds it to the scene
+     * with an optional pre-defined transformation.
+     * If the transformation is null, the model is automatically placed near already loaded instances.
+     * This method automatically triggers a scene persistence save on success.
      *
      * @param filePath the path to the 3D model file to load
+     * @param transform the optional transformation to apply; if null, automatic placement is used
      */
-    void loadModel(String filePath) {
+    public void loadModel(String filePath, com.badlogic.gdx.math.Matrix4 transform) {
         if (filePath == null) return;
         Path path = Paths.get(filePath);
         if (!java.nio.file.Files.exists(path)) {
@@ -418,13 +543,19 @@ public class DesktopApp implements ApplicationListener {
                 Model gdxModel = ModelGdxConverter.convertToGdxModel(modelData);
                 ModelInstance gdxInstance = new ModelInstance(gdxModel);
 
-                placeNearExisting(gdxInstance);
+                if (transform != null) {
+                    gdxInstance.transform.set(transform);
+                    LOGGER.debug("Applying pre-defined transform for {}", filePath);
+                } else {
+                    placeNearExisting(gdxInstance);
+                }
 
                 models.add(gdxModel);
                 instances.add(gdxInstance);
                 if (modelListWindow != null) {
                     modelListWindow.updateList();
                 }
+                scenePersistence.saveScene(loadedModelPaths, instances);
                 LOGGER.info("Successfully loaded and placed model from {}", filePath);
             }
         } catch (IOException e) {
