@@ -20,6 +20,7 @@ package cz.ad.print3d.aslicer.logic.model.parser;
 import cz.ad.print3d.aslicer.logic.model.Model;
 import cz.ad.print3d.aslicer.logic.model.parser.mf3.Mf3Parser;
 import cz.ad.print3d.aslicer.logic.model.parser.stl.StlParser;
+import cz.ad.print3d.aslicer.logic.model.parser.gcode.GCodeModelParser;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
@@ -34,6 +35,8 @@ public class ModelParserFactory {
                 return new StlParser().parse(channel);
             } else if (fileName.endsWith(".3mf")) {
                 return new Mf3Parser().parse(channel);
+            } else if (fileName.endsWith(".gcode")) {
+                return new GCodeModelParser().parse(channel);
             }
         }
         throw new IOException("Unsupported file format: " + fileName);
