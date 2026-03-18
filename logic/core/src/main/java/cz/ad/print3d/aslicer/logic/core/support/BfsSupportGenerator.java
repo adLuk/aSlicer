@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package cz.ad.print3d.aslicer.logic.core;
+package cz.ad.print3d.aslicer.logic.core.support;
 
 import com.badlogic.gdx.graphics.VertexAttributes;
 import com.badlogic.gdx.graphics.g3d.Model;
@@ -34,28 +34,24 @@ import java.nio.ShortBuffer;
 import java.util.*;
 
 /**
- * SupportGenerator implements support structure generation for 3D models.
- * It uses a Geometric Breadth-First Search (BFS) to identify connected overhang regions
- * and Greedy Merging (Polygon Union) to optimize support areas.
- *
- * The algorithm follows these steps:
- * 1. Mesh Extraction: Extracts all triangles from the provided LibGDX Model.
- * 2. Adjacency Building: Constructs a mesh adjacency graph by identifying shared edges between triangles.
- * 3. Overhang Detection: Marks triangles whose normals form an angle with the negative vertical axis (Y)
- *    smaller than the specified threshold.
- * 4. Geometric BFS Clustering: Uses BFS to group connected overhang triangles into independent "islands".
- *    This allows the generator to handle separate overhanging features individually.
- * 5. Layer Projection: For each layer height, identifies all overhang islands located above that height.
- * 6. Greedy Merging: Projects the triangles of these islands onto the layer plane and performs a
- *    boolean Union operation (Greedy Merging) to create continuous support regions.
- * 7. Collision Avoidance: Subtracts the model's own cross-section at each layer (offset by a gap)
- *    to ensure the support structures do not fuse with the model's vertical walls.
+ * BfsSupportGenerator implements support structure generation by identifying
+ * connected overhang regions using a Geometric Breadth-First Search (BFS).
+ * <br/>
+ * This generator projects identified overhang areas downward and merges them
+ * using boolean operations (Clipper2) to form optimized support structures.
+ * <br/>
+ * Collision avoidance is performed at each layer to maintain a specific gap
+ * between the support structure and the model's walls.
  */
-public class SupportGenerator {
+public class BfsSupportGenerator implements SupportGenerator {
 
     private static final double SCALE = 1000.0;
     private float overhangThreshold = 45.0f; // degrees from horizontal
     private float supportGap = 0.2f; // distance between support and model
+    private float maxBranchAngle = 45.0f;
+    private float branchDiameter = 1.0f;
+    private float collisionDetail = 0.1f;
+    private Paths64 buildPlateBoundaries = new Paths64();
 
     /**
      * Internal representation of a triangle with normal and adjacency support.
@@ -122,34 +118,37 @@ public class SupportGenerator {
         }
     }
 
-    /**
-     * Sets the overhang threshold angle (in degrees).
-     * Any surface with an angle to the horizontal plane less than this threshold requires support.
-     * This is equivalent to checking the angle between the normal and the negative Y axis.
-     *
-     * @param degrees Angle in degrees (e.g. 45).
-     */
+    @Override
     public void setOverhangThreshold(float degrees) {
         this.overhangThreshold = degrees;
     }
 
-    /**
-     * Sets the gap between the support structure and the model.
-     *
-     * @param gap Gap distance (in mm).
-     */
+    @Override
     public void setSupportGap(float gap) {
         this.supportGap = gap;
     }
 
-    /**
-     * Generates support areas for each layer of the model.
-     *
-     * @param model       The GDX model to analyze.
-     * @param layerHeight The height of each layer.
-     * @param modelLayers The sliced boundaries of the model itself for each layer (to avoid collisions).
-     * @return A list of Paths64 representing the support areas for each layer.
-     */
+    @Override
+    public void setMaxBranchAngle(float degrees) {
+        this.maxBranchAngle = degrees;
+    }
+
+    @Override
+    public void setBranchDiameter(float diameter) {
+        this.branchDiameter = diameter;
+    }
+
+    @Override
+    public void setCollisionDetail(float detail) {
+        this.collisionDetail = detail;
+    }
+
+    @Override
+    public void setBuildPlateBoundaries(Paths64 boundaries) {
+        this.buildPlateBoundaries = boundaries;
+    }
+
+    @Override
     public List<Paths64> generateSupport(Model model, float layerHeight, List<Paths64> modelLayers) {
         List<Triangle> triangles = extractTriangles(model);
         if (triangles.isEmpty()) {
@@ -296,14 +295,8 @@ public class SupportGenerator {
         }
     }
 
-    /**
-     * Identifies overhang triangles based on the surface normal.
-     * A triangle is an overhang if the angle between its normal and the negative Y axis
-     * is less than the threshold angle.
-     *
-     * @param triangles The list of triangles to analyze.
-     */
-    private void detectOverhangs(List<Triangle> triangles) {
+    @Override
+    public void detectOverhangs(List<Triangle> triangles) {
         // Overhang if normal angle with -Y is small.
         // n . (0, -1, 0) = -n.y
         // We want angle < threshold, so cos(angle) > cos(threshold)
@@ -312,7 +305,11 @@ public class SupportGenerator {
 
         for (Triangle tri : triangles) {
             if (-tri.normal.y > minDot) {
-                tri.isOverhang = true;
+                // To avoid generating support for the bottom face of a cube on the ground (Y=0),
+                // we only mark it as overhang if it's significantly above Y=0.
+                if (tri.getMinY() > 0.1f) {
+                    tri.isOverhang = true;
+                }
             }
         }
     }

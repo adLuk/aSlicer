@@ -34,7 +34,7 @@ import java.util.List;
 /**
  * Slicer implements 3D model slicing logic using Clipper2-java.
  * It processes GDX Model data and produces 2D polygons for each layer.
- * 
+ * <br/>
  * The slicing process consists of:
  * 1. Extracting all triangles from the GDX model.
  * 2. Calculating the bounding box to determine layer ranges.
@@ -75,6 +75,8 @@ public class Slicer {
         for (float sliceY = minY + layerHeight / 2; sliceY < maxY; sliceY += layerHeight) {
             Paths64 layerPaths = sliceLayer(triangles, sliceY);
             if (!layerPaths.isEmpty()) {
+                // Ensure correct winding order (outer CCW, holes CW)
+                layerPaths = Clipper.Union(layerPaths, clipper2.core.FillRule.EvenOdd);
                 layers.add(layerPaths);
             }
         }
