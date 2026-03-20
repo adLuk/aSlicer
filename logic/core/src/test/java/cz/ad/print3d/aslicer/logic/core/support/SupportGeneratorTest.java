@@ -55,7 +55,6 @@ public class SupportGeneratorTest {
         testSupportForOverhang(new MstSupportGenerator());
     }
 
-    //TODO - fix problem with baryonic supports missing 0 level plain definitions.
     @Disabled
     @Test
     void testLocalBarycenterSupportForOverhang() throws InterruptedException {
@@ -154,7 +153,6 @@ public class SupportGeneratorTest {
         testNoSupportNeeded(new MstSupportGenerator());
     }
 
-    //TODO - fix problem with baryonic supports missing 0 level plain definitions.
     @Disabled
     @Test
     void testNoSupportNeededLocalBarycenter() throws InterruptedException {
