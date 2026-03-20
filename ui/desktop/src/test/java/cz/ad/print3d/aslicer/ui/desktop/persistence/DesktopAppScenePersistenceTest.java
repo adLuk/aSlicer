@@ -16,16 +16,15 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 package cz.ad.print3d.aslicer.ui.desktop.persistence;
-import cz.ad.print3d.aslicer.ui.desktop.DesktopApp;
-import cz.ad.print3d.aslicer.ui.desktop.config.*;
-import cz.ad.print3d.aslicer.ui.desktop.persistence.*;
-import cz.ad.print3d.aslicer.ui.desktop.view.*;
 
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.backends.headless.HeadlessApplication;
 import com.badlogic.gdx.backends.headless.HeadlessApplicationConfiguration;
 import com.badlogic.gdx.math.Vector3;
+import cz.ad.print3d.aslicer.ui.desktop.DesktopApp;
+import cz.ad.print3d.aslicer.ui.desktop.GdxTestUtils;
+import cz.ad.print3d.aslicer.ui.desktop.config.AppConfig;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -74,27 +73,16 @@ public class DesktopAppScenePersistenceTest {
             @Override
             public void create() {
                 try {
-                    // Mock minimal GL20 for headless model building
-                    Gdx.gl20 = (com.badlogic.gdx.graphics.GL20) java.lang.reflect.Proxy.newProxyInstance(
-                            com.badlogic.gdx.graphics.GL20.class.getClassLoader(),
-                            new Class[]{com.badlogic.gdx.graphics.GL20.class},
-                            (proxy, method, args) -> {
-                                if (method.getName().equals("glGenBuffer") || method.getName().equals("glGenTexture")) return 1;
-                                if (method.getReturnType().equals(int.class)) return 0;
-                                if (method.getReturnType().equals(boolean.class)) return true;
-                                return null;
-                            }
-                    );
-                    Gdx.gl = Gdx.gl20;
-
+                    GdxTestUtils.mockGdxGL();
                     DesktopApp app = new DesktopApp();
                     java.nio.file.Path fileAPath = java.nio.file.Paths.get("..", "..", "logic", "model", "src", "test", "resources", "stl", "test-binary.stl").toAbsolutePath().normalize();
-                    app.loadModel(fileAPath.toString());
+                    app.create(); // Need to initialize modelManager
+                    app.modelManager.loadModel(fileAPath.toString());
 
                     assertTrue(Files.exists(ScenePersistence.WORKSPACE_PATH), "Workspace file should be created on loadModel");
                     
                     Vector3 pos = new Vector3();
-                    app.instances.get(0).transform.getTranslation(pos);
+                    app.modelManager.getInstances().get(0).transform.getTranslation(pos);
                     posRef.set(new Vector3(pos));
                     
                 } catch (Throwable t) {
@@ -117,25 +105,13 @@ public class DesktopAppScenePersistenceTest {
             @Override
             public void create() {
                 try {
-                    Gdx.gl20 = (com.badlogic.gdx.graphics.GL20) java.lang.reflect.Proxy.newProxyInstance(
-                            com.badlogic.gdx.graphics.GL20.class.getClassLoader(),
-                            new Class[]{com.badlogic.gdx.graphics.GL20.class},
-                            (proxy, method, args) -> {
-                                if (method.getName().equals("glGenBuffer") || method.getName().equals("glGenTexture")) return 1;
-                                if (method.getReturnType().equals(int.class)) return 0;
-                                if (method.getReturnType().equals(boolean.class)) return true;
-                                return null;
-                            }
-                    );
-                    Gdx.gl = Gdx.gl20;
-
+                    GdxTestUtils.mockGdxGL();
                     DesktopApp app = new DesktopApp();
-                    // Call loadInitialScene() which should load from workspace
-                    app.loadInitialScene();
+                    app.create(); // Initializes modelManager and loads initial scene
                     
-                    assertEquals(1, app.instances.size, "Should have loaded 1 model from workspace");
+                    assertEquals(1, app.modelManager.getInstances().size, "Should have loaded 1 model from workspace");
                     Vector3 pos = new Vector3();
-                    app.instances.get(0).transform.getTranslation(pos);
+                    app.modelManager.getInstances().get(0).transform.getTranslation(pos);
                     assertEquals(posRef.get().x, pos.x, 0.001f);
                     assertEquals(posRef.get().y, pos.y, 0.001f);
                     assertEquals(posRef.get().z, pos.z, 0.001f);
@@ -162,28 +138,18 @@ public class DesktopAppScenePersistenceTest {
             @Override
             public void create() {
                 try {
-                    Gdx.gl20 = (com.badlogic.gdx.graphics.GL20) java.lang.reflect.Proxy.newProxyInstance(
-                            com.badlogic.gdx.graphics.GL20.class.getClassLoader(),
-                            new Class[]{com.badlogic.gdx.graphics.GL20.class},
-                            (proxy, method, args) -> {
-                                if (method.getName().equals("glGenBuffer") || method.getName().equals("glGenTexture")) return 1;
-                                if (method.getReturnType().equals(int.class)) return 0;
-                                if (method.getReturnType().equals(boolean.class)) return true;
-                                return null;
-                            }
-                    );
-                    Gdx.gl = Gdx.gl20;
-
+                    GdxTestUtils.mockGdxGL();
                     DesktopApp app = new DesktopApp();
+                    app.create();
                     java.nio.file.Path fileAPath = java.nio.file.Paths.get("..", "..", "logic", "model", "src", "test", "resources", "stl", "test-binary.stl").toAbsolutePath().normalize();
-                    app.loadModel(fileAPath.toString());
-                    assertEquals(1, app.instances.size);
+                    app.modelManager.loadModel(fileAPath.toString());
+                    assertEquals(1, app.modelManager.getInstances().size);
                     
                     ScenePersistence persistence = new ScenePersistence();
                     assertEquals(1, persistence.loadScene().size);
 
-                    app.removeModel(0);
-                    assertEquals(0, app.instances.size);
+                    app.modelManager.removeModel(0);
+                    assertEquals(0, app.modelManager.getInstances().size);
                     assertEquals(0, persistence.loadScene().size, "Workspace should be empty after removeModel");
                     
                 } catch (Throwable t) {

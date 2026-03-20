@@ -75,35 +75,25 @@ public class DesktopAppLoadedFilesTest {
             @Override
             public void create() {
                 try {
-                    // Mock minimal GL20 for headless model building
-                    Gdx.gl20 = (com.badlogic.gdx.graphics.GL20) java.lang.reflect.Proxy.newProxyInstance(
-                            com.badlogic.gdx.graphics.GL20.class.getClassLoader(),
-                            new Class[]{com.badlogic.gdx.graphics.GL20.class},
-                            (proxy, method, args) -> {
-                                if (method.getName().equals("glGenBuffer") || method.getName().equals("glGenTexture")) return 1;
-                                if (method.getReturnType().equals(int.class)) return 0;
-                                if (method.getReturnType().equals(boolean.class)) return true;
-                                return null;
-                            }
-                    );
-                    Gdx.gl = Gdx.gl20;
+                    GdxTestUtils.mockGdxGL();
                     DesktopApp app = new DesktopApp();
+                    app.create();
                     java.nio.file.Path fileAPath = java.nio.file.Paths.get("..", "..", "logic", "model", "src", "test", "resources", "stl", "test-binary.stl").toAbsolutePath().normalize();
                     java.nio.file.Path fileBPath = java.nio.file.Paths.get("..", "..", "logic", "model", "src", "test", "resources", "stl", "test-ascii.stl").toAbsolutePath().normalize();
                     String fileA = fileAPath.toString();
                     String fileB = fileBPath.toString();
 
                     // Load sequence with duplicates: A, B, A
-                    app.loadModel(fileA);
-                    app.loadModel(fileB);
-                    app.loadModel(fileA);
+                    app.modelManager.loadModel(fileA);
+                    app.modelManager.loadModel(fileB);
+                    app.modelManager.loadModel(fileA);
 
-                    assertEquals(3, app.instances.size);
+                    assertEquals(3, app.modelManager.getInstances().size);
 
                     List<Float> xs = new ArrayList<>();
                     Vector3 tmp = new Vector3();
-                    for (int i = 0; i < app.instances.size; i++) {
-                        app.instances.get(i).transform.getTranslation(tmp);
+                    for (int i = 0; i < app.modelManager.getInstances().size; i++) {
+                        app.modelManager.getInstances().get(i).transform.getTranslation(tmp);
                         xs.add(tmp.x);
                     }
                     positionsXRef.set(xs);
@@ -139,31 +129,23 @@ public class DesktopAppLoadedFilesTest {
             @Override
             public void create() {
                 try {
-                    // Mock minimal GL20 for headless model building
-                    Gdx.gl20 = (com.badlogic.gdx.graphics.GL20) java.lang.reflect.Proxy.newProxyInstance(
-                            com.badlogic.gdx.graphics.GL20.class.getClassLoader(),
-                            new Class[]{com.badlogic.gdx.graphics.GL20.class},
-                            (proxy, method, args) -> {
-                                if (method.getName().equals("glGenBuffer") || method.getName().equals("glGenTexture")) return 1;
-                                if (method.getReturnType().equals(int.class)) return 0;
-                                if (method.getReturnType().equals(boolean.class)) return true;
-                                return null;
-                            }
-                    );
-                    Gdx.gl = Gdx.gl20;
+                    GdxTestUtils.mockGdxGL();
                     DesktopApp app = new DesktopApp();
-                    // Recreate loaded files sequence from persisted configuration without full app.create()
+                    app.create();
+                    // Recreate loaded files sequence from persisted configuration
                     java.util.List<String> files = app.appConfig.loadToDto().getLoadedFiles();
+                    // Clear initially loaded if any (though it should be empty in this test setup)
+                    app.modelManager.getInstances().clear();
                     for (String f : files) {
-                        app.loadModel(f);
+                        app.modelManager.loadModel(f);
                     }
 
-                    assertEquals(3, app.instances.size);
+                    assertEquals(3, app.modelManager.getInstances().size);
 
                     List<Float> xs = new ArrayList<>();
                     Vector3 tmp = new Vector3();
-                    for (int i = 0; i < app.instances.size; i++) {
-                        app.instances.get(i).transform.getTranslation(tmp);
+                    for (int i = 0; i < app.modelManager.getInstances().size; i++) {
+                        app.modelManager.getInstances().get(i).transform.getTranslation(tmp);
                         xs.add(tmp.x);
                     }
                     positionsXRef2.set(xs);

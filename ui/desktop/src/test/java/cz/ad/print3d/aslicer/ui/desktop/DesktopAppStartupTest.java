@@ -1,19 +1,17 @@
 package cz.ad.print3d.aslicer.ui.desktop;
-import cz.ad.print3d.aslicer.ui.desktop.config.*;
-import cz.ad.print3d.aslicer.ui.desktop.persistence.*;
-import cz.ad.print3d.aslicer.ui.desktop.view.*;
 
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.backends.headless.HeadlessApplication;
 import com.badlogic.gdx.backends.headless.HeadlessApplicationConfiguration;
+import cz.ad.print3d.aslicer.ui.desktop.config.AppConfig;
+import cz.ad.print3d.aslicer.ui.desktop.persistence.ScenePersistence;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
-import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -24,6 +22,31 @@ import static org.junit.jupiter.api.Assertions.*;
  * Tests for DesktopApp startup behavior.
  */
 public class DesktopAppStartupTest {
+
+    private void mockGdxGL() {
+        Gdx.gl20 = (com.badlogic.gdx.graphics.GL20) java.lang.reflect.Proxy.newProxyInstance(
+                com.badlogic.gdx.graphics.GL20.class.getClassLoader(),
+                new Class[]{com.badlogic.gdx.graphics.GL20.class},
+                (proxy, method, args) -> {
+                    if (method.getName().equals("glGenBuffer") || method.getName().equals("glGenTexture") ||
+                            method.getName().equals("glCreateShader") || method.getName().equals("glCreateProgram")) return 1;
+                    if (method.getName().equals("glGetShaderiv") || method.getName().equals("glGetProgramiv")) {
+                        java.nio.IntBuffer params = (java.nio.IntBuffer) args[2];
+                        params.put(0, 1);
+                        return null;
+                    }
+                    if (method.getName().equals("glGetIntegerv")) {
+                        java.nio.IntBuffer params = (java.nio.IntBuffer) args[1];
+                        params.put(0, 16);
+                        return null;
+                    }
+                    if (method.getReturnType().equals(int.class)) return 0;
+                    if (method.getReturnType().equals(boolean.class)) return true;
+                    return null;
+                }
+        );
+        Gdx.gl = Gdx.gl20;
+    }
     @TempDir
     Path tempDir;
 
@@ -55,37 +78,16 @@ public class DesktopAppStartupTest {
             public void create() {
                 try {
                     // Mock minimal GL20
-                    Gdx.gl20 = (com.badlogic.gdx.graphics.GL20) java.lang.reflect.Proxy.newProxyInstance(
-                            com.badlogic.gdx.graphics.GL20.class.getClassLoader(),
-                            new Class[]{com.badlogic.gdx.graphics.GL20.class},
-                            (proxy, method, args) -> {
-                                if (method.getName().equals("glGenBuffer") || method.getName().equals("glGenTexture") 
-                                    || method.getName().equals("glCreateShader") || method.getName().equals("glCreateProgram")) return 1;
-                                if (method.getName().equals("glGetIntegerv")) {
-                                    java.nio.IntBuffer params = (java.nio.IntBuffer) args[1];
-                                    params.put(0, 16);
-                                    return null;
-                                }
-                                if (method.getName().equals("glGetShaderiv") || method.getName().equals("glGetProgramiv")) {
-                                    java.nio.IntBuffer params = (java.nio.IntBuffer) args[2];
-                                    params.put(0, 1); // Success
-                                    return null;
-                                }
-                                if (method.getReturnType().equals(int.class)) return 0;
-                                if (method.getReturnType().equals(boolean.class)) return true;
-                                return null;
-                            }
-                    );
-                    Gdx.gl = Gdx.gl20;
+                    GdxTestUtils.mockGdxGL();
 
                     DesktopApp app = new DesktopApp() {
                         @Override
-                        public void setupUI() {
+                        protected void setupUI() {
                             // No-op for headless tests
                         }
                     };
                     app.create();
-                    modelCount.set(app.instances.size);
+                    modelCount.set(app.modelManager.getInstances().size);
                 } catch (Throwable t) {
                     errorRef.set(t);
                 } finally {
@@ -112,32 +114,11 @@ public class DesktopAppStartupTest {
             @Override
             public void create() {
                 try {
-                    Gdx.gl20 = (com.badlogic.gdx.graphics.GL20) java.lang.reflect.Proxy.newProxyInstance(
-                            com.badlogic.gdx.graphics.GL20.class.getClassLoader(),
-                            new Class[]{com.badlogic.gdx.graphics.GL20.class},
-                            (proxy, method, args) -> {
-                                if (method.getName().equals("glGenBuffer") || method.getName().equals("glGenTexture") 
-                                    || method.getName().equals("glCreateShader") || method.getName().equals("glCreateProgram")) return 1;
-                                if (method.getName().equals("glGetIntegerv")) {
-                                    java.nio.IntBuffer params = (java.nio.IntBuffer) args[1];
-                                    params.put(0, 16);
-                                    return null;
-                                }
-                                if (method.getName().equals("glGetShaderiv") || method.getName().equals("glGetProgramiv")) {
-                                    java.nio.IntBuffer params = (java.nio.IntBuffer) args[2];
-                                    params.put(0, 1); // Success
-                                    return null;
-                                }
-                                if (method.getReturnType().equals(int.class)) return 0;
-                                if (method.getReturnType().equals(boolean.class)) return true;
-                                return null;
-                            }
-                    );
-                    Gdx.gl = Gdx.gl20;
+                    GdxTestUtils.mockGdxGL();
 
                     DesktopApp app = new DesktopApp() {
                         @Override
-                        public void setupUI() {
+                        protected void setupUI() {
                             // No-op for headless tests
                         }
                     };
@@ -145,12 +126,11 @@ public class DesktopAppStartupTest {
                     
                     // Manually load and then clear
                     java.nio.file.Path fileAPath = java.nio.file.Paths.get("..", "..", "logic", "model", "src", "test", "resources", "stl", "test-binary.stl").toAbsolutePath().normalize();
-                    app.loadModel(fileAPath.toString());
-                    assertFalse(app.instances.isEmpty());
+                    app.modelManager.loadModel(fileAPath.toString());
+                    assertFalse(app.modelManager.getInstances().isEmpty());
                     
                     // Clear all models (similar to AppToolbar.ToolbarListener.onClear)
-                    app.instances.clear();
-                    app.loadedModelPaths.clear();
+                    app.modelManager.clearModels();
                     
                     app.saveAllConfig();
                 } catch (Throwable t) {
@@ -174,37 +154,16 @@ public class DesktopAppStartupTest {
             @Override
             public void create() {
                 try {
-                    Gdx.gl20 = (com.badlogic.gdx.graphics.GL20) java.lang.reflect.Proxy.newProxyInstance(
-                            com.badlogic.gdx.graphics.GL20.class.getClassLoader(),
-                            new Class[]{com.badlogic.gdx.graphics.GL20.class},
-                            (proxy, method, args) -> {
-                                if (method.getName().equals("glGenBuffer") || method.getName().equals("glGenTexture") 
-                                    || method.getName().equals("glCreateShader") || method.getName().equals("glCreateProgram")) return 1;
-                                if (method.getName().equals("glGetIntegerv")) {
-                                    java.nio.IntBuffer params = (java.nio.IntBuffer) args[1];
-                                    params.put(0, 16);
-                                    return null;
-                                }
-                                if (method.getName().equals("glGetShaderiv") || method.getName().equals("glGetProgramiv")) {
-                                    java.nio.IntBuffer params = (java.nio.IntBuffer) args[2];
-                                    params.put(0, 1); // Success
-                                    return null;
-                                }
-                                if (method.getReturnType().equals(int.class)) return 0;
-                                if (method.getReturnType().equals(boolean.class)) return true;
-                                return null;
-                            }
-                    );
-                    Gdx.gl = Gdx.gl20;
+                    GdxTestUtils.mockGdxGL();
 
                     DesktopApp app = new DesktopApp() {
                         @Override
-                        public void setupUI() {
+                        protected void setupUI() {
                             // No-op for headless tests
                         }
                     };
                     app.create();
-                    modelCount2.set(app.instances.size);
+                    modelCount2.set(app.modelManager.getInstances().size);
                 } catch (Throwable t) {
                     errorRef2.set(t);
                 } finally {

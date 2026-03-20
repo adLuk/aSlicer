@@ -16,18 +16,16 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 package cz.ad.print3d.aslicer.ui.desktop.config;
-import cz.ad.print3d.aslicer.ui.desktop.DesktopApp;
-import cz.ad.print3d.aslicer.ui.desktop.config.*;
-import cz.ad.print3d.aslicer.ui.desktop.persistence.*;
-import cz.ad.print3d.aslicer.ui.desktop.view.*;
 
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.Input;
 import com.badlogic.gdx.backends.headless.HeadlessApplication;
 import com.badlogic.gdx.backends.headless.HeadlessApplicationConfiguration;
 import com.badlogic.gdx.graphics.PerspectiveCamera;
 import com.badlogic.gdx.graphics.g3d.utils.CameraInputController;
+import cz.ad.print3d.aslicer.ui.desktop.DesktopApp;
+import cz.ad.print3d.aslicer.ui.desktop.GdxTestUtils;
+import cz.ad.print3d.aslicer.ui.desktop.persistence.ScenePersistence;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,9 +40,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class DesktopAppConfigTest {
     @TempDir
@@ -134,14 +130,16 @@ public class DesktopAppConfigTest {
             @Override
             public void create() {
                 try {
+                    GdxTestUtils.mockGdxGL();
                     DesktopApp app = new DesktopApp();
-                    app.cam = new PerspectiveCamera(67, 800, 600);
-                    app.cam.position.set(1.5f, 2.5f, 3.5f);
-                    app.cam.direction.set(0.1f, 0.2f, 0.3f);
-                    app.cam.up.set(0f, 1f, 0f);
+                    app.create();
+                    PerspectiveCamera cam = app.sceneManager.getCamera();
+                    cam.position.set(1.5f, 2.5f, 3.5f);
+                    cam.direction.set(0.1f, 0.2f, 0.3f);
+                    cam.up.set(0f, 1f, 0f);
 
-                    app.camController = new CameraInputController(app.cam);
-                    app.camController.target.set(10f, 20f, 30f);
+                    CameraInputController camController = app.sceneManager.getCameraController();
+                    camController.target.set(10f, 20f, 30f);
 
                     app.saveAllConfig();
 

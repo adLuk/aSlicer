@@ -69,19 +69,9 @@ public class DesktopAppSupportedExtensionsTest {
             @Override
             public void create() {
                 try {
-                    // Mock minimal GL20 for headless model building
-                    Gdx.gl20 = (com.badlogic.gdx.graphics.GL20) java.lang.reflect.Proxy.newProxyInstance(
-                            com.badlogic.gdx.graphics.GL20.class.getClassLoader(),
-                            new Class[]{com.badlogic.gdx.graphics.GL20.class},
-                            (proxy, method, args) -> {
-                                if (method.getName().equals("glGenBuffer") || method.getName().equals("glGenTexture")) return 1;
-                                if (method.getReturnType().equals(int.class)) return 0;
-                                if (method.getReturnType().equals(boolean.class)) return true;
-                                return null;
-                            }
-                    );
-                    Gdx.gl = Gdx.gl20;
+                    GdxTestUtils.mockGdxGL();
                     DesktopApp app = new DesktopApp();
+                    app.create();
 
                     String[] formats = {
                             "stl/test-binary.stl",
@@ -95,17 +85,10 @@ public class DesktopAppSupportedExtensionsTest {
                     for (String format : formats) {
                         Path fullPath = resourcesPath.resolve(format);
                         assertTrue(java.nio.file.Files.exists(fullPath), "Test file missing: " + fullPath);
-                        app.loadModel(fullPath.toString());
+                        app.modelManager.loadModel(fullPath.toString());
                     }
 
-                    // Check if all were added to the lists
-                    // Note: .gcode might result in empty model but still should be added to models/instances
-                    // unless loadModel has logic to skip empty ones. Let's see.
-                    // Actually loadModel(filePath) calls loadModel(filePath, transform)
-                    // If modelData != null, it converts it and adds it.
-                    // GCodeModelParser returns a GCode object, which is not null.
-                    
-                    assertTrue(app.loadedModelPaths.size >= formats.length, "Not all formats were loaded: " + app.loadedModelPaths.size);
+                    assertTrue(app.modelManager.getLoadedModelPaths().size >= formats.length, "Not all formats were loaded: " + app.modelManager.getLoadedModelPaths().size);
 
                 } catch (Throwable t) {
                     errorRef.set(t);

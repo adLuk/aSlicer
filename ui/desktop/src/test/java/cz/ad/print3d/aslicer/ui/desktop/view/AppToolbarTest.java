@@ -16,10 +16,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 package cz.ad.print3d.aslicer.ui.desktop.view;
-import cz.ad.print3d.aslicer.ui.desktop.DesktopApp;
-import cz.ad.print3d.aslicer.ui.desktop.config.*;
-import cz.ad.print3d.aslicer.ui.desktop.persistence.*;
-import cz.ad.print3d.aslicer.ui.desktop.view.*;
 
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
@@ -33,6 +29,7 @@ import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.ui.ImageButton;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
+import cz.ad.print3d.aslicer.ui.desktop.GdxTestUtils;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.CountDownLatch;
@@ -56,7 +53,7 @@ public class AppToolbarTest {
             @Override
             public void create() {
                 try {
-                    mockGdxGL();
+                    GdxTestUtils.mockGdxGL();
                     Skin skin = createTestSkin();
                     AppToolbar toolbar = new AppToolbar(skin, new AppToolbar.ToolbarListener() {
                         @Override
@@ -91,20 +88,6 @@ public class AppToolbarTest {
                     latch.countDown();
                     Gdx.app.exit();
                 }
-            }
-
-            private void mockGdxGL() {
-                Gdx.gl20 = (com.badlogic.gdx.graphics.GL20) java.lang.reflect.Proxy.newProxyInstance(
-                        com.badlogic.gdx.graphics.GL20.class.getClassLoader(),
-                        new Class[]{com.badlogic.gdx.graphics.GL20.class},
-                        (proxy, method, args) -> {
-                            if (method.getName().equals("glGenBuffer") || method.getName().equals("glGenTexture")) return 1;
-                            if (method.getReturnType().equals(int.class)) return 0;
-                            if (method.getReturnType().equals(boolean.class)) return true;
-                            return null;
-                        }
-                );
-                Gdx.gl = Gdx.gl20;
             }
 
             private Skin createTestSkin() {

@@ -17,51 +17,29 @@
  */
 package cz.ad.print3d.aslicer.ui.desktop;
 
-import com.badlogic.gdx.ApplicationListener;
-import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.Input;
-import com.badlogic.gdx.InputAdapter;
-import com.badlogic.gdx.InputMultiplexer;
-import com.badlogic.gdx.InputProcessor;
+import com.badlogic.gdx.*;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Application;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration;
-import com.badlogic.gdx.graphics.*;
-import com.badlogic.gdx.graphics.g2d.BitmapFont;
-import com.badlogic.gdx.graphics.g3d.Environment;
-import com.badlogic.gdx.graphics.g3d.Material;
-import com.badlogic.gdx.graphics.g3d.Model;
-import com.badlogic.gdx.graphics.g3d.ModelBatch;
-import com.badlogic.gdx.graphics.g3d.ModelInstance;
-import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
-import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight;
-import com.badlogic.gdx.graphics.g3d.utils.CameraInputController;
-import com.badlogic.gdx.math.Intersector;
-import com.badlogic.gdx.math.Vector3;
-import com.badlogic.gdx.math.collision.BoundingBox;
+import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.math.collision.Ray;
-import com.badlogic.gdx.scenes.scene2d.Stage;
-import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.utils.Array;
-import com.badlogic.gdx.utils.viewport.ScreenViewport;
-import cz.ad.print3d.aslicer.logic.core.ModelGdxConverter;
-import cz.ad.print3d.aslicer.logic.model.parser.ModelParserFactory;
 import cz.ad.print3d.aslicer.ui.desktop.config.AppConfig;
 import cz.ad.print3d.aslicer.ui.desktop.config.AppConfigDto;
+import cz.ad.print3d.aslicer.ui.desktop.model.ModelManager;
 import cz.ad.print3d.aslicer.ui.desktop.persistence.ScenePersistence;
 import cz.ad.print3d.aslicer.ui.desktop.view.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-
 /**
  * Main application class for the desktop user interface.
  * Handles the 3D visualization, user interactions, and configuration management.
+ * It coordinates several logical blocks, including scene management, model management,
+ * and the user interface.
  */
 public class DesktopApp implements ApplicationListener {
     private static final Logger LOGGER = LoggerFactory.getLogger(DesktopApp.class);
+
     /**
      * Application configuration handler.
      */
@@ -78,84 +56,24 @@ public class DesktopApp implements ApplicationListener {
     private final ScenePersistence scenePersistence;
 
     /**
-     * The perspective camera used for 3D visualization.
+     * Scene manager for 3D components like camera, lighting, and grid.
      */
-    public PerspectiveCamera cam;
+    public SceneManager sceneManager;
 
     /**
-     * Controller for handling user camera input.
+     * Model manager for handling models, instances, and selection logic.
      */
-    public CameraInputController camController;
+    public ModelManager modelManager;
 
     /**
-     * Batch for rendering models.
+     * Desktop UI manager for handling stages, menus, and dialogs.
      */
-    public ModelBatch modelBatch;
-
-    /**
-     * List of loaded GDX models.
-     */
-    public final Array<Model> models = new Array<>();
-
-    /**
-     * List of rendered model instances in the scene.
-     */
-    public final Array<ModelInstance> instances = new Array<>();
-
-    /**
-     * List of file paths for the loaded models.
-     */
-    public final Array<String> loadedModelPaths = new Array<>();
-
-    /**
-     * Indices of the currently selected models.
-     */
-    public final Array<Integer> selectedIndices = new Array<>();
-
-    /**
-     * Temporary vector for calculations.
-     */
-    private final Vector3 tempVector = new Vector3();
-
-    /**
-     * Temporary bounding box for calculations.
-     */
-    private final BoundingBox tempBounds = new BoundingBox();
-
-    /**
-     * 3D environment including lights.
-     */
-    public Environment environment;
-
-    /**
-     * 2D stage for UI components.
-     */
-    public Stage stage;
-
-    /**
-     * UI skin for styling.
-     */
-    public Skin skin;
-
-    /**
-     * Window for application settings.
-     */
-    public SettingsWindow settingsWindow;
-
-    /**
-     * Window for listing loaded models.
-     */
-    public ModelListWindow modelListWindow;
+    public DesktopUI desktopUI;
 
     /**
      * Input processor for handling model selection in the 3D scene.
      */
     public InputProcessor selectionProcessor;
-
-    /**
-     * Grid rendered on the ground.
-     */
-    public AppGrid appGrid;
 
     /**
      * Current width of the application window.
@@ -177,29 +95,34 @@ public class DesktopApp implements ApplicationListener {
      */
     public String currentModelPath;
 
+    /**
+     * Creates a new DesktopApp instance.
+     */
     public DesktopApp() {
         this.appConfig = new AppConfig();
         this.fileDialog = new ModelFileDialog();
         this.scenePersistence = new ScenePersistence();
     }
 
+    /**
+     * Application entry point.
+     *
+     * @param args command line arguments
+     */
     public static void main(String[] args) {
-        LOGGER.info("aSlicer Desktop application starting");
         DesktopApp app = new DesktopApp();
         AppConfigDto dto = app.appConfig.loadToDto();
-        int width = dto.getWindowWidth();
-        int height = dto.getWindowHeight();
 
         Lwjgl3ApplicationConfiguration config = new Lwjgl3ApplicationConfiguration();
-        config.setTitle("aSlicer Desktop");
-        config.setWindowedMode(width, height);
+        config.setTitle("aSlicer - 3D model processing tool");
+        config.setWindowedMode(dto.getWindowWidth(), dto.getWindowHeight());
+        config.useVsync(true);
+        config.setForegroundFPS(60);
         new Lwjgl3Application(app, config);
     }
 
     /**
-     * Saves all current application settings to the persistent configuration.
-     * This includes window dimensions, the last used directory and file,
-     * camera state, and user input settings.
+     * Saves all current application and scene configurations.
      */
     public void saveAllConfig() {
         AppConfigDto dto = appConfig.loadToDto();
@@ -208,123 +131,105 @@ public class DesktopApp implements ApplicationListener {
         dto.setLastDir(lastDir);
         dto.setLastFile(currentModelPath);
 
-        java.util.List<String> paths = new java.util.ArrayList<>();
-        for (String path : loadedModelPaths) {
-            paths.add(path);
-        }
-        dto.setLoadedFiles(paths);
-        LOGGER.info("Saving list of loaded files ({}): {}", paths.size(), paths);
-
-        if (appGrid != null) {
-            dto.setGridSize(appGrid.getStep());
+        if (modelManager != null) {
+            java.util.List<String> paths = new java.util.ArrayList<>();
+            for (String path : modelManager.getLoadedModelPaths()) {
+                paths.add(path);
+            }
+            dto.setLoadedFiles(paths);
         }
 
-        if (camController != null) {
-            dto.setRotateButton(camController.rotateButton);
-            dto.setTranslateButton(camController.translateButton);
-            dto.setForwardButton(camController.forwardButton);
-            dto.setForwardKey(camController.forwardKey);
-            dto.setBackwardKey(camController.backwardKey);
+        if (sceneManager != null) {
+            dto.setGridSize(sceneManager.getAppGrid().getStep());
+            dto.setRotateButton(sceneManager.getCameraController().rotateButton);
+            dto.setTranslateButton(sceneManager.getCameraController().translateButton);
+            dto.setForwardButton(sceneManager.getCameraController().forwardButton);
+            dto.setForwardKey(sceneManager.getCameraController().forwardKey);
+            dto.setBackwardKey(sceneManager.getCameraController().backwardKey);
 
-            // Camera state
-            dto.setCameraPosX(cam.position.x);
-            dto.setCameraPosY(cam.position.y);
-            dto.setCameraPosZ(cam.position.z);
-
-            dto.setCameraDirX(cam.direction.x);
-            dto.setCameraDirY(cam.direction.y);
-            dto.setCameraDirZ(cam.direction.z);
-
-            dto.setCameraUpX(cam.up.x);
-            dto.setCameraUpY(cam.up.y);
-            dto.setCameraUpZ(cam.up.z);
-
-            dto.setCameraTargetX(camController.target.x);
-            dto.setCameraTargetY(camController.target.y);
-            dto.setCameraTargetZ(camController.target.z);
+            dto.setCameraPosX(sceneManager.getCamera().position.x);
+            dto.setCameraPosY(sceneManager.getCamera().position.y);
+            dto.setCameraPosZ(sceneManager.getCamera().position.z);
+            dto.setCameraDirX(sceneManager.getCamera().direction.x);
+            dto.setCameraDirY(sceneManager.getCamera().direction.y);
+            dto.setCameraDirZ(sceneManager.getCamera().direction.z);
+            dto.setCameraUpX(sceneManager.getCamera().up.x);
+            dto.setCameraUpY(sceneManager.getCamera().up.y);
+            dto.setCameraUpZ(sceneManager.getCamera().up.z);
+            dto.setCameraTargetX(sceneManager.getCameraController().target.x);
+            dto.setCameraTargetY(sceneManager.getCameraController().target.y);
+            dto.setCameraTargetZ(sceneManager.getCameraController().target.z);
         }
         appConfig.saveFromDto(dto);
-        scenePersistence.saveScene(loadedModelPaths, instances);
+        if (modelManager != null) {
+            scenePersistence.saveScene(modelManager.getLoadedModelPaths(), modelManager.getInstances());
+        }
     }
 
-    /**
-     * Initializes the application, including the 3D environment, camera, configuration,
-     * and UI. It also reloads any models that were active in the previous session.
-     * If no models were active (or if this is the first run), the scene starts empty.
-     */
     @Override
     public void create() {
-        environment = new Environment();
-        environment.set(new ColorAttribute(ColorAttribute.AmbientLight, 0.4f, 0.4f, 0.4f, 1f));
-        environment.add(new DirectionalLight().set(0.8f, 0.8f, 0.8f, -1f, -0.8f, -0.2f));
-
-        modelBatch = new ModelBatch();
-
         AppConfigDto dto = appConfig.loadToDto();
-
-        cam = new PerspectiveCamera(67, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-        if (dto.isCameraStateLoaded()) {
-            cam.position.set(dto.getCameraPosX(), dto.getCameraPosY(), dto.getCameraPosZ());
-            cam.direction.set(dto.getCameraDirX(), dto.getCameraDirY(), dto.getCameraDirZ());
-            cam.up.set(dto.getCameraUpX(), dto.getCameraUpY(), dto.getCameraUpZ());
-        } else {
-            cam.position.set(10f, 10f, 10f);
-            cam.lookAt(0, 0, 0);
-        }
-        cam.near = 1f;
-        cam.far = 1500f;
-        cam.update();
-
-        camController = new CameraInputController(cam);
-        if (dto.isCameraTargetLoaded()) {
-            camController.target.set(dto.getCameraTargetX(), dto.getCameraTargetY(), dto.getCameraTargetZ());
-        }
-        camController.rotateButton = dto.getRotateButton();
-        camController.translateButton = dto.getTranslateButton();
-        camController.forwardButton = dto.getForwardButton();
-
-        appGrid = new AppGrid(dto.getGridSize());
-        camController.forwardKey = dto.getForwardKey();
-        camController.backwardKey = dto.getBackwardKey();
         lastDir = dto.getLastDir();
+        currentModelPath = dto.getLastFile();
+
+        sceneManager = new SceneManager(dto);
+        modelManager = new ModelManager(appConfig, scenePersistence);
+        modelManager.addListener(new ModelManager.ModelManagerListener() {
+            @Override
+            public void onModelsChanged() {
+                if (desktopUI != null && desktopUI.getModelListWindow() != null) {
+                    desktopUI.getModelListWindow().updateList();
+                }
+            }
+
+            @Override
+            public void onSelectionChanged() {
+                if (desktopUI != null && desktopUI.getModelListWindow() != null) {
+                    desktopUI.getModelListWindow().setSelectedIndices(modelManager.getSelectedIndices());
+                }
+            }
+        });
 
         setupUI();
+
         selectionProcessor = new InputAdapter() {
             @Override
             public boolean touchDown(int screenX, int screenY, int pointer, int button) {
                 if (button == Input.Buttons.LEFT) {
-                    int index = getObject(screenX, screenY);
+                    Ray ray = sceneManager.getCamera().getPickRay(screenX, screenY);
+                    int index = modelManager.getObject(ray);
                     if (index >= 0) {
                         if (Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT) || Gdx.input.isKeyPressed(Input.Keys.CONTROL_RIGHT)) {
-                            if (selectedIndices.contains(index, true)) {
-                                selectedIndices.removeValue(index, true);
+                            if (modelManager.getSelectedIndices().contains(index, true)) {
+                                modelManager.getSelectedIndices().removeValue(index, true);
                             } else {
-                                selectedIndices.add(index);
+                                modelManager.getSelectedIndices().add(index);
                             }
                         } else {
-                            selectedIndices.clear();
-                            selectedIndices.add(index);
+                            modelManager.getSelectedIndices().clear();
+                            modelManager.getSelectedIndices().add(index);
                         }
                     } else {
                         if (!Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT) && !Gdx.input.isKeyPressed(Input.Keys.CONTROL_RIGHT)) {
-                            selectedIndices.clear();
+                            modelManager.getSelectedIndices().clear();
                         }
                     }
-                    updateHighlights();
-                    if (modelListWindow != null) {
-                        modelListWindow.setSelectedIndices(selectedIndices);
+                    modelManager.updateHighlights();
+                    if (desktopUI != null && desktopUI.getModelListWindow() != null) {
+                        desktopUI.getModelListWindow().setSelectedIndices(modelManager.getSelectedIndices());
                     }
                 }
-                return false; // Let camera controller handle rotation
+                return false;
             }
         };
 
         InputMultiplexer multiplexer = new InputMultiplexer();
-        if (stage != null) {
-            multiplexer.addProcessor(stage);
+        if (desktopUI != null) {
+            multiplexer.addProcessor(desktopUI.getDialogStage());
+            multiplexer.addProcessor(desktopUI.getMenuStage());
         }
         multiplexer.addProcessor(selectionProcessor);
-        multiplexer.addProcessor(camController);
+        multiplexer.addProcessor(sceneManager.getCameraController());
         Gdx.input.setInputProcessor(multiplexer);
 
         loadInitialScene();
@@ -332,24 +237,21 @@ public class DesktopApp implements ApplicationListener {
 
     /**
      * Loads the initial scene state on application startup.
-     * It first attempts to load the scene from the workspace file (workspace.g3db).
-     * If no workspace file is found, it falls back to the list of loaded files from the application configuration.
-     * This method ensures that the 3D scene is restored to its previous state, including model transformations.
      */
-    public void loadInitialScene() {
+    protected void loadInitialScene() {
         AppConfigDto dto = appConfig.loadToDto();
         Array<ScenePersistence.SceneEntry> savedScene = scenePersistence.loadScene();
         if (savedScene.size > 0) {
             LOGGER.info("Restoring scene from workspace ({} models)", savedScene.size);
             for (ScenePersistence.SceneEntry entry : savedScene) {
-                loadModel(entry.filePath, entry.transform);
+                modelManager.loadModel(entry.filePath, entry.transform);
             }
         } else {
             java.util.List<String> loadedFiles = dto.getLoadedFiles();
             if (!loadedFiles.isEmpty()) {
                 LOGGER.info("No workspace found, falling back to reloading {} files from config", loadedFiles.size());
                 for (String file : loadedFiles) {
-                    loadModel(file);
+                    modelManager.loadModel(file);
                 }
             } else {
                 LOGGER.info("Starting with a clean scene");
@@ -357,32 +259,13 @@ public class DesktopApp implements ApplicationListener {
         }
     }
 
-    /**
-     * Sets up the user interface components (stage, skin, toolbar, etc.).
-     */
-    public void setupUI() {
-        stage = new Stage(new ScreenViewport());
-        skin = createSkin();
-
-        Table root = new Table();
-        root.top().left();
-        root.setFillParent(true);
-
-        AppToolbar menuBar = new AppToolbar(skin, new AppToolbar.ToolbarListener() {
+    protected void setupUI() {
+        desktopUI = new DesktopUI();
+        AppToolbar toolbar = new AppToolbar(desktopUI.getSkin(), new AppToolbar.ToolbarListener() {
             @Override
             public void onClear() {
-                for (Model m : models) {
-                    m.dispose();
-                }
-                models.clear();
-                instances.clear();
-                loadedModelPaths.clear();
-                currentModelPath = null;
-                if (modelListWindow != null) {
-                    modelListWindow.updateList();
-                }
+                modelManager.clearModels();
                 saveAllConfig();
-                LOGGER.info("Cleared all models");
             }
 
             @Override
@@ -395,8 +278,10 @@ public class DesktopApp implements ApplicationListener {
                         lastDir = newDir;
                     }
                     for (String result : results) {
-                        loadModel(result);
+                        modelManager.loadModel(result);
+                        currentModelPath = result;
                     }
+                    saveAllConfig();
                 }
             }
 
@@ -406,344 +291,66 @@ public class DesktopApp implements ApplicationListener {
             }
         });
 
-        AppSideToolbar sideBar = new AppSideToolbar(skin, new AppSideToolbar.SideToolbarListener() {
+        AppSideToolbar sideToolbar = new AppSideToolbar(desktopUI.getSkin(), new AppSideToolbar.SideToolbarListener() {
             @Override
             public void onToggleModelList() {
                 toggleModelListWindow();
             }
         });
 
-        root.add(menuBar).expandX().fillX().colspan(2).row();
-        root.add(sideBar).expandY().fillY().left();
-        root.add().expand().fill();
-
-        stage.addActor(root);
-    }
-
-    public Skin createSkin() {
-        Skin skin = new Skin();
-        Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
-        pixmap.setColor(Color.WHITE);
-        pixmap.fill();
-        skin.add("white", new Texture(pixmap));
-
-        BitmapFont font = new BitmapFont();
-        skin.add("default", font);
-
-        Label.LabelStyle labelStyle = new Label.LabelStyle();
-        labelStyle.font = font;
-        skin.add("default", labelStyle);
-
-        TextButton.TextButtonStyle textButtonStyle = new TextButton.TextButtonStyle();
-        textButtonStyle.up = skin.newDrawable("white", Color.LIGHT_GRAY);
-        textButtonStyle.down = skin.newDrawable("white", Color.DARK_GRAY);
-        textButtonStyle.font = font;
-        skin.add("default", textButtonStyle);
-
-        List.ListStyle listStyle = new List.ListStyle();
-        listStyle.font = font;
-        listStyle.fontColorSelected = Color.BLACK;
-        listStyle.fontColorUnselected = Color.WHITE;
-        listStyle.selection = skin.newDrawable("white", Color.LIGHT_GRAY);
-        skin.add("default", listStyle);
-
-        ScrollPane.ScrollPaneStyle scrollPaneStyle = new ScrollPane.ScrollPaneStyle();
-        skin.add("default", scrollPaneStyle);
-
-        Window.WindowStyle windowStyle = new Window.WindowStyle();
-        windowStyle.titleFont = font;
-        windowStyle.background = skin.newDrawable("white", new Color(0.2f, 0.2f, 0.2f, 0.9f));
-        skin.add("default", windowStyle);
-
-        return skin;
+        desktopUI.setupLayout(toolbar, sideToolbar);
     }
 
     /**
      * Toggles the visibility of the settings window.
      */
     public void toggleSettingsWindow() {
-        if (settingsWindow == null) {
-            float initialGridSize = appGrid != null ? appGrid.getStep() : 5.0f;
-            settingsWindow = new SettingsWindow(skin, camController, initialGridSize, this::updateGrid, this::saveAllConfig);
-            stage.addActor(settingsWindow);
-        } else {
-            settingsWindow.setVisible(!settingsWindow.isVisible());
-            if (settingsWindow.isVisible()) {
-                settingsWindow.toFront();
-            }
-        }
+        AppConfigDto dto = appConfig.loadToDto();
+        desktopUI.toggleSettingsWindow(
+            sceneManager.getCameraController(),
+            dto.getGridSize(),
+            sceneManager::updateGrid,
+            this::saveAllConfig
+        );
     }
 
     /**
      * Toggles the visibility of the model list window.
      */
     public void toggleModelListWindow() {
-        if (modelListWindow == null) {
-            modelListWindow = new ModelListWindow(skin, loadedModelPaths, new ModelListWindow.ModelListListener() {
-                @Override
-                public void onRemoveModel(int index) {
-                    removeModel(index);
-                }
-
-                @Override
-                public void onDuplicateModel(int index) {
-                    duplicateModel(index);
-                }
-
-                @Override
-                public void onSelectModels(Array<Integer> indices) {
-                    selectedIndices.clear();
-                    selectedIndices.addAll(indices);
-                    updateHighlights();
-                }
-            });
-            modelListWindow.setSelectedIndices(selectedIndices);
-            if (stage != null) {
-                stage.addActor(modelListWindow);
-            }
-        } else {
-            modelListWindow.setVisible(!modelListWindow.isVisible());
-            if (modelListWindow.isVisible()) {
-                modelListWindow.toFront();
-                modelListWindow.setSelectedIndices(selectedIndices);
-                modelListWindow.updateList(false);
-            }
-        }
-    }
-
-    /**
-     * Removes a loaded model from the application state, disposing of its resources
-     * and updating the scene and UI accordingly.
-     *
-     * @param index the index of the model to remove from the loaded files
-     */
-    public void removeModel(int index) {
-        if (index < 0 || index >= loadedModelPaths.size) return;
-
-        LOGGER.info("Removing model at index {}: {}", index, loadedModelPaths.get(index));
-
-        loadedModelPaths.removeIndex(index);
-        Model gdxModel = models.removeIndex(index);
-        if (gdxModel != null) {
-            gdxModel.dispose();
-        }
-        instances.removeIndex(index);
-
-        if (modelListWindow != null) {
-            modelListWindow.updateList();
-        }
-        scenePersistence.saveScene(loadedModelPaths, instances);
-    }
-
-    /**
-     * Duplicates a loaded model at the specified index, creating a new instance
-     * in the scene and adding it to the list of loaded models.
-     *
-     * @param index the index of the model to duplicate
-     */
-    public void duplicateModel(int index) {
-        if (index < 0 || index >= loadedModelPaths.size) return;
-
-        String path = loadedModelPaths.get(index);
-        LOGGER.info("Duplicating model at index {}: {}", index, path);
-        loadModel(path);
-    }
-
-    /**
-     * Identifies the model instance at the specified screen coordinates using ray casting.
-     * <p>
-     * This method projects a ray from the camera through the screen coordinates and
-     * tests for intersection with the bounding boxes of all model instances in the scene.
-     * If multiple instances intersect the ray, the one closest to the camera is returned.
-     * </p>
-     *
-     * @param screenX the x-coordinate of the mouse click in screen space
-     * @param screenY the y-coordinate of the mouse click in screen space
-     * @return the index of the intersected model instance, or -1 if no intersection is found
-     */
-    public int getObject(int screenX, int screenY) {
-        Ray ray = cam.getPickRay(screenX, screenY);
-        int result = -1;
-        float distance = -1;
-
-        for (int i = 0; i < instances.size; ++i) {
-            final ModelInstance instance = instances.get(i);
-            instance.calculateBoundingBox(tempBounds);
-            tempBounds.mul(instance.transform);
-
-            if (Intersector.intersectRayBounds(ray, tempBounds, tempVector)) {
-                float dist2 = ray.origin.dst2(tempVector);
-                if (result == -1 || dist2 < distance) {
-                    result = i;
-                    distance = dist2;
-                }
-            }
-        }
-        return result;
-    }
-
-    /**
-     * Updates the material highlights of all model instances in the scene
-     * based on the current selection.
-     * <p>
-     * Selected models are highlighted using a distinct color (orange).
-     * Unselected models have their original material colors restored from
-     * the underlying GDX models.
-     * </p>
-     */
-    public void updateHighlights() {
-        for (int i = 0; i < instances.size; i++) {
-            ModelInstance inst = instances.get(i);
-            Model model = models.get(i);
-            boolean selected = selectedIndices.contains(i, false);
-
-            for (int j = 0; j < inst.materials.size; j++) {
-                Material instMat = inst.materials.get(j);
-                if (selected) {
-                    instMat.set(ColorAttribute.createDiffuse(Color.ORANGE));
-                } else {
-                    // Restore from original model material
-                    Material modelMat = model.materials.get(j);
-                    instMat.set(modelMat.get(ColorAttribute.Diffuse));
-                }
-            }
-        }
-    }
-
-    /**
-     * Updates the grid with a new step size.
-     * Recreates the grid model if the step size has changed.
-     *
-     * @param newStep the new distance between grid lines
-     */
-    private void updateGrid(float newStep) {
-        if (appGrid != null) {
-            if (Math.abs(appGrid.getStep() - newStep) < 0.0001f) return;
-            appGrid.dispose();
-        }
-        appGrid = new AppGrid(newStep);
-        LOGGER.info("Grid updated to step size: {}", newStep);
-    }
-
-    /**
-     * Loads a model from the specified file path and adds it to the scene.
-     *
-     * @param filePath the path to the model file to load
-     */
-    public void loadModel(String filePath) {
-        loadModel(filePath, null);
-    }
-
-    /**
-     * Loads a 3D model from the given path, converts it to a GDX model, and adds it to the scene
-     * with an optional pre-defined transformation.
-     * If the transformation is null, the model is automatically placed near already loaded instances.
-     * This method automatically triggers a scene persistence save on success.
-     *
-     * @param filePath the path to the 3D model file to load
-     * @param transform the optional transformation to apply; if null, automatic placement is used
-     */
-    public void loadModel(String filePath, com.badlogic.gdx.math.Matrix4 transform) {
-        if (filePath == null) return;
-        Path path = Paths.get(filePath);
-        if (!java.nio.file.Files.exists(path)) {
-            LOGGER.error("Model file not found at: {}", path.toAbsolutePath());
-            return;
-        }
-
-        try {
-            cz.ad.print3d.aslicer.logic.model.Model modelData = ModelParserFactory.parse(path);
-            if (modelData != null) {
-                LOGGER.info("Loading model from {}", filePath);
-                currentModelPath = filePath;
-                loadedModelPaths.add(filePath);
-
-                Model gdxModel = ModelGdxConverter.convertToGdxModel(modelData);
-                ModelInstance gdxInstance = new ModelInstance(gdxModel);
-
-                if (transform != null) {
-                    gdxInstance.transform.set(transform);
-                    LOGGER.debug("Applying pre-defined transform for {}", filePath);
-                } else {
-                    placeNearExisting(gdxInstance);
-                }
-
-                models.add(gdxModel);
-                instances.add(gdxInstance);
-                if (modelListWindow != null) {
-                    modelListWindow.updateList();
-                }
-                scenePersistence.saveScene(loadedModelPaths, instances);
-                LOGGER.info("Successfully loaded and placed model from {}", filePath);
-            }
-        } catch (IOException e) {
-            LOGGER.error("Error parsing model file: {}", filePath, e);
-        }
-    }
-
-    /**
-     * Places the new model instance near already existing objects to avoid collision
-     * and ensures the bottom part of the model is placed at Z=0 coordinates.
-     *
-     * <p>This method calculates the bounding box of the new instance and detects if its
-     * bottom part (minimum Z coordinate) is different from zero. If so, it computes
-     * the necessary Z-offset to bring it to the ground level (Z=0). For horizontal
-     * placement, it uses the configured distance to position the model along the X-axis
-     * relative to the currently loaded models.</p>
-     *
-     * @param newInstance the model instance to position; its transform matrix will be updated
-     */
-    void placeNearExisting(ModelInstance newInstance) {
-        // Calculate bounding box of the new instance in its local space
-        BoundingBox newBounds = new BoundingBox();
-        newInstance.calculateBoundingBox(newBounds);
-
-        // Calculate offset to bring bottom Z to 0
-        float offsetZ = -newBounds.min.z;
-        float offsetX = 0;
-
-        if (instances.isEmpty()) {
-            LOGGER.debug("First model, placing at origin (X=0, Y=0) with Z adjusted to 0");
-        } else {
-            float distance = appConfig.loadToDto().getDistance();
-
-            // Calculate total bounding box of all existing instances in world space
-            BoundingBox totalBounds = new BoundingBox();
-            totalBounds.inf();
-
-            for (ModelInstance inst : instances) {
-                BoundingBox currentBounds = new BoundingBox();
-                inst.calculateBoundingBox(currentBounds);
-                currentBounds.mul(inst.transform);
-                totalBounds.ext(currentBounds);
+        desktopUI.toggleModelListWindow(modelManager.getLoadedModelPaths(), new ModelListWindow.ModelListListener() {
+            @Override
+            public void onRemoveModel(int index) {
+                modelManager.removeModel(index);
             }
 
-            // Place along X axis after the existing objects
-            float currentMaxX = totalBounds.max.x;
-            float newMinX = newBounds.min.x;
+            @Override
+            public void onDuplicateModel(int index) {
+                modelManager.duplicateModel(index);
+            }
 
-            offsetX = currentMaxX - newMinX + distance;
-            LOGGER.info("Placed new model near existing ones with offset X: {}. Configured distance: {}", offsetX, distance);
-        }
-
-        // Apply translation
-        newInstance.transform.setToTranslation(offsetX, 0, offsetZ);
-
-        if (offsetZ != 0) {
-            LOGGER.info("Detected model bottom Z at {}, moved to 0 by offset: {}", newBounds.min.z, offsetZ);
+            @Override
+            public void onSelectModels(Array<Integer> indices) {
+                modelManager.getSelectedIndices().clear();
+                modelManager.getSelectedIndices().addAll(indices);
+                modelManager.updateHighlights();
+            }
+        });
+        if (desktopUI.getModelListWindow() != null) {
+            desktopUI.getModelListWindow().setSelectedIndices(modelManager.getSelectedIndices());
         }
     }
 
     @Override
     public void resize(int width, int height) {
-        if (width > 0 && height > 0) {
-            currentWidth = width;
-            currentHeight = height;
+        currentWidth = width;
+        currentHeight = height;
+        if (sceneManager != null) {
+            sceneManager.resize(width, height);
         }
-        cam.viewportWidth = width;
-        cam.viewportHeight = height;
-        cam.update();
-        stage.getViewport().update(width, height, true);
+        if (desktopUI != null) {
+            desktopUI.resize(width, height);
+        }
     }
 
     @Override
@@ -751,40 +358,32 @@ public class DesktopApp implements ApplicationListener {
         Gdx.gl.glViewport(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
 
-        modelBatch.begin(cam);
-        if (appGrid != null) {
-            modelBatch.render(appGrid.getInstance());
+        if (sceneManager != null) {
+            sceneManager.getCameraController().update();
+            sceneManager.getModelBatch().begin(sceneManager.getCamera());
+            sceneManager.getModelBatch().render(sceneManager.getAppGrid().getInstance());
+            if (modelManager != null) {
+                sceneManager.getModelBatch().render(modelManager.getInstances(), sceneManager.getEnvironment());
+            }
+            sceneManager.getModelBatch().end();
         }
-        if (instances.size > 0) {
-            modelBatch.render(instances, environment);
-        }
-        modelBatch.end();
 
-        stage.act(Gdx.graphics.getDeltaTime());
-        stage.draw();
+        if (desktopUI != null) {
+            desktopUI.render(Gdx.graphics.getDeltaTime());
+        }
     }
 
     @Override
-    public void pause() {
-    }
+    public void pause() {}
 
     @Override
-    public void resume() {
-    }
+    public void resume() {}
 
     @Override
     public void dispose() {
         saveAllConfig();
-        if (appGrid != null) {
-            appGrid.dispose();
-        }
-        modelBatch.dispose();
-        for (Model m : models) {
-            m.dispose();
-        }
-        models.clear();
-        instances.clear();
-        stage.dispose();
-        skin.dispose();
+        if (sceneManager != null) sceneManager.dispose();
+        if (modelManager != null) modelManager.dispose();
+        if (desktopUI != null) desktopUI.dispose();
     }
 }

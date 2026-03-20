@@ -1,25 +1,19 @@
 package cz.ad.print3d.aslicer.ui.desktop;
 
 import com.badlogic.gdx.ApplicationAdapter;
-import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.graphics.GL20;
-import com.badlogic.gdx.graphics.g3d.Model;
-import com.badlogic.gdx.graphics.g3d.ModelInstance;
-import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.backends.headless.HeadlessApplication;
 import com.badlogic.gdx.backends.headless.HeadlessApplicationConfiguration;
+import com.badlogic.gdx.graphics.g3d.Model;
+import com.badlogic.gdx.graphics.g3d.ModelInstance;
 import cz.ad.print3d.aslicer.ui.desktop.persistence.ScenePersistence;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
-import java.io.File;
 import java.nio.file.Paths;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
 
 public class ModelListSelectionBugTest {
 
@@ -36,61 +30,62 @@ public class ModelListSelectionBugTest {
             @Override
             public void create() {
                 try {
-                    Gdx.gl = mock(GL20.class);
-                    Gdx.gl20 = Gdx.gl;
+                    GdxTestUtils.mockGdxGL();
                     
                     DesktopApp app = new DesktopApp();
-                    app.stage = null; // We made it null-safe (wait, I haven't yet, let's do it)
-                    app.skin = app.createSkin();
+                    app.create();
                     
                     // Add a model
-                    app.loadedModelPaths.add("model1.stl");
+                    app.modelManager.getLoadedModelPaths().add("model1.stl");
                     // We need a real model for instances
                     Model realModel = new Model();
-                    app.models.add(realModel);
+                    java.lang.reflect.Field modelsField = app.modelManager.getClass().getDeclaredField("models");
+                    modelsField.setAccessible(true);
+                    ((com.badlogic.gdx.utils.Array<Model>)modelsField.get(app.modelManager)).add(realModel);
+                    
                     ModelInstance instance = new ModelInstance(realModel);
-                    app.instances.add(instance);
+                    app.modelManager.getInstances().add(instance);
                     
                     // Select the model
-                    app.selectedIndices.add(0);
-                    assertEquals(1, app.selectedIndices.size);
+                    app.modelManager.getSelectedIndices().add(0);
+                    assertEquals(1, app.modelManager.getSelectedIndices().size);
                     
                     // Call toggle - this should create the window and theoretically clear selection due to the bug
                     app.toggleModelListWindow();
                     
                     // Check selection
-                    if (app.selectedIndices.size == 0) {
+                    if (app.modelManager.getSelectedIndices().size == 0) {
                         throw new AssertionError("Selection was cleared by toggleModelListWindow");
                     }
                     
-                    assertEquals(1, app.selectedIndices.size, "Selection size should be 1");
-                    assertEquals(0, (int)app.selectedIndices.get(0), "Selected index should be 0");
+                    assertEquals(1, app.modelManager.getSelectedIndices().size, "Selection size should be 1");
+                    assertEquals(0, (int)app.modelManager.getSelectedIndices().get(0), "Selected index should be 0");
 
                     // Hide window
                     app.toggleModelListWindow();
-                    assertTrue(app.modelListWindow != null && !app.modelListWindow.isVisible());
+                    assertTrue(app.desktopUI.getModelListWindow() != null && !app.desktopUI.getModelListWindow().isVisible());
 
                     // Change selection while hidden
-                    app.selectedIndices.clear();
-                    app.selectedIndices.add(1); // Assuming we had more? Let's add more models.
+                    app.modelManager.getSelectedIndices().clear();
+                    app.modelManager.getSelectedIndices().add(1); // Assuming we had more? Let's add more models.
                     
                     // Actually let's just use 0 but make sure it's preserved.
                     // Let's add another model to be safe.
-                    app.loadedModelPaths.add("model2.stl");
+                    app.modelManager.getLoadedModelPaths().add("model2.stl");
                     Model realModel2 = new Model();
-                    app.models.add(realModel2);
-                    app.instances.add(new ModelInstance(realModel2));
+                    ((com.badlogic.gdx.utils.Array<Model>)modelsField.get(app.modelManager)).add(realModel2);
+                    app.modelManager.getInstances().add(new ModelInstance(realModel2));
                     
-                    app.selectedIndices.clear();
-                    app.selectedIndices.add(1);
+                    app.modelManager.getSelectedIndices().clear();
+                    app.modelManager.getSelectedIndices().add(1);
                     
                     // Re-show window
                     app.toggleModelListWindow();
-                    assertTrue(app.modelListWindow.isVisible());
+                    assertTrue(app.desktopUI.getModelListWindow().isVisible());
                     
                     // Selection should still be 1
-                    if (app.selectedIndices.size != 1 || app.selectedIndices.get(0) != 1) {
-                         throw new AssertionError("Selection was lost when re-opening ModelListWindow. Expected [1], got " + app.selectedIndices);
+                    if (app.modelManager.getSelectedIndices().size != 1 || app.modelManager.getSelectedIndices().get(0) != 1) {
+                         throw new AssertionError("Selection was lost when re-opening ModelListWindow. Expected [1], got " + app.modelManager.getSelectedIndices());
                     }
                     
                     latch.countDown();
