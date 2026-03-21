@@ -29,6 +29,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.utils.Array;
 import cz.ad.print3d.aslicer.logic.model.Model;
+import cz.ad.print3d.aslicer.logic.model.basic.LengthUnit;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.CountDownLatch;
@@ -284,7 +285,7 @@ public class ModelListWindowTest {
 
             private Model mockModel() {
                 return new Model() {
-                    @Override public cz.ad.print3d.aslicer.logic.model.basic.Unit unit() { return null; }
+                    @Override public LengthUnit lengthUnit() { return null; }
                     @Override public java.util.List<? extends MeshPart> parts() { return java.util.Collections.emptyList(); }
                 };
             }

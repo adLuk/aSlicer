@@ -18,7 +18,7 @@
 package cz.ad.print3d.aslicer.logic.model.format.mf3.core;
 
 import cz.ad.print3d.aslicer.logic.model.Model;
-import cz.ad.print3d.aslicer.logic.model.basic.Unit;
+import cz.ad.print3d.aslicer.logic.model.basic.LengthUnit;
 import cz.ad.print3d.aslicer.logic.model.basic.Vector3f;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.build.Mf3Build;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.geometry.Mf3Triangle;
@@ -54,7 +54,7 @@ public class Mf3Model implements Model {
      * Default value is MILLIMETER as per 3MF specification.
      */
     @XmlAttribute(name = "unit")
-    private Unit unit = Unit.MILLIMETER;
+    private LengthUnit lengthUnit = LengthUnit.MILLIMETER;
 
     /**
      * List of metadata properties providing additional info about the model.
@@ -136,11 +136,11 @@ public class Mf3Model implements Model {
      *
      * @param metadata      map of metadata properties
      * @param objects       list of 3MF objects containing mesh data
-     * @param unit          the measurement unit used for the model
+     * @param lengthUnit          the measurement unit used for the model
      * @param relationships package relationships
      */
-    public Mf3Model(Map<String, String> metadata, List<Mf3Object> objects, Unit unit, Mf3Relationships relationships) {
-        this(metadata, objects, unit, relationships, null);
+    public Mf3Model(Map<String, String> metadata, List<Mf3Object> objects, LengthUnit lengthUnit, Mf3Relationships relationships) {
+        this(metadata, objects, lengthUnit, relationships, null);
     }
 
     /**
@@ -148,12 +148,12 @@ public class Mf3Model implements Model {
      *
      * @param metadata      map of metadata properties
      * @param objects       list of 3MF objects containing mesh data
-     * @param unit          the measurement unit used for the model
+     * @param lengthUnit          the measurement unit used for the model
      * @param relationships package relationships
      * @param contentTypes  package content types
      */
-    public Mf3Model(final Map<String, String> metadata, final List<Mf3Object> objects, final Unit unit, final Mf3Relationships relationships, final Mf3ContentTypes contentTypes) {
-        this.unit = unit;
+    public Mf3Model(final Map<String, String> metadata, final List<Mf3Object> objects, final LengthUnit lengthUnit, final Mf3Relationships relationships, final Mf3ContentTypes contentTypes) {
+        this.lengthUnit = lengthUnit;
         if (relationships != null) {
             this.relationshipParts.put("_rels/.rels", relationships);
         }
@@ -252,8 +252,8 @@ public class Mf3Model implements Model {
      * @return the measurement unit
      */
     @Override
-    public Unit unit() {
-        return unit;
+    public LengthUnit lengthUnit() {
+        return lengthUnit;
     }
 
     /**
@@ -312,10 +312,10 @@ public class Mf3Model implements Model {
     /**
      * Sets the measurement unit.
      *
-     * @param unit the unit to set
+     * @param lengthUnit the unit to set
      */
-    public void setUnit(final Unit unit) {
-        this.unit = unit;
+    public void setUnit(final LengthUnit lengthUnit) {
+        this.lengthUnit = lengthUnit;
     }
 
     /**
@@ -532,7 +532,7 @@ public class Mf3Model implements Model {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Mf3Model mf3Model = (Mf3Model) o;
-        return unit == mf3Model.unit &&
+        return lengthUnit == mf3Model.lengthUnit &&
                 java.util.Objects.equals(metadataList, mf3Model.metadataList) &&
                 java.util.Objects.equals(resources, mf3Model.resources) &&
                 java.util.Objects.equals(build, mf3Model.build) &&
@@ -553,7 +553,7 @@ public class Mf3Model implements Model {
      */
     @Override
     public int hashCode() {
-        return java.util.Objects.hash(unit, metadataList, resources, build, relationshipParts, contentTypes, storagePath, prusaMainMetadata, prusaSlicerModelConfig, prusaSettings, bambuConfig, bambuCustomGCode);
+        return java.util.Objects.hash(lengthUnit, metadataList, resources, build, relationshipParts, contentTypes, storagePath, prusaMainMetadata, prusaSlicerModelConfig, prusaSettings, bambuConfig, bambuCustomGCode);
     }
 
     /**
@@ -564,7 +564,7 @@ public class Mf3Model implements Model {
     @Override
     public String toString() {
         return "Mf3Model{" +
-                "unit=" + unit +
+                "unit=" + lengthUnit +
                 ", metadataList=" + metadataList +
                 ", resources=" + resources +
                 ", build=" + build +

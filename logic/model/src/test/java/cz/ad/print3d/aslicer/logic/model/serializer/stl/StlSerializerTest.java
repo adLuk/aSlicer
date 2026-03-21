@@ -17,7 +17,7 @@
  */
 package cz.ad.print3d.aslicer.logic.model.serializer.stl;
 
-import cz.ad.print3d.aslicer.logic.model.basic.Unit;
+import cz.ad.print3d.aslicer.logic.model.basic.LengthUnit;
 import cz.ad.print3d.aslicer.logic.model.basic.Vector3f;
 import cz.ad.print3d.aslicer.logic.model.format.stl.StlFacet;
 import cz.ad.print3d.aslicer.logic.model.format.stl.StlModel;
@@ -61,7 +61,7 @@ public class StlSerializerTest {
         Vector3f v2 = new Vector3f(1, 0, 0);
         Vector3f v3 = new Vector3f(0, 1, 0);
         StlFacet facet = new StlFacet(normal, v1, v2, v3, 0);
-        StlModel originalModel = new StlModel(header, List.of(facet), Unit.MILLIMETER);
+        StlModel originalModel = new StlModel(header, List.of(facet), LengthUnit.MILLIMETER);
 
         // Serialize
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
@@ -73,7 +73,7 @@ public class StlSerializerTest {
         byte[] serializedData = outputStream.toByteArray();
         ByteArrayInputStream inputStream = new ByteArrayInputStream(serializedData);
         ReadableByteChannel readChannel = Channels.newChannel(inputStream);
-        BinaryStlParser parser = new BinaryStlParser(Unit.MILLIMETER);
+        BinaryStlParser parser = new BinaryStlParser(LengthUnit.MILLIMETER);
         StlModel deserializedModel = parser.parse(readChannel);
 
         // Verify
@@ -98,7 +98,7 @@ public class StlSerializerTest {
      */
     @Test
     public void testSerializeWithEmptyHeader() throws IOException {
-        StlModel model = new StlModel(null, List.of(), Unit.MILLIMETER);
+        StlModel model = new StlModel(null, List.of(), LengthUnit.MILLIMETER);
         
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         WritableByteChannel writeChannel = Channels.newChannel(outputStream);
@@ -133,7 +133,7 @@ public class StlSerializerTest {
         }
 
         // Parse
-        BinaryStlParser parser = new BinaryStlParser(Unit.MILLIMETER);
+        BinaryStlParser parser = new BinaryStlParser(LengthUnit.MILLIMETER);
         StlModel model;
         try (ReadableByteChannel readChannel = Channels.newChannel(new ByteArrayInputStream(originalData))) {
             model = parser.parse(readChannel);
@@ -169,7 +169,7 @@ public class StlSerializerTest {
         Vector3f v2 = new Vector3f(1, 0, 0);
         Vector3f v3 = new Vector3f(0, 1, 0);
         StlFacet facet = new StlFacet(normal, v1, v2, v3, 0);
-        StlModel originalModel = new StlModel(header, List.of(facet), Unit.MILLIMETER);
+        StlModel originalModel = new StlModel(header, List.of(facet), LengthUnit.MILLIMETER);
 
         // Serialize
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
@@ -180,7 +180,7 @@ public class StlSerializerTest {
         // Deserialize
         byte[] serializedData = outputStream.toByteArray();
         ReadableByteChannel readChannel = Channels.newChannel(new ByteArrayInputStream(serializedData));
-        AsciiStlParser parser = new AsciiStlParser(Unit.MILLIMETER);
+        AsciiStlParser parser = new AsciiStlParser(LengthUnit.MILLIMETER);
         StlModel deserializedModel = parser.parse(readChannel);
 
         // Verify
@@ -204,7 +204,7 @@ public class StlSerializerTest {
      */
     @Test
     public void testDispatcherDefault() throws IOException {
-        StlModel model = new StlModel(new byte[80], List.of(), Unit.MILLIMETER);
+        StlModel model = new StlModel(new byte[80], List.of(), LengthUnit.MILLIMETER);
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         WritableByteChannel writeChannel = Channels.newChannel(outputStream);
         
@@ -232,7 +232,7 @@ public class StlSerializerTest {
         }
 
         // Parse original
-        StlParser parser = new StlParser(Unit.MILLIMETER);
+        StlParser parser = new StlParser(LengthUnit.MILLIMETER);
         StlModel originalModel;
         try (ReadableByteChannel readChannel = Channels.newChannel(new ByteArrayInputStream(originalData))) {
             originalModel = parser.parse(readChannel);

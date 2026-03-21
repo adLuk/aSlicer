@@ -18,7 +18,7 @@
 package cz.ad.print3d.aslicer.logic.model.format.gcode.core;
 
 import cz.ad.print3d.aslicer.logic.model.Model;
-import cz.ad.print3d.aslicer.logic.model.basic.Unit;
+import cz.ad.print3d.aslicer.logic.model.basic.LengthUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -53,10 +53,10 @@ public abstract class GCode implements Model {
     }
 
     @Override
-    public Unit unit() {
+    public LengthUnit lengthUnit() {
         // G-code can contain G20 (inches) or G21 (millimeters) commands.
         // Default is usually millimeter in 3D printing.
-        return Unit.MILLIMETER; 
+        return LengthUnit.MILLIMETER;
     }
 
     @Override

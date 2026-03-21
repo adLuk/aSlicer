@@ -17,10 +17,9 @@
  */
 package cz.ad.print3d.aslicer.logic.model.parser.mf3;
 
-import cz.ad.print3d.aslicer.logic.model.basic.Unit;
+import cz.ad.print3d.aslicer.logic.model.basic.LengthUnit;
 import cz.ad.print3d.aslicer.logic.model.basic.Vector3f;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.core.Mf3Model;
-import cz.ad.print3d.aslicer.logic.model.format.mf3.resource.Mf3Base;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.resource.Mf3BaseMaterials;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.resource.Mf3Object;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.geometry.Mf3Triangle;
@@ -35,7 +34,6 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.StandardCharsets;
@@ -86,7 +84,7 @@ public class Mf3ParserTest {
         Mf3Model model = parser.parse(channel);
         
         assertNotNull(model);
-        assertEquals(Unit.MILLIMETER, model.unit());
+        assertEquals(LengthUnit.MILLIMETER, model.lengthUnit());
         assertEquals("Test Cube", model.metadata().get("Title"));
         assertEquals(1, model.objects().size());
 
@@ -156,7 +154,7 @@ public class Mf3ParserTest {
         Mf3Parser parser = new Mf3Parser();
         Mf3Model model = parser.parse(channel);
 
-        assertEquals(Unit.MILLIMETER, model.unit());
+        assertEquals(LengthUnit.MILLIMETER, model.lengthUnit());
         assertEquals(2, model.objects().size());
         assertEquals("Obj1", model.objects().get(0).name());
         assertEquals("Obj2", model.objects().get(1).name());
@@ -176,13 +174,13 @@ public class Mf3ParserTest {
 
         Mf3Parser parser = new Mf3Parser();
 
-        for (Unit unit : Unit.values()) {
-            String xmlContent = String.format(xmlTemplate, unit.getValue());
+        for (LengthUnit lengthUnit : LengthUnit.values()) {
+            String xmlContent = String.format(xmlTemplate, lengthUnit.getValue());
             byte[] zipData = createZipWithFile("3D/3dmodel.model", xmlContent);
             ReadableByteChannel channel = Channels.newChannel(new ByteArrayInputStream(zipData));
             
             Mf3Model model = parser.parse(channel);
-            assertEquals(unit, model.unit(), "Failed to parse unit: " + unit.getValue());
+            assertEquals(lengthUnit, model.lengthUnit(), "Failed to parse unit: " + lengthUnit.getValue());
         }
     }
 
@@ -284,7 +282,7 @@ public class Mf3ParserTest {
             Mf3Model model = parser.parse(channel);
             
             assertNotNull(model);
-            assertEquals(Unit.MILLIMETER, model.unit());
+            assertEquals(LengthUnit.MILLIMETER, model.lengthUnit());
             assertEquals(1, model.objects().size());
             
             Mf3Object object = model.objects().get(0);

@@ -25,7 +25,7 @@ import com.badlogic.gdx.graphics.g3d.Model;
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
 import com.badlogic.gdx.graphics.g3d.model.Node;
 import com.badlogic.gdx.graphics.g3d.model.NodePart;
-import cz.ad.print3d.aslicer.logic.model.basic.Unit;
+import cz.ad.print3d.aslicer.logic.model.basic.LengthUnit;
 import cz.ad.print3d.aslicer.logic.model.basic.Vector3f;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.core.Mf3Model;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.geometry.Mf3Mesh;
@@ -61,7 +61,7 @@ public class ModelGdxConverterTest {
                 Vector3f v2 = new Vector3f(1, 0, 0);
                 Vector3f v3 = new Vector3f(0, 1, 0);
                 StlFacet facet = new StlFacet(normal, v1, v2, v3, 0);
-                StlModel stlModel = new StlModel(new byte[80], Collections.singletonList(facet), Unit.MILLIMETER);
+                StlModel stlModel = new StlModel(new byte[80], Collections.singletonList(facet), LengthUnit.MILLIMETER);
 
                 try {
                     mockGdxGL();
@@ -103,7 +103,7 @@ public class ModelGdxConverterTest {
 
                 Mf3Model mf3Model = new Mf3Model();
                 mf3Model.setResources(resources);
-                mf3Model.setUnit(Unit.MILLIMETER);
+                mf3Model.setUnit(LengthUnit.MILLIMETER);
 
                 try {
                     mockGdxGL();

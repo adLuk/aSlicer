@@ -17,7 +17,7 @@
  */
 package cz.ad.print3d.aslicer.logic.model.parser.stl;
 
-import cz.ad.print3d.aslicer.logic.model.basic.Unit;
+import cz.ad.print3d.aslicer.logic.model.basic.LengthUnit;
 import cz.ad.print3d.aslicer.logic.model.basic.Vector3f;
 import cz.ad.print3d.aslicer.logic.model.format.stl.StlFacet;
 import cz.ad.print3d.aslicer.logic.model.format.stl.StlModel;
@@ -45,15 +45,15 @@ public class AsciiStlParser implements ModelParser<StlModel> {
     /**
      * The unit used for coordinate values in the parsed model.
      */
-    private final Unit unit;
+    private final LengthUnit lengthUnit;
 
     /**
      * Creates a new ASCII STL parser with the specified unit.
      *
-     * @param unit the measurement unit to associate with the model
+     * @param lengthUnit the measurement unit to associate with the model
      */
-    public AsciiStlParser(final Unit unit) {
-        this.unit = unit;
+    public AsciiStlParser(final LengthUnit lengthUnit) {
+        this.lengthUnit = lengthUnit;
     }
 
     /**
@@ -99,7 +99,7 @@ public class AsciiStlParser implements ModelParser<StlModel> {
         final byte[] nameBytes = headerName.getBytes(StandardCharsets.US_ASCII);
         System.arraycopy(nameBytes, 0, header, 0, Math.min(nameBytes.length, 80));
 
-        return new StlModel(header, facets, unit);
+        return new StlModel(header, facets, lengthUnit);
     }
 
     /**

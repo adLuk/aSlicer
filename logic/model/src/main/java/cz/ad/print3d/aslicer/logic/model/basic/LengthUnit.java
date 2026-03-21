@@ -30,7 +30,7 @@ import java.util.Map;
  */
 @XmlType(name = "unit", namespace = "http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel")
 @XmlEnum
-public enum Unit {
+public enum LengthUnit {
     /**
      * Microns (1 micrometer).
      */
@@ -68,11 +68,11 @@ public enum Unit {
     METER("meter");
 
     private final String value;
-    private static final Map<String, Unit> LOOKUP = new HashMap<>();
+    private static final Map<String, LengthUnit> LOOKUP = new HashMap<>();
 
     static {
-        for (Unit unit : Unit.values()) {
-            LOOKUP.put(unit.value.toLowerCase(), unit);
+        for (LengthUnit lengthUnit : LengthUnit.values()) {
+            LOOKUP.put(lengthUnit.value.toLowerCase(), lengthUnit);
         }
     }
 
@@ -81,7 +81,7 @@ public enum Unit {
      *
      * @param value the string value used in 3MF files
      */
-    Unit(String value) {
+    LengthUnit(String value) {
         this.value = value;
     }
 
@@ -100,7 +100,7 @@ public enum Unit {
      * @param value the string value to lookup
      * @return the Unit, or null if no match is found
      */
-    public static Unit fromString(String value) {
+    public static LengthUnit fromString(String value) {
         if (value == null) {
             return null;
         }

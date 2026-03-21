@@ -420,7 +420,7 @@ public class ModelListWindow extends Window {
                 triangleCount += part.triangles().size();
             }
 
-            String unitStr = model.unit() != null ? model.unit().getValue() : "unknown";
+            String unitStr = model.lengthUnit() != null ? model.lengthUnit().getValue() : "unknown";
             String info = String.format("File: %s\nParts: %d\nTriangles: %d\nUnits: %s",
                 item.displayName, partCount, triangleCount, unitStr);
             detailLabel.setText(info);

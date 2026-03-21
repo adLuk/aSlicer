@@ -18,7 +18,7 @@
 package cz.ad.print3d.aslicer.logic.model.format.stl;
 
 import cz.ad.print3d.aslicer.logic.model.Model;
-import cz.ad.print3d.aslicer.logic.model.basic.Unit;
+import cz.ad.print3d.aslicer.logic.model.basic.LengthUnit;
 
 import java.util.Collections;
 import java.util.List;
@@ -28,9 +28,9 @@ import java.util.List;
  *
  * @param header 80-byte header of the STL file
  * @param facets list of facets in the STL model
- * @param unit the measurement unit used for coordinate values in this model
+ * @param lengthUnit the measurement unit used for coordinate values in this model
  */
-public record StlModel(byte[] header, List<StlFacet> facets, Unit unit) implements Model {
+public record StlModel(byte[] header, List<StlFacet> facets, LengthUnit lengthUnit) implements Model {
     /**
      * @return Number of facets in the STL model.
      */
@@ -44,8 +44,8 @@ public record StlModel(byte[] header, List<StlFacet> facets, Unit unit) implemen
      * @return the measurement unit, or null if not specified or applicable
      */
     @Override
-    public Unit unit() {
-        return unit;
+    public LengthUnit lengthUnit() {
+        return lengthUnit;
     }
 
     @Override

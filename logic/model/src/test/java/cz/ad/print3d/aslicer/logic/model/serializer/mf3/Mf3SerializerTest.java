@@ -17,12 +17,10 @@
  */
 package cz.ad.print3d.aslicer.logic.model.serializer.mf3;
 
-import cz.ad.print3d.aslicer.logic.model.basic.Unit;
+import cz.ad.print3d.aslicer.logic.model.basic.LengthUnit;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.core.Mf3Model;
 import cz.ad.print3d.aslicer.logic.model.format.mf3.relationship.Mf3Relationships;
 import cz.ad.print3d.aslicer.logic.model.parser.mf3.Mf3Parser;
-import cz.ad.print3d.aslicer.logic.model.format.mf3.prusa.Mf3PrusaSettings;
-import cz.ad.print3d.aslicer.logic.model.format.mf3.prusa.Mf3PrusaSlicerModelConfig;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
@@ -31,11 +29,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
-import java.nio.channels.ReadableByteChannel;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -57,7 +53,7 @@ public class Mf3SerializerTest {
     @Test
     public void testSerialize() throws IOException {
         Mf3Serializer serializer = new Mf3Serializer();
-        Mf3Model model = new Mf3Model(Collections.emptyMap(), Collections.emptyList(), Unit.MILLIMETER, new Mf3Relationships());
+        Mf3Model model = new Mf3Model(Collections.emptyMap(), Collections.emptyList(), LengthUnit.MILLIMETER, new Mf3Relationships());
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         WritableByteChannel channel = Channels.newChannel(outputStream);
         
@@ -94,7 +90,7 @@ public class Mf3SerializerTest {
         assertNotNull(reParsedModel);
 
         // 4. Compare logical models
-        assertEquals(model.unit(), reParsedModel.unit());
+        assertEquals(model.lengthUnit(), reParsedModel.lengthUnit());
         assertEquals(model.metadata(), reParsedModel.metadata());
         assertEquals(model.getResources(), reParsedModel.getResources());
         assertEquals(model.getBuild(), reParsedModel.getBuild());

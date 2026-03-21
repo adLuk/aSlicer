@@ -17,7 +17,7 @@
  */
 package cz.ad.print3d.aslicer.logic.model.parser.stl;
 
-import cz.ad.print3d.aslicer.logic.model.basic.Unit;
+import cz.ad.print3d.aslicer.logic.model.basic.LengthUnit;
 import cz.ad.print3d.aslicer.logic.model.format.stl.StlModel;
 import cz.ad.print3d.aslicer.logic.model.parser.ModelParser;
 
@@ -38,22 +38,22 @@ public class StlParser implements ModelParser<StlModel> {
     /**
      * The unit to be used for the parsed STL model.
      */
-    private final Unit unit;
+    private final LengthUnit lengthUnit;
 
     /**
      * Default constructor using millimeter as default unit.
      */
     public StlParser() {
-        this(Unit.MILLIMETER);
+        this(LengthUnit.MILLIMETER);
     }
 
     /**
      * Creates a new STL parser with the specified unit.
      *
-     * @param unit the measurement unit to associate with the model
+     * @param lengthUnit the measurement unit to associate with the model
      */
-    public StlParser(final Unit unit) {
-        this.unit = unit;
+    public StlParser(final LengthUnit lengthUnit) {
+        this.lengthUnit = lengthUnit;
     }
 
     /**
@@ -76,9 +76,9 @@ public class StlParser implements ModelParser<StlModel> {
 
         if (read == PEEK_SIZE && 
             peek[0] == 's' && peek[1] == 'o' && peek[2] == 'l' && peek[3] == 'i' && peek[4] == 'd') {
-            return new AsciiStlParser(unit).parse(Channels.newChannel(bis));
+            return new AsciiStlParser(lengthUnit).parse(Channels.newChannel(bis));
         } else {
-            return new BinaryStlParser(unit).parse(Channels.newChannel(bis));
+            return new BinaryStlParser(lengthUnit).parse(Channels.newChannel(bis));
         }
     }
 }

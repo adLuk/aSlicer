@@ -25,7 +25,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.utils.Array;
 import cz.ad.print3d.aslicer.logic.model.Model;
-import cz.ad.print3d.aslicer.logic.model.basic.Unit;
+import cz.ad.print3d.aslicer.logic.model.basic.LengthUnit;
 import cz.ad.print3d.aslicer.ui.desktop.GdxTestUtils;
 import org.junit.jupiter.api.Test;
 
@@ -103,7 +103,7 @@ public class ModelDataDisplayTest {
 
             private Model createMockModel(String partName, int triangleCount) {
                 return new Model() {
-                    @Override public Unit unit() { return Unit.MILLIMETER; }
+                    @Override public LengthUnit lengthUnit() { return LengthUnit.MILLIMETER; }
                     @Override public List<? extends MeshPart> parts() {
                         return Collections.singletonList(new MeshPart() {
                             @Override public String name() { return partName; }

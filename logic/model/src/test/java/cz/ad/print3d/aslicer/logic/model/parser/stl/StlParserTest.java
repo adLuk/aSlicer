@@ -17,7 +17,7 @@
  */
 package cz.ad.print3d.aslicer.logic.model.parser.stl;
 
-import cz.ad.print3d.aslicer.logic.model.basic.Unit;
+import cz.ad.print3d.aslicer.logic.model.basic.LengthUnit;
 import cz.ad.print3d.aslicer.logic.model.format.stl.StlModel;
 import org.junit.jupiter.api.Test;
 
@@ -54,13 +54,13 @@ public class StlParserTest {
         
         ReadableByteChannel channel = Channels.newChannel(new ByteArrayInputStream(buffer.array()));
         
-        BinaryStlParser parser = new BinaryStlParser(Unit.MILLIMETER);
+        BinaryStlParser parser = new BinaryStlParser(LengthUnit.MILLIMETER);
         StlModel model = parser.parse(channel);
         
         assertArrayEquals(header, model.header());
         assertEquals(0, model.facetCount());
         assertTrue(model.facets().isEmpty());
-        assertEquals(Unit.MILLIMETER, model.unit());
+        assertEquals(LengthUnit.MILLIMETER, model.lengthUnit());
     }
 
     /**
@@ -90,7 +90,7 @@ public class StlParserTest {
         
         ReadableByteChannel channel = Channels.newChannel(new ByteArrayInputStream(buffer.array()));
         
-        BinaryStlParser parser = new BinaryStlParser(Unit.MILLIMETER);
+        BinaryStlParser parser = new BinaryStlParser(LengthUnit.MILLIMETER);
         StlModel model = parser.parse(channel);
         
         assertEquals(1, model.facetCount());
@@ -118,11 +118,11 @@ public class StlParserTest {
         buffer.putInt(0);
         
         ReadableByteChannel channel = Channels.newChannel(new ByteArrayInputStream(buffer.array()));
-        StlParser parser = new StlParser(Unit.MILLIMETER);
+        StlParser parser = new StlParser(LengthUnit.MILLIMETER);
         StlModel model = parser.parse(channel);
         
         assertEquals(0, model.facetCount());
-        assertEquals(Unit.MILLIMETER, model.unit());
+        assertEquals(LengthUnit.MILLIMETER, model.lengthUnit());
     }
 
     /**
@@ -135,12 +135,12 @@ public class StlParserTest {
         String ascii = "solid test\nfacet normal 0 0 1\nouter loop\nvertex 0 0 0\nvertex 1 0 0\nvertex 0 1 0\nendloop\nendfacet\nendsolid test";
         ReadableByteChannel channel = Channels.newChannel(new ByteArrayInputStream(ascii.getBytes(StandardCharsets.US_ASCII)));
         
-        StlParser parser = new StlParser(Unit.INCH);
+        StlParser parser = new StlParser(LengthUnit.INCH);
         StlModel model = parser.parse(channel);
         
         assertEquals(1, model.facetCount());
         assertEquals("test", new String(model.header(), StandardCharsets.US_ASCII).trim());
-        assertEquals(Unit.INCH, model.unit());
+        assertEquals(LengthUnit.INCH, model.lengthUnit());
     }
 
     /**
@@ -154,12 +154,12 @@ public class StlParserTest {
         try (InputStream is = getClass().getResourceAsStream(resourcePath)) {
             assertNotNull(is, "Resource not found: " + resourcePath);
             ReadableByteChannel channel = Channels.newChannel(is);
-            StlParser parser = new StlParser(Unit.CENTIMETER);
+            StlParser parser = new StlParser(LengthUnit.CENTIMETER);
             StlModel model = parser.parse(channel);
             
             assertEquals(1, model.facetCount());
             assertEquals("simple", new String(model.header(), StandardCharsets.US_ASCII).trim());
-            assertEquals(Unit.CENTIMETER, model.unit());
+            assertEquals(LengthUnit.CENTIMETER, model.lengthUnit());
             
             var facet = model.facets().get(0);
             assertEquals(1.0f, facet.normal().z());

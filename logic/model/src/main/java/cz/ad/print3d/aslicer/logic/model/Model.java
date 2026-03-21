@@ -17,7 +17,7 @@
  */
 package cz.ad.print3d.aslicer.logic.model;
 
-import cz.ad.print3d.aslicer.logic.model.basic.Unit;
+import cz.ad.print3d.aslicer.logic.model.basic.LengthUnit;
 import cz.ad.print3d.aslicer.logic.model.basic.Vector3f;
 import java.util.List;
 
@@ -31,7 +31,7 @@ public interface Model {
      * 
      * @return the measurement unit, or null if not specified or applicable
      */
-    Unit unit();
+    LengthUnit lengthUnit();
 
     /**
      * Returns a list of mesh parts that make up this model.
