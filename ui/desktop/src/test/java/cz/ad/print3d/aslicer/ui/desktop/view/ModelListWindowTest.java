@@ -16,10 +16,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 package cz.ad.print3d.aslicer.ui.desktop.view;
-import cz.ad.print3d.aslicer.ui.desktop.DesktopApp;
-import cz.ad.print3d.aslicer.ui.desktop.config.*;
-import cz.ad.print3d.aslicer.ui.desktop.persistence.*;
-import cz.ad.print3d.aslicer.ui.desktop.view.*;
 
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
@@ -29,23 +25,16 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
-import com.badlogic.gdx.scenes.scene2d.ui.ImageButton;
-import com.badlogic.gdx.scenes.scene2d.ui.Label;
-import com.badlogic.gdx.scenes.scene2d.ui.List;
-import com.badlogic.gdx.scenes.scene2d.ui.ScrollPane;
-import com.badlogic.gdx.scenes.scene2d.ui.Skin;
-import com.badlogic.gdx.scenes.scene2d.ui.Table;
-import com.badlogic.gdx.scenes.scene2d.ui.Window;
+import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.utils.Array;
+import cz.ad.print3d.aslicer.logic.model.Model;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Unit tests for ModelListWindow.
@@ -66,9 +55,12 @@ public class ModelListWindowTest {
                     final Array<String> paths = new Array<>();
                     paths.add("/path/to/model1.stl");
                     paths.add("/models/model2.3mf");
+                    final Array<Model> logicModels = new Array<>();
+                    logicModels.add(mockModel());
+                    logicModels.add(mockModel());
 
                     final ModelListWindow[] windowRef = new ModelListWindow[1];
-                    windowRef[0] = new ModelListWindow(skin, paths, new ModelListWindow.ModelListListener() {
+                    windowRef[0] = new ModelListWindow(skin, paths, logicModels, new ModelListWindow.ModelListListener() {
                         @Override
                         public void onRemoveModel(int index) {
                             paths.removeIndex(index);
@@ -288,6 +280,13 @@ public class ModelListWindowTest {
                     }
                 }
                 return null;
+            }
+
+            private Model mockModel() {
+                return new Model() {
+                    @Override public cz.ad.print3d.aslicer.logic.model.basic.Unit unit() { return null; }
+                    @Override public java.util.List<? extends MeshPart> parts() { return java.util.Collections.emptyList(); }
+                };
             }
 
             private void mockGdxGL() {

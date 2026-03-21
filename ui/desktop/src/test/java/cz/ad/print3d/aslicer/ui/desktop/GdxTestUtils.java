@@ -1,7 +1,17 @@
 package cz.ad.print3d.aslicer.ui.desktop;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.Pixmap;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.scenes.scene2d.ui.ImageButton;
+import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.ui.List;
+import com.badlogic.gdx.scenes.scene2d.ui.ScrollPane;
+import com.badlogic.gdx.scenes.scene2d.ui.Skin;
+import com.badlogic.gdx.scenes.scene2d.ui.Window;
 
 import java.lang.reflect.Proxy;
 import java.nio.IntBuffer;
@@ -62,5 +72,44 @@ public class GdxTestUtils {
                 }
         );
         Gdx.gl = Gdx.gl20;
+    }
+
+    /**
+     * Creates a minimal UI skin for testing purposes.
+     *
+     * @return the created Skin object
+     */
+    public static Skin createTestSkin() {
+        Skin skin = new Skin();
+        Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+        pixmap.setColor(Color.WHITE);
+        pixmap.fill();
+        skin.add("white", new Texture(pixmap));
+        BitmapFont font = new BitmapFont();
+        skin.add("default", font);
+
+        List.ListStyle listStyle = new List.ListStyle();
+        listStyle.font = font;
+        listStyle.selection = skin.newDrawable("white", Color.GRAY);
+        listStyle.fontColorSelected = Color.BLACK;
+        listStyle.fontColorUnselected = Color.WHITE;
+        skin.add("default", listStyle);
+
+        ScrollPane.ScrollPaneStyle scrollPaneStyle = new ScrollPane.ScrollPaneStyle();
+        skin.add("default", scrollPaneStyle);
+
+        Window.WindowStyle windowStyle = new Window.WindowStyle();
+        windowStyle.titleFont = font;
+        skin.add("default", windowStyle);
+
+        Label.LabelStyle labelStyle = new Label.LabelStyle();
+        labelStyle.font = font;
+        labelStyle.fontColor = Color.WHITE;
+        skin.add("default", labelStyle);
+
+        ImageButton.ImageButtonStyle imageButtonStyle = new ImageButton.ImageButtonStyle();
+        skin.add("default", imageButtonStyle);
+
+        return skin;
     }
 }

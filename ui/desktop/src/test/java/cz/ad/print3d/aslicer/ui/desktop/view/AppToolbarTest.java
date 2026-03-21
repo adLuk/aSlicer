@@ -48,6 +48,7 @@ public class AppToolbarTest {
         AtomicBoolean clearCalled = new AtomicBoolean(false);
         AtomicBoolean openCalled = new AtomicBoolean(false);
         AtomicBoolean settingsCalled = new AtomicBoolean(false);
+        AtomicBoolean switchViewCalled = new AtomicBoolean(false);
 
         new HeadlessApplication(new ApplicationAdapter() {
             @Override
@@ -69,6 +70,11 @@ public class AppToolbarTest {
                         @Override
                         public void onSettings() {
                             settingsCalled.set(true);
+                        }
+
+                        @Override
+                        public void onSwitchView(int index) {
+                            switchViewCalled.set(true);
                         }
                     });
 
@@ -105,5 +111,6 @@ public class AppToolbarTest {
         assertTrue(clearCalled.get(), "onClear should have been called");
         assertTrue(openCalled.get(), "onOpen should have been called");
         assertTrue(settingsCalled.get(), "onSettings should have been called");
+        assertTrue(switchViewCalled.get(), "onSwitchView should have been called");
     }
 }

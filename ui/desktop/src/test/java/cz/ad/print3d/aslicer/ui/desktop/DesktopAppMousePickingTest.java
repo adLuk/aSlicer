@@ -55,7 +55,7 @@ public class DesktopAppMousePickingTest {
                     modelsField.setAccessible(true);
                     ((Array<Model>)modelsField.get(app.modelManager)).clear();
                     app.modelManager.getLoadedModelPaths().clear();
-                    app.modelManager.getSelectedIndices().clear();
+                    app.modelManager.clearSelection();
 
                     // Add a model at (0,0,0)
                     ModelBuilder modelBuilder = new ModelBuilder();
@@ -76,8 +76,6 @@ public class DesktopAppMousePickingTest {
                     app.modelManager.getInstances().add(instance2);
                     ((Array<Model>)modelsField.get(app.modelManager)).add(model2);
 
-                    Array<Integer> selectedIndices = app.modelManager.getSelectedIndices();
-
                     // 1. Click on first model
                     PerspectiveCamera realCam = app.sceneManager.getCamera();
                     realCam.viewportWidth = 800;
@@ -89,6 +87,7 @@ public class DesktopAppMousePickingTest {
 
                     app.selectionProcessor.touchDown(400, 300, 0, Input.Buttons.LEFT);
                     
+                    Array<Integer> selectedIndices = app.modelManager.getSelectedIndices();
                     assertEquals(1, selectedIndices.size);
                     assertEquals(0, (int)selectedIndices.get(0));
                     assertEquals(Color.ORANGE, ((ColorAttribute)instance.materials.get(0).get(ColorAttribute.Diffuse)).color);
@@ -98,6 +97,7 @@ public class DesktopAppMousePickingTest {
                     realCam.update();
                     app.selectionProcessor.touchDown(400, 300, 0, Input.Buttons.LEFT);
                     
+                    selectedIndices = app.modelManager.getSelectedIndices();
                     assertEquals(1, selectedIndices.size);
                     assertEquals(1, (int)selectedIndices.get(0));
                     assertEquals(Color.GRAY, ((ColorAttribute)instance.materials.get(0).get(ColorAttribute.Diffuse)).color);
@@ -109,6 +109,7 @@ public class DesktopAppMousePickingTest {
                     when(Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT)).thenReturn(true);
                     app.selectionProcessor.touchDown(400, 300, 0, Input.Buttons.LEFT);
                     
+                    selectedIndices = app.modelManager.getSelectedIndices();
                     assertEquals(2, selectedIndices.size);
                     assertTrue(selectedIndices.contains(0, true));
                     assertTrue(selectedIndices.contains(1, true));

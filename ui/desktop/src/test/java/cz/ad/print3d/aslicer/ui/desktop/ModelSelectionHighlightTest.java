@@ -49,7 +49,6 @@ public class ModelSelectionHighlightTest {
                     ((Array<Model>)modelsField.get(app.modelManager)).add(model);
                     
                     ModelInstance instance = app.modelManager.getInstances().get(0);
-                    Array<Integer> selectedIndices = app.modelManager.getSelectedIndices();
 
                     // 1. Initially NOT selected, color should be GRAY
                     app.modelManager.updateHighlights();
@@ -57,14 +56,12 @@ public class ModelSelectionHighlightTest {
                     assertEquals(Color.GRAY, attr.color, "Initially color should be GRAY");
 
                     // 2. Select the model, color should become ORANGE
-                    selectedIndices.add(0);
-                    app.modelManager.updateHighlights();
+                    app.modelManager.selectModel(0);
                     attr = (ColorAttribute) instance.materials.get(0).get(ColorAttribute.Diffuse);
                     assertEquals(Color.ORANGE, attr.color, "Selected color should be ORANGE");
 
                     // 3. Unselect the model, color should return to GRAY
-                    selectedIndices.clear();
-                    app.modelManager.updateHighlights();
+                    app.modelManager.clearSelection();
                     attr = (ColorAttribute) instance.materials.get(0).get(ColorAttribute.Diffuse);
                     assertEquals(Color.GRAY, attr.color, "Unselected color should return to GRAY");
 

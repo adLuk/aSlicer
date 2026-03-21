@@ -53,6 +53,13 @@ public class AppToolbar extends Table {
          * Called when the settings button is clicked.
          */
         void onSettings();
+
+        /**
+         * Called when the view switch button is clicked.
+         *
+         * @param index the index of the view to switch to (0 for Model, 1 for Grid)
+         */
+        void onSwitchView(int index);
     }
 
     private final Skin skin;
@@ -70,6 +77,9 @@ public class AppToolbar extends Table {
         setupUI();
     }
 
+    /**
+     * Sets up the UI components of the toolbar, including buttons and their listeners.
+     */
     private void setupUI() {
         setBackground(skin.newDrawable("white", new Color(0.1f, 0.1f, 0.1f, 0.7f)));
 
@@ -100,13 +110,39 @@ public class AppToolbar extends Table {
             }
         });
 
+        ImageButton.ImageButtonStyle modelViewStyle = createButtonStyle(createModelIcon());
+        ImageButton modelViewButton = new ImageButton(modelViewStyle);
+        modelViewButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                if (listener != null) listener.onSwitchView(0);
+            }
+        });
+
+        ImageButton.ImageButtonStyle gridViewStyle = createButtonStyle(createGridIcon());
+        ImageButton gridViewButton = new ImageButton(gridViewStyle);
+        gridViewButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                if (listener != null) listener.onSwitchView(1);
+            }
+        });
+
         add(clearButton).pad(5);
         add(openButton).pad(5);
+        add(modelViewButton).pad(5);
+        add(gridViewButton).pad(5);
         add().expandX();
         add(settingsButton).pad(5);
         left();
     }
 
+    /**
+     * Creates a style for an image button with the specified icon.
+     *
+     * @param icon the icon to use for the button
+     * @return the created ImageButtonStyle
+     */
     private ImageButton.ImageButtonStyle createButtonStyle(Drawable icon) {
         ImageButton.ImageButtonStyle style = new ImageButton.ImageButtonStyle();
         style.up = skin.newDrawable("white", Color.GRAY);
@@ -115,6 +151,11 @@ public class AppToolbar extends Table {
         return style;
     }
 
+    /**
+     * Creates the icon for the clear model action.
+     *
+     * @return the clear icon drawable
+     */
     private Drawable createClearIcon() {
         Pixmap pixmap = new Pixmap(32, 32, Pixmap.Format.RGBA8888);
         pixmap.setColor(Color.LIGHT_GRAY);
@@ -128,6 +169,11 @@ public class AppToolbar extends Table {
         return new TextureRegionDrawable(new TextureRegion(texture));
     }
 
+    /**
+     * Creates the icon for the open model action.
+     *
+     * @return the open icon drawable
+     */
     private Drawable createOpenIcon() {
         Pixmap pixmap = new Pixmap(32, 32, Pixmap.Format.RGBA8888);
         pixmap.setColor(Color.LIGHT_GRAY);
@@ -139,6 +185,41 @@ public class AppToolbar extends Table {
         Texture texture = new Texture(pixmap);
         pixmap.dispose();
         skin.add("openIcon", texture);
+        return new TextureRegionDrawable(new TextureRegion(texture));
+    }
+
+    /**
+     * Creates the icon for the model view switch action.
+     *
+     * @return the model icon drawable
+     */
+    private Drawable createModelIcon() {
+        Pixmap pixmap = new Pixmap(32, 32, Pixmap.Format.RGBA8888);
+        pixmap.setColor(Color.CYAN);
+        pixmap.fillRectangle(4, 4, 24, 24);
+        pixmap.setColor(Color.BLACK);
+        pixmap.drawRectangle(4, 4, 24, 24);
+        Texture texture = new Texture(pixmap);
+        pixmap.dispose();
+        skin.add("modelIcon", texture);
+        return new TextureRegionDrawable(new TextureRegion(texture));
+    }
+
+    /**
+     * Creates the icon for the grid view switch action.
+     *
+     * @return the grid icon drawable
+     */
+    private Drawable createGridIcon() {
+        Pixmap pixmap = new Pixmap(32, 32, Pixmap.Format.RGBA8888);
+        pixmap.setColor(Color.LIGHT_GRAY);
+        for (int i = 0; i < 32; i += 8) {
+            pixmap.drawLine(i, 0, i, 31);
+            pixmap.drawLine(0, i, 31, i);
+        }
+        Texture texture = new Texture(pixmap);
+        pixmap.dispose();
+        skin.add("gridIcon", texture);
         return new TextureRegionDrawable(new TextureRegion(texture));
     }
 }

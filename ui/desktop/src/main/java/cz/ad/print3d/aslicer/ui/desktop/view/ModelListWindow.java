@@ -24,21 +24,9 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
-import com.badlogic.gdx.scenes.scene2d.ui.ImageButton;
-import com.badlogic.gdx.scenes.scene2d.ui.Label;
-import com.badlogic.gdx.scenes.scene2d.ui.List;
-import com.badlogic.gdx.scenes.scene2d.ui.ScrollPane;
-import com.badlogic.gdx.scenes.scene2d.ui.Skin;
-import com.badlogic.gdx.scenes.scene2d.ui.Table;
-import com.badlogic.gdx.scenes.scene2d.ui.Window;
-import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
-import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
-import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
-import com.badlogic.gdx.scenes.scene2d.utils.Selection;
-import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
+import com.badlogic.gdx.scenes.scene2d.ui.*;
+import com.badlogic.gdx.scenes.scene2d.utils.*;
 import com.badlogic.gdx.utils.Array;
-
-import java.nio.file.Paths;
 
 /**
  * Window that displays a list of currently loaded models in the scene.
@@ -93,7 +81,7 @@ public class ModelListWindow extends Window {
      * from the file path.
      * </p>
      */
-    private static class ModelListItem {
+    protected static class ModelListItem {
         /** The filename and extension to be displayed in the list. */
         private final String displayName;
 
@@ -114,30 +102,40 @@ public class ModelListWindow extends Window {
 
     /** Underlying list widget used for managing selection state. */
     private final List<ModelListItem> list;
-    /** Reference to the application's list of loaded model paths. */
+    /** Reference to the array containing paths of loaded models in the application. */
     private final Array<String> modelPaths;
+    /** The collection of logic models with detailed data. */
+    private final Array<cz.ad.print3d.aslicer.logic.model.Model> logicModels;
     /** Internal cache of list items to maintain stable references for selection. */
     private final Array<ModelListItem> listItems = new Array<>();
+    /** The index of the last item that was clicked, used as an anchor for shift selection. */
+    private int lastSelectedIndex = -1;
     /** Listener to notify about model list events. */
     private final ModelListListener listener;
     /** The main UI table containing the list of filenames and remove buttons. */
     private final Table listTable;
+    /** Label for showing detailed model data when selected. */
+    private Label detailLabel;
+    /** Flag to prevent recursion during selection updates. */
+    private boolean isUpdatingSelection = false;
 
     /**
      * Creates a new model list window.
      *
-     * @param skin       the skin to use for styling UI components
-     * @param modelPaths reference to the array containing paths of loaded models in the application
-     * @param listener   the listener for model list events, such as model removal requests
+     * @param skin         the skin to use for styling UI components
+     * @param modelPaths   reference to the array containing paths of loaded models in the application
+     * @param logicModels  the collection of logic models with detailed data
+     * @param listener     the listener for model list events, such as model removal requests
      */
-    public ModelListWindow(Skin skin, Array<String> modelPaths, ModelListListener listener) {
+    public ModelListWindow(Skin skin, Array<String> modelPaths, Array<cz.ad.print3d.aslicer.logic.model.Model> logicModels, ModelListListener listener) {
         super("Loaded Models", skin);
         this.modelPaths = modelPaths;
+        this.logicModels = logicModels;
         this.listener = listener;
 
         setMovable(true);
         setResizable(true);
-        setSize(250, 400);
+        setSize(300, 450);
 
         // Adjust padding to make room for title and have some margin around content
         padTop(30);
@@ -149,6 +147,13 @@ public class ModelListWindow extends Window {
         list = new List<>(skin);
         list.getSelection().setMultiple(true);
         list.getSelection().setRequired(false);
+        list.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                notifySelectionChanged();
+                updateDetailLabel();
+            }
+        });
 
         // We use a Table to display items with buttons, but sync it with the List selection
         listTable = new Table(skin);
@@ -159,7 +164,15 @@ public class ModelListWindow extends Window {
         ScrollPane scrollPane = new ScrollPane(listTable, skin);
         scrollPane.setFadeScrollBars(false);
         scrollPane.setScrollingDisabled(true, false);
-        add(scrollPane).expand().fill();
+
+        detailLabel = new Label("", skin);
+        detailLabel.setWrap(true);
+
+        add(scrollPane).expand().fill().row();
+        add(new Label("Model Details:", skin)).left().padTop(10).row();
+        add(detailLabel).expandX().fillX().minHeight(100).padTop(5);
+
+        updateDetailLabel();
     }
 
     /**
@@ -181,6 +194,16 @@ public class ModelListWindow extends Window {
      * @param notify true to notify the listener about selection changes, false otherwise
      */
     public void updateList(boolean notify) {
+        // Capture current selected indices to restore them after rebuild
+        Array<Integer> selectedIndices = new Array<>();
+        Selection<ModelListItem> selection = list.getSelection();
+        for (ModelListItem item : selection) {
+            int index = listItems.indexOf(item, true);
+            if (index != -1) {
+                selectedIndices.add(index);
+            }
+        }
+
         boolean needsRebuild = false;
         if (listItems.size == modelPaths.size) {
             for (int i = 0; i < listItems.size; i++) {
@@ -200,6 +223,14 @@ public class ModelListWindow extends Window {
                 listItems.add(new ModelListItem(java.nio.file.Paths.get(path).getFileName().toString()));
             }
             list.setItems(listItems);
+            
+            // Restore selection
+            selection.clear();
+            for (int index : selectedIndices) {
+                if (index < listItems.size) {
+                    selection.add(listItems.get(index));
+                }
+            }
         } else {
             // Even if names match, sync list items if needed
             if (list.getItems() != listItems) {
@@ -307,7 +338,7 @@ public class ModelListWindow extends Window {
      * @param index the index of the clicked row
      * @param item  the data item associated with the clicked row
      */
-    private void handleRowClick(int index, ModelListItem item) {
+    protected void handleRowClick(int index, ModelListItem item) {
         Selection<ModelListItem> selection = list.getSelection();
         boolean shift = com.badlogic.gdx.Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT) ||
                         com.badlogic.gdx.Gdx.input.isKeyPressed(Input.Keys.SHIFT_RIGHT);
@@ -318,23 +349,24 @@ public class ModelListWindow extends Window {
         if (!ctrl && !shift) {
             selection.clear();
             selection.add(item);
+            lastSelectedIndex = index;
         } else if (ctrl) {
             if (selection.contains(item)) {
                 selection.remove(item);
             } else {
                 selection.add(item);
             }
-        } else if (shift && !selection.isEmpty()) {
-            ModelListItem first = selection.first();
-            int firstIndex = listItems.indexOf(first, true);
+            lastSelectedIndex = index;
+        } else if (shift && lastSelectedIndex != -1) {
             selection.clear();
-            int min = Math.min(firstIndex, index);
-            int max = Math.max(firstIndex, index);
+            int min = Math.min(lastSelectedIndex, index);
+            int max = Math.max(lastSelectedIndex, index);
             for (int i = min; i <= max; i++) {
                 selection.add(listItems.get(i));
             }
         } else {
             selection.add(item);
+            lastSelectedIndex = index;
         }
         rebuildTable();
         notifySelectionChanged();
@@ -347,13 +379,54 @@ public class ModelListWindow extends Window {
      * @param indices the indices of models to select
      */
     public void setSelectedIndices(Array<Integer> indices) {
-        list.getSelection().clear();
-        for (Integer index : indices) {
-            if (index >= 0 && index < listItems.size) {
-                list.getSelection().add(listItems.get(index));
+        isUpdatingSelection = true;
+        try {
+            list.getSelection().clear();
+            for (Integer index : indices) {
+                if (index >= 0 && index < listItems.size) {
+                    list.getSelection().add(listItems.get(index));
+                }
             }
+            rebuildTable();
+            updateDetailLabel();
+        } finally {
+            isUpdatingSelection = false;
         }
-        rebuildTable();
+    }
+
+    /**
+     * Updates the detail label with information about the currently selected model.
+     * <p>
+     * Displays model name, part count, triangle count, and units if a single model is selected.
+     * Shows generic messages for multiple or no selection.
+     * </p>
+     */
+    private void updateDetailLabel() {
+        if (detailLabel == null) return;
+
+        Selection<ModelListItem> selection = list.getSelection();
+        if (selection.size() != 1) {
+            detailLabel.setText(selection.isEmpty() ? "No model selected" : "Multiple models selected");
+            return;
+        }
+
+        ModelListItem item = selection.first();
+        int index = listItems.indexOf(item, true);
+        if (index >= 0 && index < logicModels.size) {
+            cz.ad.print3d.aslicer.logic.model.Model model = logicModels.get(index);
+            int partCount = model.parts().size();
+            int triangleCount = 0;
+            for (cz.ad.print3d.aslicer.logic.model.Model.MeshPart part : model.parts()) {
+                triangleCount += part.triangles().size();
+            }
+
+            String unitStr = model.unit() != null ? model.unit().getValue() : "unknown";
+            String info = String.format("File: %s\nParts: %d\nTriangles: %d\nUnits: %s",
+                item.displayName, partCount, triangleCount, unitStr);
+            detailLabel.setText(info);
+        } else {
+            detailLabel.setText("Data not available");
+        }
     }
 
     /**
@@ -364,6 +437,7 @@ public class ModelListWindow extends Window {
      * </p>
      */
     private void notifySelectionChanged() {
+        if (isUpdatingSelection) return;
         if (listener != null) {
             Array<Integer> selectedIndices = new Array<>();
             Selection<ModelListItem> selection = list.getSelection();
@@ -458,5 +532,14 @@ public class ModelListWindow extends Window {
      */
     protected List<ModelListItem> getInternalList() {
         return list;
+    }
+
+    /**
+     * Retrieves the internal list of items displayed in the window.
+     *
+     * @return the array of list items
+     */
+    protected Array<ModelListItem> getListItems() {
+        return listItems;
     }
 }

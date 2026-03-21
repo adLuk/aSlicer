@@ -47,7 +47,7 @@ public class ModelListSelectionBugTest {
                     app.modelManager.getInstances().add(instance);
                     
                     // Select the model
-                    app.modelManager.getSelectedIndices().add(0);
+                    app.modelManager.selectModel(0);
                     assertEquals(1, app.modelManager.getSelectedIndices().size);
                     
                     // Call toggle - this should create the window and theoretically clear selection due to the bug
@@ -66,8 +66,8 @@ public class ModelListSelectionBugTest {
                     assertTrue(app.desktopUI.getModelListWindow() != null && !app.desktopUI.getModelListWindow().isVisible());
 
                     // Change selection while hidden
-                    app.modelManager.getSelectedIndices().clear();
-                    app.modelManager.getSelectedIndices().add(1); // Assuming we had more? Let's add more models.
+                    app.modelManager.clearSelection();
+                    app.modelManager.selectModel(1);
                     
                     // Actually let's just use 0 but make sure it's preserved.
                     // Let's add another model to be safe.
@@ -76,8 +76,8 @@ public class ModelListSelectionBugTest {
                     ((com.badlogic.gdx.utils.Array<Model>)modelsField.get(app.modelManager)).add(realModel2);
                     app.modelManager.getInstances().add(new ModelInstance(realModel2));
                     
-                    app.modelManager.getSelectedIndices().clear();
-                    app.modelManager.getSelectedIndices().add(1);
+                    app.modelManager.clearSelection();
+                    app.modelManager.selectModel(1);
                     
                     // Re-show window
                     app.toggleModelListWindow();

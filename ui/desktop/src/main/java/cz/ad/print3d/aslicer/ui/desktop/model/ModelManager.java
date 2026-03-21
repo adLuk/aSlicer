@@ -50,6 +50,7 @@ public class ModelManager implements Disposable {
     private final Array<Model> models = new Array<>();
     private final Array<ModelInstance> instances = new Array<>();
     private final Array<String> loadedModelPaths = new Array<>();
+    private final Array<cz.ad.print3d.aslicer.logic.model.Model> logicModels = new Array<>();
     private final Array<Integer> selectedIndices = new Array<>();
 
     private final AppConfig appConfig;
@@ -124,6 +125,7 @@ public class ModelManager implements Disposable {
             if (modelData != null) {
                 LOGGER.info("Loading model from {}", filePath);
                 loadedModelPaths.add(filePath);
+                logicModels.add(modelData);
 
                 Model gdxModel = ModelGdxConverter.convertToGdxModel(modelData);
                 ModelInstance gdxInstance = new ModelInstance(gdxModel);
@@ -161,6 +163,7 @@ public class ModelManager implements Disposable {
         Model model = models.removeIndex(index);
         model.dispose();
         loadedModelPaths.removeIndex(index);
+        logicModels.removeIndex(index);
 
         // Update selection
         selectedIndices.removeValue(index, false);
@@ -303,6 +306,15 @@ public class ModelManager implements Disposable {
     }
 
     /**
+     * Returns the collection of logic models.
+     *
+     * @return the logic models array
+     */
+    public Array<cz.ad.print3d.aslicer.logic.model.Model> getLogicModels() {
+        return logicModels;
+    }
+
+    /**
      * Returns the array of loaded model file paths.
      *
      * @return the loaded model paths array
@@ -312,12 +324,64 @@ public class ModelManager implements Disposable {
     }
 
     /**
-     * Returns the array of selected model indices.
+     * Retrieves a copy of the indices of currently selected models.
      *
-     * @return the selected indices array
+     * @return a copy of the array of selected indices
      */
     public Array<Integer> getSelectedIndices() {
-        return selectedIndices;
+        return new Array<>(selectedIndices);
+    }
+
+    /**
+     * Sets the selection to the specified indices.
+     *
+     * @param indices the indices to select
+     */
+    public void setSelectedIndices(Array<Integer> indices) {
+        selectedIndices.clear();
+        for (Integer index : indices) {
+            if (index >= 0 && index < instances.size) {
+                selectedIndices.add(index);
+            }
+        }
+        updateHighlights();
+        notifySelectionChanged();
+    }
+
+    /**
+     * Adds a model to the current selection.
+     *
+     * @param index the index of the model to select
+     */
+    public void selectModel(int index) {
+        if (index >= 0 && index < instances.size && !selectedIndices.contains(index, true)) {
+            selectedIndices.add(index);
+            updateHighlights();
+            notifySelectionChanged();
+        }
+    }
+
+    /**
+     * Removes a model from the current selection.
+     *
+     * @param index the index of the model to deselect
+     */
+    public void deselectModel(int index) {
+        if (selectedIndices.removeValue(index, true)) {
+            updateHighlights();
+            notifySelectionChanged();
+        }
+    }
+
+    /**
+     * Clears the current model selection.
+     */
+    public void clearSelection() {
+        if (selectedIndices.size > 0) {
+            selectedIndices.clear();
+            updateHighlights();
+            notifySelectionChanged();
+        }
     }
 
     /**
@@ -332,6 +396,7 @@ public class ModelManager implements Disposable {
         models.clear();
         instances.clear();
         loadedModelPaths.clear();
+        logicModels.clear();
         selectedIndices.clear();
 
         notifyModelsChanged();
@@ -347,6 +412,7 @@ public class ModelManager implements Disposable {
         models.clear();
         instances.clear();
         loadedModelPaths.clear();
+        logicModels.clear();
         selectedIndices.clear();
     }
 }

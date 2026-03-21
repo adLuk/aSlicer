@@ -23,27 +23,33 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g3d.utils.CameraInputController;
 import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.scenes.scene2d.Touchable;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
+import cz.ad.print3d.aslicer.ui.desktop.model.ModelManager;
 
 import java.util.function.Consumer;
 
 /**
  * DesktopUI manages the application's user interface using LibGDX Stage.
- * It separates the UI into two distinct stages:
+ * It separates the UI into distinct stages:
  * <ul>
  *   <li><b>Menu Stage:</b> Contains permanent UI elements like the top toolbar and side toolbar.</li>
+ *   <li><b>View Stages:</b> Multiple stages representing different views (e.g., Model View, Grid View).</li>
  *   <li><b>Dialog Stage:</b> Contains transient windows and dialogs (e.g., Settings, Model List).</li>
  * </ul>
- * This separation ensures that dialogs are always rendered on top of the main menu and simplifies
- * input handling and layout management, keeping the main 3D scene uncluttered.
+ * This separation ensures that dialogs and menus are always rendered on top of the main content
+ * and simplifies input handling and layout management, keeping the main 3D scene uncluttered.
  */
 public class DesktopUI implements Disposable {
 
     private final Stage menuStage;
     private final Stage dialogStage;
+    private final Stage view1Stage;
+    private final Stage view2Stage;
+    private int activeViewIndex = 0;
     private final Skin skin;
     private final Table rootTable;
     private SettingsWindow settingsWindow;
@@ -51,30 +57,48 @@ public class DesktopUI implements Disposable {
 
     /**
      * Creates a new DesktopUI instance.
-     * Initializes the skin and both stages (menu and dialog).
+     * Initializes the skin and all stages (menu, views, and dialog).
      */
     public DesktopUI() {
         this.skin = createSkin();
         this.menuStage = new Stage(new ScreenViewport());
         this.dialogStage = new Stage(new ScreenViewport());
+        this.view1Stage = new Stage(new ScreenViewport());
+        this.view2Stage = new Stage(new ScreenViewport());
 
         this.rootTable = new Table();
         this.rootTable.top().left();
         this.rootTable.setFillParent(true);
+        this.rootTable.setTouchable(Touchable.childrenOnly);
         this.menuStage.addActor(rootTable);
     }
 
     /**
-     * Initializes the UI layout with the provided toolbars.
+     * Initializes the UI layout with the provided toolbars and the 3D scene.
      *
-     * @param toolbar     the top application toolbar
-     * @param sideToolbar the side application toolbar
+     * @param toolbar      the top application toolbar
+     * @param sideToolbar  the side application toolbar
+     * @param sceneManager the manager for 3D scene components
+     * @param modelManager the manager for loaded models
      */
-    public void setupLayout(AppToolbar toolbar, AppSideToolbar sideToolbar) {
+    public void setupLayout(AppToolbar toolbar, AppSideToolbar sideToolbar, SceneManager sceneManager, ModelManager modelManager) {
         rootTable.clear();
         rootTable.add(toolbar).expandX().fillX().colspan(2).row();
         rootTable.add(sideToolbar).expandY().fillY().left();
-        rootTable.add().expand().fill();
+
+        // Setup View 1 (Models + Grid)
+        view1Stage.clear();
+        Table view1Table = new Table();
+        view1Table.setFillParent(true);
+        view1Table.add(new SceneActor(sceneManager, modelManager)).expand().fill();
+        view1Stage.addActor(view1Table);
+
+        // Setup View 2 (Just Grid)
+        view2Stage.clear();
+        Table view2Table = new Table();
+        view2Table.setFillParent(true);
+        view2Table.add(new SceneActor(sceneManager, null)).expand().fill();
+        view2Stage.addActor(view2Table);
     }
 
     /**
@@ -140,12 +164,13 @@ public class DesktopUI implements Disposable {
     /**
      * Toggles the visibility of the model list window.
      *
-     * @param modelPaths the current list of loaded model paths
-     * @param listener   the listener for model list operations
+     * @param modelPaths   the current list of loaded model paths
+     * @param logicModels  the collection of logic models with detailed data
+     * @param listener     the listener for model list operations
      */
-    public void toggleModelListWindow(Array<String> modelPaths, ModelListWindow.ModelListListener listener) {
+    public void toggleModelListWindow(Array<String> modelPaths, Array<cz.ad.print3d.aslicer.logic.model.Model> logicModels, ModelListWindow.ModelListListener listener) {
         if (modelListWindow == null) {
-            modelListWindow = new ModelListWindow(skin, modelPaths, listener);
+            modelListWindow = new ModelListWindow(skin, modelPaths, logicModels, listener);
             addDialog(modelListWindow);
         } else {
             modelListWindow.setVisible(!modelListWindow.isVisible());
@@ -189,6 +214,24 @@ public class DesktopUI implements Disposable {
     }
 
     /**
+     * Returns the currently active view stage.
+     *
+     * @return the active view stage
+     */
+    public Stage getActiveViewStage() {
+        return (activeViewIndex == 0) ? view1Stage : view2Stage;
+    }
+
+    /**
+     * Switches the active view.
+     *
+     * @param index the index of the view to switch to (0 for Model, 1 for Grid)
+     */
+    public void setActiveView(int index) {
+        this.activeViewIndex = index;
+    }
+
+    /**
      * Returns the UI skin.
      *
      * @return the skin
@@ -198,31 +241,38 @@ public class DesktopUI implements Disposable {
     }
 
     /**
-     * Updates and renders both UI stages.
+     * Updates and renders all active stages.
      *
      * @param delta the time in seconds since the last render
      */
     public void render(float delta) {
+        getActiveViewStage().act(delta);
+        getActiveViewStage().draw();
+
         menuStage.act(delta);
         menuStage.draw();
-        
+
         dialogStage.act(delta);
         dialogStage.draw();
     }
 
     /**
-     * Updates the viewports of both stages when the screen is resized.
+     * Updates the viewports of all stages when the screen is resized.
      *
      * @param width  the new screen width
      * @param height the new screen height
      */
     public void resize(int width, int height) {
+        view1Stage.getViewport().update(width, height, true);
+        view2Stage.getViewport().update(width, height, true);
         menuStage.getViewport().update(width, height, true);
         dialogStage.getViewport().update(width, height, true);
     }
 
     @Override
     public void dispose() {
+        view1Stage.dispose();
+        view2Stage.dispose();
         menuStage.dispose();
         dialogStage.dispose();
         skin.dispose();

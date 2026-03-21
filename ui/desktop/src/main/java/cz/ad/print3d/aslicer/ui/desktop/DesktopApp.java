@@ -71,6 +71,11 @@ public class DesktopApp implements ApplicationListener {
     public DesktopUI desktopUI;
 
     /**
+     * Main input multiplexer for the application.
+     */
+    private InputMultiplexer multiplexer;
+
+    /**
      * Input processor for handling model selection in the 3D scene.
      */
     public InputProcessor selectionProcessor;
@@ -94,6 +99,11 @@ public class DesktopApp implements ApplicationListener {
      * Path to the last opened model.
      */
     public String currentModelPath;
+
+    /**
+     * Current active view index (0 for Model, 1 for Grid).
+     */
+    private int activeView = 0;
 
     /**
      * Creates a new DesktopApp instance.
@@ -195,44 +205,60 @@ public class DesktopApp implements ApplicationListener {
         selectionProcessor = new InputAdapter() {
             @Override
             public boolean touchDown(int screenX, int screenY, int pointer, int button) {
-                if (button == Input.Buttons.LEFT) {
+                if (button == Input.Buttons.LEFT && activeView == 0) {
                     Ray ray = sceneManager.getCamera().getPickRay(screenX, screenY);
                     int index = modelManager.getObject(ray);
                     if (index >= 0) {
                         if (Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT) || Gdx.input.isKeyPressed(Input.Keys.CONTROL_RIGHT)) {
                             if (modelManager.getSelectedIndices().contains(index, true)) {
-                                modelManager.getSelectedIndices().removeValue(index, true);
+                                modelManager.deselectModel(index);
                             } else {
-                                modelManager.getSelectedIndices().add(index);
+                                modelManager.selectModel(index);
                             }
                         } else {
-                            modelManager.getSelectedIndices().clear();
-                            modelManager.getSelectedIndices().add(index);
+                            Array<Integer> indices = new Array<>();
+                            indices.add(index);
+                            modelManager.setSelectedIndices(indices);
                         }
                     } else {
                         if (!Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT) && !Gdx.input.isKeyPressed(Input.Keys.CONTROL_RIGHT)) {
-                            modelManager.getSelectedIndices().clear();
+                            modelManager.clearSelection();
                         }
-                    }
-                    modelManager.updateHighlights();
-                    if (desktopUI != null && desktopUI.getModelListWindow() != null) {
-                        desktopUI.getModelListWindow().setSelectedIndices(modelManager.getSelectedIndices());
                     }
                 }
                 return false;
             }
         };
 
-        InputMultiplexer multiplexer = new InputMultiplexer();
+        multiplexer = new InputMultiplexer();
         if (desktopUI != null) {
             multiplexer.addProcessor(desktopUI.getDialogStage());
             multiplexer.addProcessor(desktopUI.getMenuStage());
+            multiplexer.addProcessor(desktopUI.getActiveViewStage());
         }
         multiplexer.addProcessor(selectionProcessor);
         multiplexer.addProcessor(sceneManager.getCameraController());
         Gdx.input.setInputProcessor(multiplexer);
 
         loadInitialScene();
+    }
+
+    /**
+     * Updates the input processor based on the current application state.
+     * This method re-assembles the InputMultiplexer with the correct stage priorities,
+     * including the currently active view stage.
+     */
+    private void updateInputProcessor() {
+        if (multiplexer != null) {
+            multiplexer.clear();
+            if (desktopUI != null) {
+                multiplexer.addProcessor(desktopUI.getDialogStage());
+                multiplexer.addProcessor(desktopUI.getMenuStage());
+                multiplexer.addProcessor(desktopUI.getActiveViewStage());
+            }
+            multiplexer.addProcessor(selectionProcessor);
+            multiplexer.addProcessor(sceneManager.getCameraController());
+        }
     }
 
     /**
@@ -289,6 +315,15 @@ public class DesktopApp implements ApplicationListener {
             public void onSettings() {
                 toggleSettingsWindow();
             }
+
+            @Override
+            public void onSwitchView(int index) {
+                activeView = index;
+                if (desktopUI != null) {
+                    desktopUI.setActiveView(index);
+                    updateInputProcessor();
+                }
+            }
         });
 
         AppSideToolbar sideToolbar = new AppSideToolbar(desktopUI.getSkin(), new AppSideToolbar.SideToolbarListener() {
@@ -298,7 +333,7 @@ public class DesktopApp implements ApplicationListener {
             }
         });
 
-        desktopUI.setupLayout(toolbar, sideToolbar);
+        desktopUI.setupLayout(toolbar, sideToolbar, sceneManager, modelManager);
     }
 
     /**
@@ -318,7 +353,7 @@ public class DesktopApp implements ApplicationListener {
      * Toggles the visibility of the model list window.
      */
     public void toggleModelListWindow() {
-        desktopUI.toggleModelListWindow(modelManager.getLoadedModelPaths(), new ModelListWindow.ModelListListener() {
+        desktopUI.toggleModelListWindow(modelManager.getLoadedModelPaths(), modelManager.getLogicModels(), new ModelListWindow.ModelListListener() {
             @Override
             public void onRemoveModel(int index) {
                 modelManager.removeModel(index);
@@ -331,9 +366,7 @@ public class DesktopApp implements ApplicationListener {
 
             @Override
             public void onSelectModels(Array<Integer> indices) {
-                modelManager.getSelectedIndices().clear();
-                modelManager.getSelectedIndices().addAll(indices);
-                modelManager.updateHighlights();
+                modelManager.setSelectedIndices(indices);
             }
         });
         if (desktopUI.getModelListWindow() != null) {
@@ -357,16 +390,6 @@ public class DesktopApp implements ApplicationListener {
     public void render() {
         Gdx.gl.glViewport(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
-
-        if (sceneManager != null) {
-            sceneManager.getCameraController().update();
-            sceneManager.getModelBatch().begin(sceneManager.getCamera());
-            sceneManager.getModelBatch().render(sceneManager.getAppGrid().getInstance());
-            if (modelManager != null) {
-                sceneManager.getModelBatch().render(modelManager.getInstances(), sceneManager.getEnvironment());
-            }
-            sceneManager.getModelBatch().end();
-        }
 
         if (desktopUI != null) {
             desktopUI.render(Gdx.graphics.getDeltaTime());

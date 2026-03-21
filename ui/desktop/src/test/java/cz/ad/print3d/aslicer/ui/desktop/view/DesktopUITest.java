@@ -22,6 +22,7 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.backends.headless.HeadlessApplication;
 import com.badlogic.gdx.backends.headless.HeadlessApplicationConfiguration;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Window;
 import org.junit.jupiter.api.Test;
 
@@ -51,7 +52,14 @@ public class DesktopUITest {
                     DesktopUI ui = new DesktopUI();
                     assertNotNull(ui.getMenuStage(), "Menu stage should be initialized");
                     assertNotNull(ui.getDialogStage(), "Dialog stage should be initialized");
+                    assertNotNull(ui.getActiveViewStage(), "Initial active view stage should be initialized");
                     assertNotNull(ui.getSkin(), "UI Skin should be initialized");
+
+                    // Test view switching
+                    Stage view1 = ui.getActiveViewStage();
+                    ui.setActiveView(1);
+                    Stage view2 = ui.getActiveViewStage();
+                    assertTrue(view1 != view2, "Active view stage should change after switching");
                     
                     Window testWindow = new Window("Test Window", ui.getSkin());
                     ui.addDialog(testWindow);
