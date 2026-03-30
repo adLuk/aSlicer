@@ -12,7 +12,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.MalformedURLException;
-import java.net.URL;
+import java.net.URI;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -139,12 +139,12 @@ class ZipPrinterRepositoryTest {
         Printer3DDto printer = createSamplePrinter("Manufacturer", "NetworkModel");
 
         NetworkPrinterNetConnectionDto netConn = new NetworkPrinterNetConnectionDto();
-        netConn.setPrinterUrl(new URL("http://192.168.1.100"));
+        netConn.setPrinterUrl(URI.create("http://192.168.1.100").toURL());
         netConn.setPairingCode("123456");
         printer.addNetConnection("Primary", netConn);
 
         BambuPrinterNetConnectionDto bambuConn = new BambuPrinterNetConnectionDto();
-        bambuConn.setPrinterUrl(new URL("http://192.168.1.101"));
+        bambuConn.setPrinterUrl(URI.create("http://192.168.1.101").toURL());
         bambuConn.setSerial("SN001");
         bambuConn.setAccessCode("SECRET");
         printer.addNetConnection("Bambu", bambuConn);

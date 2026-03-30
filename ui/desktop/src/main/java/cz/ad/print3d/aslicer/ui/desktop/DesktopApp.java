@@ -23,6 +23,7 @@ import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.math.collision.Ray;
 import com.badlogic.gdx.utils.Array;
+import cz.ad.print3d.aslicer.logic.core.security.SecurityInitializer;
 import cz.ad.print3d.aslicer.ui.desktop.config.AppConfig;
 import cz.ad.print3d.aslicer.ui.desktop.config.AppConfigDto;
 import cz.ad.print3d.aslicer.ui.desktop.model.ModelManager;
@@ -120,6 +121,7 @@ public class DesktopApp implements ApplicationListener {
      * @param args command line arguments
      */
     public static void main(String[] args) {
+        SecurityInitializer.init();
         DesktopApp app = new DesktopApp();
         AppConfigDto dto = app.appConfig.loadToDto();
 
@@ -344,7 +346,13 @@ public class DesktopApp implements ApplicationListener {
         desktopUI.toggleSettingsWindow(
             sceneManager.getCameraController(),
             dto.getGridSize(),
+            dto.isProtectedData(),
             sceneManager::updateGrid,
+            (Boolean protectedData) -> {
+                AppConfigDto currentDto = appConfig.loadToDto();
+                currentDto.setProtectedData(protectedData);
+                appConfig.saveFromDto(currentDto);
+            },
             this::saveAllConfig
         );
     }

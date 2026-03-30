@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.module.SimpleModule;
+import cz.ad.print3d.aslicer.logic.core.security.SecurityMixins;
 import cz.ad.print3d.aslicer.logic.model.basic.Acceleration;
 import cz.ad.print3d.aslicer.logic.model.basic.Dimension;
 import cz.ad.print3d.aslicer.logic.model.basic.Speed;
@@ -15,6 +16,8 @@ import cz.ad.print3d.aslicer.logic.model.basic.dto.TemperatureDto;
 import cz.ad.print3d.aslicer.logic.printer.Printer3D;
 import cz.ad.print3d.aslicer.logic.printer.PrinterRepository;
 import cz.ad.print3d.aslicer.logic.printer.dto.*;
+import cz.ad.print3d.aslicer.logic.printer.system.net.dto.BambuPrinterNetConnectionDto;
+import cz.ad.print3d.aslicer.logic.printer.system.net.dto.NetworkPrinterNetConnectionDto;
 import cz.ad.print3d.aslicer.logic.printer.system.PrinterSystem;
 import cz.ad.print3d.aslicer.logic.printer.system.action.PrinterAction;
 import cz.ad.print3d.aslicer.logic.printer.system.action.PrinterActionType;
@@ -68,6 +71,7 @@ public class ZipPrinterRepository implements PrinterRepository {
 
     private final Path zipPath;
     private final char[] password;
+    private final boolean useEncryption;
     private final ObjectMapper objectMapper;
 
     /**
@@ -77,7 +81,7 @@ public class ZipPrinterRepository implements PrinterRepository {
      * @throws IOException if an I/O error occurs during initialization
      */
     public ZipPrinterRepository(Path zipPath) throws IOException {
-        this(zipPath, null);
+        this(zipPath, null, false);
     }
 
     /**
@@ -88,8 +92,21 @@ public class ZipPrinterRepository implements PrinterRepository {
      * @throws IOException if an I/O error occurs during initialization
      */
     public ZipPrinterRepository(Path zipPath, String password) throws IOException {
+        this(zipPath, password, false);
+    }
+
+    /**
+     * Constructs a new ZipPrinterRepository using the specified ZIP file path, password and encryption flag.
+     *
+     * @param zipPath       the path to the ZIP file used for storage
+     * @param password      the password for the ZIP file, or {@code null} if no password is required
+     * @param useEncryption if true, sensitive data will be encrypted using FIPS CryptoService
+     * @throws IOException if an I/O error occurs during initialization
+     */
+    public ZipPrinterRepository(Path zipPath, String password, boolean useEncryption) throws IOException {
         this.zipPath = zipPath;
         this.password = (password != null) ? password.toCharArray() : null;
+        this.useEncryption = useEncryption;
         this.objectMapper = createObjectMapper();
         ensureZipFileExists();
     }
@@ -128,6 +145,13 @@ public class ZipPrinterRepository implements PrinterRepository {
         module.addAbstractTypeMapping(Acceleration.class, AccelerationDto.class);
 
         mapper.registerModule(module);
+
+        if (useEncryption) {
+            mapper.addMixIn(BambuPrinterNetConnectionDto.class, SecurityMixins.BambuPrinterNetConnectionMixin.class);
+            mapper.addMixIn(NetworkPrinterNetConnectionDto.class, SecurityMixins.NetworkPrinterNetConnectionMixin.class);
+            logger.info("Sensitive data encryption enabled for ZIP repository");
+        }
+
         return mapper;
     }
 

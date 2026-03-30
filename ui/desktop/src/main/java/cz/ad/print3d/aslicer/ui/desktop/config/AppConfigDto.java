@@ -73,6 +73,9 @@ public class AppConfigDto {
     // List of loaded model paths in order they were added
     private List<String> loadedFiles = new ArrayList<>();
 
+    // Protection of sensitive data
+    private boolean protectedData = false;
+
     /**
      * @return the width of the application window
      */
@@ -435,5 +438,19 @@ public class AppConfigDto {
      */
     public void setLoadedFiles(List<String> loadedFiles) {
         this.loadedFiles = loadedFiles != null ? loadedFiles : new ArrayList<>();
+    }
+
+    /**
+     * @return true if protection of sensitive data is enabled
+     */
+    public boolean isProtectedData() {
+        return protectedData;
+    }
+
+    /**
+     * @param protectedData true if protection of sensitive data should be enabled
+     */
+    public void setProtectedData(boolean protectedData) {
+        this.protectedData = protectedData;
     }
 }

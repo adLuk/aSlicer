@@ -26,6 +26,8 @@ repositories {
 
 dependencies {
     api project(':logic:model')
+    api 'org.bouncycastle:bc-fips:1.0.2.5'
+    api 'org.bouncycastle:bcpkix-fips:1.0.7'
     implementation "com.badlogicgames.gdx:gdx:1.12.1"
     // Source: https://github.com/micycle1/Clipper2-java
     implementation("com.github.micycle1:Clipper2-java:v1.3.0-SNAPSHOT")
@@ -37,6 +39,7 @@ dependencies {
     testImplementation platform('org.junit:junit-bom:5.10.2')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testRuntimeOnly 'org.slf4j:slf4j-simple:2.0.7'
     testImplementation "com.badlogicgames.gdx:gdx-backend-headless:1.12.1"
     testImplementation "com.badlogicgames.gdx:gdx-platform:1.12.1:natives-desktop"
 }

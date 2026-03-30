@@ -25,6 +25,7 @@ import com.badlogic.gdx.graphics.*;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g3d.utils.CameraInputController;
 import com.badlogic.gdx.scenes.scene2d.Actor;
+import com.badlogic.gdx.scenes.scene2d.ui.CheckBox;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
@@ -56,8 +57,9 @@ public class SettingsWindowTest {
                     CameraInputController camController = new CameraInputController(cam);
                     AtomicBoolean saved = new AtomicBoolean(false);
                     AtomicReference<Float> updatedGridSize = new AtomicReference<>(0.5f);
+                    AtomicBoolean updatedProtectedData = new AtomicBoolean(false);
 
-                    SettingsWindow window = new SettingsWindow(skin, camController, 0.5f, updatedGridSize::set, () -> saved.set(true));
+                    SettingsWindow window = new SettingsWindow(skin, camController, 0.5f, false, updatedGridSize::set, updatedProtectedData::set, () -> saved.set(true));
 
                     assertEquals("Settings", window.getTitleLabel().getText().toString());
                     assertTrue(window.isVisible());
@@ -110,6 +112,12 @@ public class SettingsWindowTest {
                 windowStyle.titleFont = font;
                 windowStyle.background = skin.newDrawable("white", Color.DARK_GRAY);
                 skin.add("default", windowStyle);
+
+                CheckBox.CheckBoxStyle checkBoxStyle = new CheckBox.CheckBoxStyle();
+                checkBoxStyle.checkboxOn = skin.newDrawable("white", Color.GREEN);
+                checkBoxStyle.checkboxOff = skin.newDrawable("white", Color.RED);
+                checkBoxStyle.font = font;
+                skin.add("default", checkBoxStyle);
 
                 return skin;
             }

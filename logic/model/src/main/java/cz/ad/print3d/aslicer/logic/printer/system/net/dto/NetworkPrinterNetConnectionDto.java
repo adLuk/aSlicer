@@ -14,7 +14,7 @@ public class NetworkPrinterNetConnectionDto extends PrinterNetConnectionDto impl
     private String pairingCode;
 
     public NetworkPrinterNetConnectionDto() {
-        setConnectionType(PrinterNetConnectionType.NETWORK);
+        super(PrinterNetConnectionType.NETWORK);
     }
 
     @Override

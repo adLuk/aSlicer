@@ -141,20 +141,28 @@ public class DesktopUI implements Disposable {
         windowStyle.background = skin.newDrawable("white", new Color(0.2f, 0.2f, 0.2f, 0.9f));
         skin.add("default", windowStyle);
 
+        CheckBox.CheckBoxStyle checkBoxStyle = new CheckBox.CheckBoxStyle();
+        checkBoxStyle.checkboxOn = skin.newDrawable("white", Color.GREEN);
+        checkBoxStyle.checkboxOff = skin.newDrawable("white", Color.RED);
+        checkBoxStyle.font = font;
+        skin.add("default", checkBoxStyle);
+
         return skin;
     }
 
     /**
      * Toggles the visibility of the settings window.
      *
-     * @param camController    the camera controller to configure
-     * @param initialGridSize the initial grid size from configuration
-     * @param gridSizeCallback the callback to update the grid size
-     * @param saveCallback     the callback to save configuration
+     * @param camController           the camera controller to configure
+     * @param initialGridSize        the initial grid size from configuration
+     * @param initialProtectedData   the initial protected data flag from configuration
+     * @param gridSizeCallback       the callback to update the grid size
+     * @param protectedDataCallback  the callback to update the protected data flag
+     * @param saveCallback            the callback to save configuration
      */
-    public void toggleSettingsWindow(CameraInputController camController, float initialGridSize, Consumer<Float> gridSizeCallback, Runnable saveCallback) {
+    public void toggleSettingsWindow(CameraInputController camController, float initialGridSize, boolean initialProtectedData, Consumer<Float> gridSizeCallback, Consumer<Boolean> protectedDataCallback, Runnable saveCallback) {
         if (settingsWindow == null) {
-            settingsWindow = new SettingsWindow(skin, camController, initialGridSize, gridSizeCallback, saveCallback);
+            settingsWindow = new SettingsWindow(skin, camController, initialGridSize, initialProtectedData, gridSizeCallback, protectedDataCallback, saveCallback);
             addDialog(settingsWindow);
         } else {
             settingsWindow.setVisible(!settingsWindow.isVisible());

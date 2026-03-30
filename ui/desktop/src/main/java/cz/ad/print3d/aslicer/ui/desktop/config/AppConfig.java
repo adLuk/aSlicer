@@ -190,6 +190,7 @@ public class AppConfig {
         dto.setLastFile(getProperty("last.file", ""));
         dto.setDistance(getFloat("model.distance", 0.5f));
         dto.setGridSize(getFloat("grid.size", 5.0f));
+        dto.setProtectedData(Boolean.parseBoolean(getProperty("protected.data", "false")));
 
         int loadedFileCount = getInt("loaded.file.count", 0);
         List<String> loadedFiles = new ArrayList<>();
@@ -247,6 +248,7 @@ public class AppConfig {
         setProperty("last.file", dto.getLastFile());
         setProperty("model.distance", dto.getDistance());
         setProperty("grid.size", dto.getGridSize());
+        setProperty("protected.data", String.valueOf(dto.isProtectedData()));
 
         List<String> loadedFiles = dto.getLoadedFiles();
         setProperty("loaded.file.count", loadedFiles.size());

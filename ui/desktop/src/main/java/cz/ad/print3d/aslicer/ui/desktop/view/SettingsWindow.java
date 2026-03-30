@@ -25,6 +25,7 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.g3d.utils.CameraInputController;
 import com.badlogic.gdx.scenes.scene2d.Actor;
+import com.badlogic.gdx.scenes.scene2d.ui.CheckBox;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
@@ -43,19 +44,23 @@ public final class SettingsWindow extends Window {
 
     private final CameraInputController camController;
     private final Consumer<Float> gridSizeCallback;
+    private final Consumer<Boolean> protectedDataCallback;
     private final Runnable saveCallback;
     private float currentGridSize;
+    private boolean currentProtectedData;
 
-    public SettingsWindow(Skin skin, CameraInputController camController, float initialGridSize, Consumer<Float> gridSizeCallback, Runnable saveCallback) {
+    public SettingsWindow(Skin skin, CameraInputController camController, float initialGridSize, boolean initialProtectedData, Consumer<Float> gridSizeCallback, Consumer<Boolean> protectedDataCallback, Runnable saveCallback) {
         super("Settings", skin);
         this.camController = camController;
         this.currentGridSize = initialGridSize;
+        this.currentProtectedData = initialProtectedData;
         this.gridSizeCallback = gridSizeCallback;
+        this.protectedDataCallback = protectedDataCallback;
         this.saveCallback = saveCallback;
 
         setMovable(true);
         setResizable(true);
-        setSize(300, 300);
+        setSize(320, 350);
         setPosition(Gdx.graphics.getWidth() / 2f - 150, Gdx.graphics.getHeight() / 2f - 150);
 
         Table content = new Table();
@@ -137,7 +142,20 @@ public final class SettingsWindow extends Window {
                 }
             }
         });
-        content.add(gridBtn).width(50).padLeft(10).row();
+        content.add(gridBtn).width(50).fillX().padLeft(10).row();
+
+        CheckBox protectedDataCb = new CheckBox(" Protect Sensitive Data (FIPS)", skin);
+        protectedDataCb.setChecked(currentProtectedData);
+        protectedDataCb.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                currentProtectedData = protectedDataCb.isChecked();
+                if (protectedDataCallback != null) {
+                    protectedDataCallback.accept(currentProtectedData);
+                }
+            }
+        });
+        content.add(protectedDataCb).colspan(2).left().padTop(10).row();
 
         TextButton saveButton = new TextButton("Save", skin);
         saveButton.addListener(new ChangeListener() {

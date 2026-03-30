@@ -8,14 +8,18 @@ import cz.ad.print3d.aslicer.logic.printer.system.net.PrinterNetConnectionType;
  */
 public class PrinterNetConnectionDto implements PrinterNetConnection {
 
-    private PrinterNetConnectionType connectionType;
+    private final PrinterNetConnectionType connectionType;
+
+    public PrinterNetConnectionDto() {
+        this(PrinterNetConnectionType.CUSTOM);
+    }
+
+    protected PrinterNetConnectionDto(PrinterNetConnectionType connectionType) {
+        this.connectionType = connectionType;
+    }
 
     @Override
     public PrinterNetConnectionType getConnectionType() {
         return connectionType;
-    }
-
-    public void setConnectionType(PrinterNetConnectionType connectionType) {
-        this.connectionType = connectionType;
     }
 }
