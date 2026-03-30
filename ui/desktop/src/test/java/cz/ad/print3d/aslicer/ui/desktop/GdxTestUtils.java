@@ -29,7 +29,7 @@ public class GdxTestUtils {
     public static void mockGdxGL() {
         Gdx.gl20 = (GL20) Proxy.newProxyInstance(
                 GL20.class.getClassLoader(),
-                new Class[]{GL20.class},
+                new Class<?>[]{GL20.class},
                 (proxy, method, args) -> {
                     String name = method.getName();
                     if (name.equals("glGenBuffer") || name.equals("glGenTexture") ||

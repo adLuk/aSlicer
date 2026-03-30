@@ -33,7 +33,7 @@ import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
  * Toolbar for the application, providing access to main actions like clearing the model,
  * opening a new model, and accessing settings.
  */
-public class AppToolbar extends Table {
+public final class AppToolbar extends Table {
 
     /**
      * Interface for listening to toolbar events.

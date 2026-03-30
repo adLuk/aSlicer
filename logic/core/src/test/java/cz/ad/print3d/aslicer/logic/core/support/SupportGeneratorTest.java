@@ -26,7 +26,9 @@ import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.VertexAttributes;
 import com.badlogic.gdx.graphics.g3d.Material;
 import com.badlogic.gdx.graphics.g3d.Model;
+import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder;
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
+import com.badlogic.gdx.graphics.g3d.utils.shapebuilders.BoxShapeBuilder;
 import cz.ad.print3d.aslicer.logic.core.Slicer;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -74,11 +76,11 @@ public class SupportGeneratorTest {
                     ModelBuilder modelBuilder = new ModelBuilder();
                     modelBuilder.begin();
                     // Vertical pillar (1x1x1) at center (0, 0.5, 0) -> Y from 0 to 1
-                    modelBuilder.part("pillar", GL20.GL_TRIANGLES, VertexAttributes.Usage.Position, new Material())
-                            .box(0, 0.5f, 0, 1f, 1f, 1f);
+                    MeshPartBuilder pillarBuilder = modelBuilder.part("pillar", GL20.GL_TRIANGLES, VertexAttributes.Usage.Position, new Material());
+                    BoxShapeBuilder.build(pillarBuilder, 0, 0.5f, 0, 1f, 1f, 1f);
                     // Overhanging roof (3x1x3) at center (0, 1.5, 0) -> Y from 1 to 2
-                    modelBuilder.part("roof", GL20.GL_TRIANGLES, VertexAttributes.Usage.Position, new Material())
-                            .box(0, 1.5f, 0, 3f, 1f, 3f);
+                    MeshPartBuilder roofBuilder = modelBuilder.part("roof", GL20.GL_TRIANGLES, VertexAttributes.Usage.Position, new Material());
+                    BoxShapeBuilder.build(roofBuilder, 0, 1.5f, 0, 3f, 1f, 3f);
                     Model model = modelBuilder.end();
 
                     Slicer slicer = new Slicer();
@@ -172,8 +174,8 @@ public class SupportGeneratorTest {
                     ModelBuilder modelBuilder = new ModelBuilder();
                     modelBuilder.begin();
                     // Simple cube on the ground
-                    modelBuilder.part("cube", GL20.GL_TRIANGLES, VertexAttributes.Usage.Position, new Material())
-                            .box(0, 0.5f, 0, 1f, 1f, 1f);
+                    MeshPartBuilder cubeBuilder = modelBuilder.part("cube", GL20.GL_TRIANGLES, VertexAttributes.Usage.Position, new Material());
+                    BoxShapeBuilder.build(cubeBuilder, 0, 0.5f, 0, 1f, 1f, 1f);
                     Model model = modelBuilder.end();
 
                     Slicer slicer = new Slicer();
@@ -203,7 +205,7 @@ public class SupportGeneratorTest {
     private void mockGdxGL() {
         com.badlogic.gdx.Gdx.gl20 = (com.badlogic.gdx.graphics.GL20) java.lang.reflect.Proxy.newProxyInstance(
                 com.badlogic.gdx.graphics.GL20.class.getClassLoader(),
-                new Class[]{com.badlogic.gdx.graphics.GL20.class},
+                new Class<?>[]{com.badlogic.gdx.graphics.GL20.class},
                 (proxy, method, args) -> {
                     if (method.getName().equals("glGenBuffer")) return 1;
                     if (method.getReturnType().equals(int.class)) return 0;

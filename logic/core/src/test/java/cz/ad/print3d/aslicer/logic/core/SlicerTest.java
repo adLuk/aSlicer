@@ -10,7 +10,9 @@ import com.badlogic.gdx.graphics.VertexAttributes;
 import com.badlogic.gdx.graphics.g3d.Material;
 import com.badlogic.gdx.graphics.g3d.Model;
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
+import com.badlogic.gdx.graphics.g3d.utils.shapebuilders.BoxShapeBuilder;
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
+import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -35,8 +37,8 @@ public class SlicerTest {
                     mockGdxGL();
                     ModelBuilder modelBuilder = new ModelBuilder();
                     modelBuilder.begin();
-                    modelBuilder.part("cube", GL20.GL_TRIANGLES, VertexAttributes.Usage.Position, new Material(ColorAttribute.createDiffuse(Color.GRAY)))
-                            .box(1f, 1f, 1f);
+                    MeshPartBuilder partBuilder = modelBuilder.part("cube", GL20.GL_TRIANGLES, VertexAttributes.Usage.Position, new Material(ColorAttribute.createDiffuse(Color.GRAY)));
+                    BoxShapeBuilder.build(partBuilder, 1f, 1f, 1f);
                     Model model = modelBuilder.end();
 
                     Slicer slicer = new Slicer();
@@ -152,7 +154,7 @@ public class SlicerTest {
     private void mockGdxGL() {
         com.badlogic.gdx.Gdx.gl20 = (com.badlogic.gdx.graphics.GL20) java.lang.reflect.Proxy.newProxyInstance(
                 com.badlogic.gdx.graphics.GL20.class.getClassLoader(),
-                new Class[]{com.badlogic.gdx.graphics.GL20.class},
+                new Class<?>[]{com.badlogic.gdx.graphics.GL20.class},
                 (proxy, method, args) -> {
                     if (method.getName().equals("glGenBuffer")) return 1;
                     if (method.getReturnType().equals(int.class)) return 0;

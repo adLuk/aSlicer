@@ -45,7 +45,7 @@ import com.badlogic.gdx.utils.Array;
  * </ul>
  * </p>
  */
-public class ModelListWindow extends Window {
+public final class ModelListWindow extends Window {
 
     /**
      * Interface for listening to model list events, such as model removal or duplication requests.

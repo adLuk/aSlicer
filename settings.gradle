@@ -22,3 +22,5 @@ include ':logic:core'
 include 'ui'
 include ':ui:cli'
 include ':ui:desktop'
+
+include 'logic:net'

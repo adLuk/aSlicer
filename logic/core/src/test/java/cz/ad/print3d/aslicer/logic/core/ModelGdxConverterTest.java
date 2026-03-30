@@ -185,7 +185,7 @@ public class ModelGdxConverterTest {
     private void mockGdxGL() {
         com.badlogic.gdx.Gdx.gl20 = (com.badlogic.gdx.graphics.GL20) java.lang.reflect.Proxy.newProxyInstance(
                 com.badlogic.gdx.graphics.GL20.class.getClassLoader(),
-                new Class[]{com.badlogic.gdx.graphics.GL20.class},
+                new Class<?>[]{com.badlogic.gdx.graphics.GL20.class},
                 (proxy, method, args) -> {
                     if (method.getName().equals("glGenBuffer")) return 1;
                     if (method.getReturnType().equals(int.class)) return 0;

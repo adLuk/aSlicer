@@ -28,7 +28,7 @@ test {
 }
 
 dependencies {
-    implementation 'jakarta.xml.bind:jakarta.xml.bind-api:4.0.0'
+    api 'jakarta.xml.bind:jakarta.xml.bind-api:4.0.0'
     implementation 'org.slf4j:slf4j-api:2.0.7'
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.15.2'
     runtimeOnly 'org.glassfish.jaxb:jaxb-runtime:4.0.2'

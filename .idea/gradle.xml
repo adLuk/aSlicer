@@ -12,6 +12,7 @@
             <option value="$PROJECT_DIR$/logic" />
             <option value="$PROJECT_DIR$/logic/core" />
             <option value="$PROJECT_DIR$/logic/model" />
+            <option value="$PROJECT_DIR$/logic/net" />
             <option value="$PROJECT_DIR$/ui" />
             <option value="$PROJECT_DIR$/ui/cli" />
             <option value="$PROJECT_DIR$/ui/desktop" />

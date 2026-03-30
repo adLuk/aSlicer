@@ -31,6 +31,7 @@ import static org.mockito.Mockito.when;
 public class DesktopAppMousePickingTest {
 
     @Test
+    @SuppressWarnings("unchecked")
     void testMousePickingAndSelection() throws InterruptedException {
         HeadlessApplicationConfiguration config = new HeadlessApplicationConfiguration();
         CountDownLatch latch = new CountDownLatch(1);

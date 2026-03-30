@@ -16,10 +16,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 package cz.ad.print3d.aslicer.ui.desktop.view;
-import cz.ad.print3d.aslicer.ui.desktop.DesktopApp;
-import cz.ad.print3d.aslicer.ui.desktop.config.*;
-import cz.ad.print3d.aslicer.ui.desktop.persistence.*;
-import cz.ad.print3d.aslicer.ui.desktop.view.*;
 
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
@@ -68,7 +64,7 @@ public class AppGridTest {
             private void mockGdxGL() {
                 Gdx.gl20 = (GL20) java.lang.reflect.Proxy.newProxyInstance(
                         GL20.class.getClassLoader(),
-                        new Class[]{GL20.class},
+                        new Class<?>[]{GL20.class},
                         (proxy, method, args) -> {
                             if (method.getName().equals("glGenBuffer") || method.getName().equals("glGenTexture")) return 1;
                             if (method.getReturnType().equals(int.class)) return 0;

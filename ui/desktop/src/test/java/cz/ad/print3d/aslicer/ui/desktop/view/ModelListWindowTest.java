@@ -90,7 +90,7 @@ public class ModelListWindowTest {
                     assertEquals("Loaded Models", window.getTitleLabel().getText().toString());
 
                     // Check list items
-                    List<?> list = window.getInternalList();
+                    List<ModelListWindow.ModelListItem> list = window.getInternalList();
                     assertNotNull(list);
                     assertEquals(2, list.getItems().size);
                     assertEquals("model1.stl", list.getItems().get(0).toString());
@@ -162,13 +162,13 @@ public class ModelListWindowTest {
 
                     // Test selection (multiple items)
                     list.getSelection().clear();
-                    Object item1 = list.getItems().get(0);
-                    Object item2 = list.getItems().get(1);
-                    ((com.badlogic.gdx.scenes.scene2d.utils.Selection)list.getSelection()).add(item1);
-                    ((com.badlogic.gdx.scenes.scene2d.utils.Selection)list.getSelection()).add(item2);
+                    ModelListWindow.ModelListItem item1 = list.getItems().get(0);
+                    ModelListWindow.ModelListItem item2 = list.getItems().get(1);
+                    list.getSelection().add(item1);
+                    list.getSelection().add(item2);
                     assertEquals(2, list.getSelection().size(), "Should be able to select multiple items programmatically");
-                    assertTrue(((com.badlogic.gdx.scenes.scene2d.utils.Selection)list.getSelection()).contains(item1));
-                    assertTrue(((com.badlogic.gdx.scenes.scene2d.utils.Selection)list.getSelection()).contains(item2));
+                    assertTrue(list.getSelection().contains(item1));
+                    assertTrue(list.getSelection().contains(item2));
 
                     // Reproduction for the new issue: loading the same file multiple times
                     paths.clear();
@@ -181,18 +181,18 @@ public class ModelListWindowTest {
 
                     // When items are unique objects with same toString, they are separate items
                     list.getSelection().clear();
-                    Object dup1 = list.getItems().get(0);
-                    Object dup2 = list.getItems().get(1);
+                    ModelListWindow.ModelListItem dup1 = list.getItems().get(0);
+                    ModelListWindow.ModelListItem dup2 = list.getItems().get(1);
                     
-                    ((com.badlogic.gdx.scenes.scene2d.utils.Selection)list.getSelection()).add(dup1);
+                    list.getSelection().add(dup1);
                     assertEquals(1, list.getSelection().size(), "Should have only one item in selection");
-                    assertTrue(((com.badlogic.gdx.scenes.scene2d.utils.Selection)list.getSelection()).contains(dup1));
-                    assertTrue(!((com.badlogic.gdx.scenes.scene2d.utils.Selection)list.getSelection()).contains(dup2), "Second identical-looking item should NOT be selected");
+                    assertTrue(list.getSelection().contains(dup1));
+                    assertTrue(!list.getSelection().contains(dup2), "Second identical-looking item should NOT be selected");
 
-                    ((com.badlogic.gdx.scenes.scene2d.utils.Selection)list.getSelection()).add(dup2);
+                    list.getSelection().add(dup2);
                     assertEquals(2, list.getSelection().size(), "Should now have both items in selection");
-                    assertTrue(((com.badlogic.gdx.scenes.scene2d.utils.Selection)list.getSelection()).contains(dup1));
-                    assertTrue(((com.badlogic.gdx.scenes.scene2d.utils.Selection)list.getSelection()).contains(dup2));
+                    assertTrue(list.getSelection().contains(dup1));
+                    assertTrue(list.getSelection().contains(dup2));
 
                     // Verify selection persistence after updateList
                     window.updateList();
@@ -205,8 +205,8 @@ public class ModelListWindowTest {
                     assertEquals(0, list.getSelection().size(), "Selection should be cleared when list structure changes significantly");
                     
                     // Re-select
-                    Object finalItem = list.getItems().get(0);
-                    ((com.badlogic.gdx.scenes.scene2d.utils.Selection)list.getSelection()).add(finalItem);
+                    ModelListWindow.ModelListItem finalItem = list.getItems().get(0);
+                    list.getSelection().add(finalItem);
                     assertEquals(1, list.getSelection().size());
 
                     // Test with very long filename to ensure buttons are still visible and within bounds
@@ -249,7 +249,7 @@ public class ModelListWindowTest {
                 return null;
             }
 
-            private List<?> findList(ModelListWindow window) {
+            private List<ModelListWindow.ModelListItem> findList(ModelListWindow window) {
                 return window.getInternalList();
             }
 
@@ -293,7 +293,7 @@ public class ModelListWindowTest {
             private void mockGdxGL() {
                 Gdx.gl20 = (com.badlogic.gdx.graphics.GL20) java.lang.reflect.Proxy.newProxyInstance(
                         com.badlogic.gdx.graphics.GL20.class.getClassLoader(),
-                        new Class[]{com.badlogic.gdx.graphics.GL20.class},
+                        new Class<?>[]{com.badlogic.gdx.graphics.GL20.class},
                         (proxy, method, args) -> {
                             if (method.getName().equals("glGenBuffer") || method.getName().equals("glGenTexture")) return 1;
                             if (method.getReturnType().equals(int.class)) return 0;

@@ -33,7 +33,7 @@ import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
  * Side toolbar for the application, providing access to tool windows like the model list.
  * This toolbar is inspired by the IDE layout and is permanently located on the side.
  */
-public class AppSideToolbar extends Table {
+public final class AppSideToolbar extends Table {
 
     /**
      * Interface for listening to side toolbar events.

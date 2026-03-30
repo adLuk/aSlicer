@@ -90,8 +90,8 @@ public class Slicer {
             final int posOffset = part.mesh.getVertexAttributes().getOffset(VertexAttributes.Usage.Position);
             final int vertexSize = part.mesh.getVertexSize() / 4; // in floats
 
-            FloatBuffer vertices = part.mesh.getVerticesBuffer();
-            ShortBuffer indices = part.mesh.getIndicesBuffer();
+            FloatBuffer vertices = part.mesh.getVerticesBuffer(false);
+            ShortBuffer indices = part.mesh.getIndicesBuffer(false);
 
             int numIndices = part.size;
             int offset = part.offset;

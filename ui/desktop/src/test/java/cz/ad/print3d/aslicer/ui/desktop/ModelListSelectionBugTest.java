@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class ModelListSelectionBugTest {
 
     @Test
+    @SuppressWarnings("unchecked")
     public void testToggleModelListWindowPreservesSelection() throws InterruptedException {
         // Ensure ScenePersistence doesn't mess with real files
         ScenePersistence.WORKSPACE_PATH = Paths.get(System.getProperty("java.io.tmpdir"), "workspace_bug_test.g3db");

@@ -78,7 +78,7 @@ public class DesktopUITest {
             private void mockGdxGL() {
                 Gdx.gl20 = (com.badlogic.gdx.graphics.GL20) java.lang.reflect.Proxy.newProxyInstance(
                         com.badlogic.gdx.graphics.GL20.class.getClassLoader(),
-                        new Class[]{com.badlogic.gdx.graphics.GL20.class},
+                        new Class<?>[]{com.badlogic.gdx.graphics.GL20.class},
                         (proxy, method, args) -> {
                             if (method.getName().equals("glGenBuffer") || method.getName().equals("glGenTexture") || 
                                 method.getName().equals("glCreateShader") || method.getName().equals("glCreateProgram")) return 1;

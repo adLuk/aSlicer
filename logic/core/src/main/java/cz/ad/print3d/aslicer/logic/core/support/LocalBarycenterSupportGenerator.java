@@ -295,8 +295,8 @@ public class LocalBarycenterSupportGenerator implements SupportGenerator {
             final int posOffset = part.mesh.getVertexAttributes().getOffset(VertexAttributes.Usage.Position);
             final int vertexSize = part.mesh.getVertexSize() / 4; // in floats
 
-            FloatBuffer vertices = part.mesh.getVerticesBuffer();
-            ShortBuffer indices = part.mesh.getIndicesBuffer();
+            FloatBuffer vertices = part.mesh.getVerticesBuffer(false);
+            ShortBuffer indices = part.mesh.getIndicesBuffer(false);
 
             for (int i = 0; i < part.size; i += 3) {
                 int i1 = indices.get(part.offset + i) & 0xFFFF;

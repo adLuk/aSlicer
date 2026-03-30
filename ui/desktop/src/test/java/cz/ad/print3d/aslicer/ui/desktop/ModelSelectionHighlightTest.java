@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class ModelSelectionHighlightTest {
 
     @Test
+    @SuppressWarnings("unchecked")
     void testHighlightingLogic() throws InterruptedException {
         HeadlessApplicationConfiguration config = new HeadlessApplicationConfiguration();
         CountDownLatch latch = new CountDownLatch(1);

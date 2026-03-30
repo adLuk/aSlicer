@@ -39,7 +39,7 @@ import java.util.function.Consumer;
 /**
  * Settings window for configuring application controls and other options.
  */
-public class SettingsWindow extends Window {
+public final class SettingsWindow extends Window {
 
     private final CameraInputController camController;
     private final Consumer<Float> gridSizeCallback;

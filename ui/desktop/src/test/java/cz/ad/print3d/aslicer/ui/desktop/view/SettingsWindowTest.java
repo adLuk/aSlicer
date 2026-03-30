@@ -16,20 +16,12 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 package cz.ad.print3d.aslicer.ui.desktop.view;
-import cz.ad.print3d.aslicer.ui.desktop.DesktopApp;
-import cz.ad.print3d.aslicer.ui.desktop.config.*;
-import cz.ad.print3d.aslicer.ui.desktop.persistence.*;
-import cz.ad.print3d.aslicer.ui.desktop.view.*;
 
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.backends.headless.HeadlessApplication;
 import com.badlogic.gdx.backends.headless.HeadlessApplicationConfiguration;
-import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.graphics.GL20;
-import com.badlogic.gdx.graphics.PerspectiveCamera;
-import com.badlogic.gdx.graphics.Pixmap;
-import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.*;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g3d.utils.CameraInputController;
 import com.badlogic.gdx.scenes.scene2d.Actor;
@@ -150,7 +142,7 @@ public class SettingsWindowTest {
             private void mockGdxGL() {
                 Gdx.gl20 = (GL20) java.lang.reflect.Proxy.newProxyInstance(
                         GL20.class.getClassLoader(),
-                        new Class[]{GL20.class},
+                        new Class<?>[]{GL20.class},
                         (proxy, method, args) -> {
                             if (method.getName().equals("glGenBuffer") || method.getName().equals("glGenTexture")) return 1;
                             if (method.getReturnType().equals(int.class)) return 0;
