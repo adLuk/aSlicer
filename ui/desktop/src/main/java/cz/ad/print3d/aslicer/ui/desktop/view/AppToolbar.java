@@ -28,6 +28,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
+import cz.ad.print3d.aslicer.logic.printer.PrinterRepository;
 
 /**
  * Toolbar for the application, providing access to main actions like clearing the model,
@@ -57,16 +58,19 @@ public final class AppToolbar extends Table {
 
     private final Skin skin;
     private final ToolbarListener listener;
+    private final PrinterRepository repository;
 
     /**
-     * Creates a new toolbar with the specified skin and listener.
+     * Creates a new toolbar with the specified skin, listener and printer repository.
      *
-     * @param skin     the skin to use for styling
-     * @param listener the listener for toolbar events
+     * @param skin       the skin to use for styling
+     * @param listener   the listener for toolbar events
+     * @param repository the repository for printer data
      */
-    public AppToolbar(Skin skin, ToolbarListener listener) {
+    public AppToolbar(Skin skin, ToolbarListener listener, PrinterRepository repository) {
         this.skin = skin;
         this.listener = listener;
+        this.repository = repository;
         setupUI();
     }
 
@@ -103,17 +107,22 @@ public final class AppToolbar extends Table {
             }
         });
 
-        ToolbarGroup fileGroup = new ToolbarGroup(skin);
-        fileGroup.addButton(clearButton);
-        fileGroup.addButton(openButton);
+        ToolbarGroup modelGroup = new ToolbarGroup(skin);
+        modelGroup.addButton(clearButton);
+        modelGroup.addButton(openButton);
 
-        ToolbarGroup actionGroup = new ToolbarGroup(skin);
-        actionGroup.addButton(settingsButton);
-        actionGroup.setSeparatorVisible(false);
+        PrinterSelectBox printerSelectBox = new PrinterSelectBox(skin, repository);
+        ToolbarGroup printerGroup = new ToolbarGroup(skin);
+        printerGroup.addButton(printerSelectBox);
 
-        add(fileGroup).fillY();
+        ToolbarGroup settingsGroup = new ToolbarGroup(skin);
+        settingsGroup.addButton(settingsButton);
+        settingsGroup.setSeparatorVisible(false);
+
+        add(modelGroup).fillY();
+        add(printerGroup).fillY();
         add().expandX();
-        add(actionGroup).fillY();
+        add(settingsGroup).fillY();
         left();
     }
 

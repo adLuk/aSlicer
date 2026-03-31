@@ -157,7 +157,10 @@ public class ZipPrinterRepository implements PrinterRepository {
 
     private void ensureZipFileExists() throws IOException {
         if (Files.notExists(zipPath)) {
-            Files.createDirectories(zipPath.getParent());
+            Path parent = zipPath.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
             // Create the ZIP file if it doesn't exist by initializing it.
             // zip4j handles creation when the first entry is added.
             logger.info("Initialized storage path for ZIP repository at: {}", zipPath);

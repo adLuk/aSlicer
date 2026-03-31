@@ -67,6 +67,11 @@ public class DesktopApp implements ApplicationListener {
     public ModelManager modelManager;
 
     /**
+     * Repository for printer configurations.
+     */
+    public cz.ad.print3d.aslicer.logic.printer.PrinterRepository printerRepository;
+
+    /**
      * Desktop UI manager for handling stages, menus, and dialogs.
      */
     public DesktopUI desktopUI;
@@ -113,6 +118,21 @@ public class DesktopApp implements ApplicationListener {
         this.appConfig = new AppConfig();
         this.fileDialog = new ModelFileDialog();
         this.scenePersistence = new ScenePersistence();
+        try {
+            this.printerRepository = new cz.ad.print3d.aslicer.logic.core.printer.ZipPrinterRepository(java.nio.file.Paths.get("printers.zip"));
+        } catch (java.io.IOException e) {
+            LOGGER.error("Failed to initialize printer repository", e);
+            // Fallback to a simple implementation if Zip fails
+            this.printerRepository = new cz.ad.print3d.aslicer.logic.printer.PrinterRepository() {
+                private final java.util.Map<String, java.util.Map<String, cz.ad.print3d.aslicer.logic.printer.Printer3D>> groups = new java.util.HashMap<>();
+                @Override public java.util.List<String> getGroups() { return new java.util.ArrayList<>(groups.keySet()); }
+                @Override public java.util.Map<String, cz.ad.print3d.aslicer.logic.printer.Printer3D> getPrintersByGroup(String groupName) { return groups.getOrDefault(groupName, java.util.Collections.emptyMap()); }
+                @Override public java.util.Optional<cz.ad.print3d.aslicer.logic.printer.Printer3D> getPrinter(String groupName, String printerName) { return java.util.Optional.ofNullable(getPrintersByGroup(groupName).get(printerName)); }
+                @Override public void savePrinter(String groupName, String printerName, cz.ad.print3d.aslicer.logic.printer.Printer3D printer) { groups.computeIfAbsent(groupName, k -> new java.util.HashMap<>()).put(printerName, printer); }
+                @Override public boolean deletePrinter(String groupName, String printerName) { return groups.containsKey(groupName) && groups.get(groupName).remove(printerName) != null; }
+                @Override public boolean deleteGroup(String groupName) { return groups.remove(groupName) != null; }
+            };
+        }
     }
 
     /**
@@ -317,7 +337,7 @@ public class DesktopApp implements ApplicationListener {
             public void onSettings() {
                 toggleSettingsWindow();
             }
-        });
+        }, printerRepository);
 
         AppStageToolbar stageToolbar = new AppStageToolbar(desktopUI.getSkin(), new AppStageToolbar.StageToolbarListener() {
             @Override
