@@ -103,10 +103,17 @@ public final class AppToolbar extends Table {
             }
         });
 
-        add(clearButton).pad(5);
-        add(openButton).pad(5);
+        ToolbarGroup fileGroup = new ToolbarGroup(skin);
+        fileGroup.addButton(clearButton);
+        fileGroup.addButton(openButton);
+
+        ToolbarGroup actionGroup = new ToolbarGroup(skin);
+        actionGroup.addButton(settingsButton);
+        actionGroup.setSeparatorVisible(false);
+
+        add(fileGroup).fillY();
         add().expandX();
-        add(settingsButton).pad(5);
+        add(actionGroup).fillY();
         left();
     }
 

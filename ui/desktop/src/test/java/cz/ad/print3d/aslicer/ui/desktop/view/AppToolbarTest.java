@@ -74,11 +74,16 @@ public class AppToolbarTest {
 
                     assertNotNull(toolbar);
 
-                    // Manually trigger button clicks
+                    // Manually trigger button clicks by recursing into ToolbarGroups
                     for (Actor actor : toolbar.getChildren()) {
-                        if (actor instanceof ImageButton) {
-                            ImageButton button = (ImageButton) actor;
-                            button.fire(new ChangeListener.ChangeEvent());
+                        if (actor instanceof ToolbarGroup) {
+                            ToolbarGroup group = (ToolbarGroup) actor;
+                            for (Actor groupActor : group.getButtonContainer().getChildren()) {
+                                if (groupActor instanceof ImageButton) {
+                                    ImageButton button = (ImageButton) groupActor;
+                                    button.fire(new ChangeListener.ChangeEvent());
+                                }
+                            }
                         }
                     }
 

@@ -73,7 +73,10 @@ public final class AppSideToolbar extends Table {
             }
         });
 
-        add(projectButton).pad(5).row();
+        ToolbarGroup sideGroup = new ToolbarGroup(skin, true);
+        sideGroup.addButton(projectButton);
+
+        add(sideGroup).fillX().row();
         add().expandY();
     }
 

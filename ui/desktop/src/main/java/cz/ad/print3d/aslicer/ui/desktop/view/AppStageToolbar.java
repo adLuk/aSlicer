@@ -86,8 +86,11 @@ public final class AppStageToolbar extends Table {
             }
         });
 
-        add(modelViewButton).pad(5);
-        add(gridViewButton).pad(5);
+        ToolbarGroup stageGroup = new ToolbarGroup(skin);
+        stageGroup.addButton(modelViewButton);
+        stageGroup.addButton(gridViewButton);
+
+        add(stageGroup).fillY();
         add().expandX();
         left();
     }
