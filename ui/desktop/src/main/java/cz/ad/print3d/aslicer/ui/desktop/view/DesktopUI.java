@@ -76,15 +76,17 @@ public class DesktopUI implements Disposable {
     /**
      * Initializes the UI layout with the provided toolbars and the 3D scene.
      *
-     * @param toolbar      the top application toolbar
-     * @param sideToolbar  the side application toolbar
-     * @param sceneManager the manager for 3D scene components
-     * @param modelManager the manager for loaded models
+     * @param toolbar       the top application toolbar
+     * @param stageToolbar   the stage application toolbar
+     * @param sideToolbar    the side application toolbar
+     * @param sceneManager  the manager for 3D scene components
+     * @param modelManager  the manager for loaded models
      */
-    public void setupLayout(AppToolbar toolbar, AppSideToolbar sideToolbar, SceneManager sceneManager, ModelManager modelManager) {
+    public void setupLayout(AppToolbar toolbar, AppStageToolbar stageToolbar, AppSideToolbar sideToolbar, SceneManager sceneManager, ModelManager modelManager) {
         rootTable.clear();
         rootTable.add(toolbar).expandX().fillX().colspan(2).row();
-        rootTable.add(sideToolbar).expandY().fillY().left();
+        rootTable.add(sideToolbar).expandY().fillY();
+        rootTable.add(stageToolbar).expandX().fillX().top();
 
         // Setup View 1 (Models + Grid)
         view1Stage.clear();

@@ -39,15 +39,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class AppToolbarTest {
+/**
+ * Unit tests for AppStageToolbar to ensure buttons are properly initialized and listeners are triggered.
+ */
+public class AppStageToolbarTest {
 
     @Test
-    void testToolbarButtons() throws InterruptedException {
+    void testStageToolbarButtons() throws InterruptedException {
         HeadlessApplicationConfiguration config = new HeadlessApplicationConfiguration();
         CountDownLatch latch = new CountDownLatch(1);
-        AtomicBoolean clearCalled = new AtomicBoolean(false);
-        AtomicBoolean openCalled = new AtomicBoolean(false);
-        AtomicBoolean settingsCalled = new AtomicBoolean(false);
+        AtomicBoolean switchStageCalled = new AtomicBoolean(false);
 
         new HeadlessApplication(new ApplicationAdapter() {
             @Override
@@ -55,24 +56,14 @@ public class AppToolbarTest {
                 try {
                     GdxTestUtils.mockGdxGL();
                     Skin skin = createTestSkin();
-                    AppToolbar toolbar = new AppToolbar(skin, new AppToolbar.ToolbarListener() {
+                    AppStageToolbar toolbar = new AppStageToolbar(skin, new AppStageToolbar.StageToolbarListener() {
                         @Override
-                        public void onClear() {
-                            clearCalled.set(true);
-                        }
-
-                        @Override
-                        public void onOpen() {
-                            openCalled.set(true);
-                        }
-
-                        @Override
-                        public void onSettings() {
-                            settingsCalled.set(true);
+                        public void onSwitchStage(int index) {
+                            switchStageCalled.set(true);
                         }
                     });
 
-                    assertNotNull(toolbar);
+                    assertNotNull(toolbar, "Stage toolbar should be initialized");
 
                     // Manually trigger button clicks
                     for (Actor actor : toolbar.getChildren()) {
@@ -102,8 +93,6 @@ public class AppToolbarTest {
         }, config);
 
         assertTrue(latch.await(5, TimeUnit.SECONDS), "Test timed out");
-        assertTrue(clearCalled.get(), "onClear should have been called");
-        assertTrue(openCalled.get(), "onOpen should have been called");
-        assertTrue(settingsCalled.get(), "onSettings should have been called");
+        assertTrue(switchStageCalled.get(), "onSwitchStage should have been called");
     }
 }

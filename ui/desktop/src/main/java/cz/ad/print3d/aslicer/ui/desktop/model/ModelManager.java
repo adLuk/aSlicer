@@ -259,7 +259,8 @@ public class ModelManager implements Disposable {
             BoundingBox totalBounds = new BoundingBox();
             totalBounds.inf();
 
-            for (ModelInstance inst : instances) {
+            for (int i = 0, n = instances.size; i < n; i++) {
+                ModelInstance inst = instances.get(i);
                 BoundingBox currentBounds = new BoundingBox();
                 inst.calculateBoundingBox(currentBounds);
                 currentBounds.mul(inst.transform);
@@ -281,14 +282,14 @@ public class ModelManager implements Disposable {
     }
 
     private void notifyModelsChanged() {
-        for (ModelManagerListener listener : listeners) {
-            listener.onModelsChanged();
+        for (int i = 0, n = listeners.size; i < n; i++) {
+            listeners.get(i).onModelsChanged();
         }
     }
 
     private void notifySelectionChanged() {
-        for (ModelManagerListener listener : listeners) {
-            listener.onSelectionChanged();
+        for (int i = 0, n = listeners.size; i < n; i++) {
+            listeners.get(i).onSelectionChanged();
         }
     }
 
@@ -339,7 +340,8 @@ public class ModelManager implements Disposable {
      */
     public void setSelectedIndices(Array<Integer> indices) {
         selectedIndices.clear();
-        for (Integer index : indices) {
+        for (int i = 0, n = indices.size; i < n; i++) {
+            Integer index = indices.get(i);
             if (index >= 0 && index < instances.size) {
                 selectedIndices.add(index);
             }
@@ -390,8 +392,8 @@ public class ModelManager implements Disposable {
      */
     public void clearModels() {
         LOGGER.info("Clearing all models from the scene");
-        for (Model model : models) {
-            model.dispose();
+        for (int i = 0, n = models.size; i < n; i++) {
+            models.get(i).dispose();
         }
         models.clear();
         instances.clear();
@@ -406,8 +408,8 @@ public class ModelManager implements Disposable {
 
     @Override
     public void dispose() {
-        for (Model model : models) {
-            model.dispose();
+        for (int i = 0, n = models.size; i < n; i++) {
+            models.get(i).dispose();
         }
         models.clear();
         instances.clear();

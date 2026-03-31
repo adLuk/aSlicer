@@ -197,7 +197,9 @@ public final class ModelListWindow extends Window {
         // Capture current selected indices to restore them after rebuild
         Array<Integer> selectedIndices = new Array<>();
         Selection<ModelListItem> selection = list.getSelection();
-        for (ModelListItem item : selection) {
+        Array<ModelListItem> selectionItems = selection.items().orderedItems();
+        for (int i = 0, n = selectionItems.size; i < n; i++) {
+            ModelListItem item = selectionItems.get(i);
             int index = listItems.indexOf(item, true);
             if (index != -1) {
                 selectedIndices.add(index);
@@ -219,14 +221,16 @@ public final class ModelListWindow extends Window {
 
         if (needsRebuild) {
             listItems.clear();
-            for (String path : modelPaths) {
+            for (int i = 0, n = modelPaths.size; i < n; i++) {
+                String path = modelPaths.get(i);
                 listItems.add(new ModelListItem(java.nio.file.Paths.get(path).getFileName().toString()));
             }
             list.setItems(listItems);
             
             // Restore selection
             selection.clear();
-            for (int index : selectedIndices) {
+            for (int i = 0, n = selectedIndices.size; i < n; i++) {
+                int index = selectedIndices.get(i);
                 if (index < listItems.size) {
                     selection.add(listItems.get(index));
                 }
@@ -416,8 +420,9 @@ public final class ModelListWindow extends Window {
             cz.ad.print3d.aslicer.logic.model.Model model = logicModels.get(index);
             int partCount = model.parts().size();
             int triangleCount = 0;
-            for (cz.ad.print3d.aslicer.logic.model.Model.MeshPart part : model.parts()) {
-                triangleCount += part.triangles().size();
+            java.util.List<? extends cz.ad.print3d.aslicer.logic.model.Model.MeshPart> parts = model.parts();
+            for (int i = 0, n = parts.size(); i < n; i++) {
+                triangleCount += parts.get(i).triangles().size();
             }
 
             String unitStr = model.lengthUnit() != null ? model.lengthUnit().getValue() : "unknown";
@@ -441,7 +446,9 @@ public final class ModelListWindow extends Window {
         if (listener != null) {
             Array<Integer> selectedIndices = new Array<>();
             Selection<ModelListItem> selection = list.getSelection();
-            for (ModelListItem item : selection) {
+            Array<ModelListItem> items = selection.items().orderedItems();
+            for (int i = 0, n = items.size; i < n; i++) {
+                ModelListItem item = items.get(i);
                 int index = listItems.indexOf(item, true);
                 if (index != -1) {
                     selectedIndices.add(index);

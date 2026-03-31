@@ -317,9 +317,11 @@ public class DesktopApp implements ApplicationListener {
             public void onSettings() {
                 toggleSettingsWindow();
             }
+        });
 
+        AppStageToolbar stageToolbar = new AppStageToolbar(desktopUI.getSkin(), new AppStageToolbar.StageToolbarListener() {
             @Override
-            public void onSwitchView(int index) {
+            public void onSwitchStage(int index) {
                 activeView = index;
                 if (desktopUI != null) {
                     desktopUI.setActiveView(index);
@@ -335,7 +337,7 @@ public class DesktopApp implements ApplicationListener {
             }
         });
 
-        desktopUI.setupLayout(toolbar, sideToolbar, sceneManager, modelManager);
+        desktopUI.setupLayout(toolbar, stageToolbar, sideToolbar, sceneManager, modelManager);
     }
 
     /**
