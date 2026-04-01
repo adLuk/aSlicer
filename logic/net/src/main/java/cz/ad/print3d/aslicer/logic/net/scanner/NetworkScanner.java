@@ -24,6 +24,10 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * Interface for scanning a network for devices with open ports.
+ * <p>Implementations should support discovering devices through multiple methods,
+ * such as mDNS (Multicast DNS) and direct port scanning. When scanning a range,
+ * devices found through discovery methods should be prioritized in the scan order
+ * to provide faster initial results.</p>
  */
 public interface NetworkScanner extends AutoCloseable {
 
@@ -114,6 +118,34 @@ public interface NetworkScanner extends AutoCloseable {
      * @return a CompletableFuture that completes with a DiscoveredDevice containing open ports
      */
     CompletableFuture<DiscoveredDevice> scanHost(String host, List<Integer> ports, boolean useBannerGrabbing, ScanProgressListener listener);
+
+    /**
+     * Sets the timeout for connection attempts during the scan.
+     *
+     * @param timeoutMillis the timeout in milliseconds
+     */
+    void setTimeout(int timeoutMillis);
+
+    /**
+     * Gets the current timeout for connection attempts.
+     *
+     * @return the timeout in milliseconds
+     */
+    int getTimeout();
+
+    /**
+     * Sets whether to include the local IP address of the machine performing the scan.
+     *
+     * @param include true to include self IP, false to exclude it
+     */
+    void setIncludeSelfIp(boolean include);
+
+    /**
+     * Gets whether to include the local IP address of the machine performing the scan.
+     *
+     * @return true if self IP is included, false otherwise
+     */
+    boolean isIncludeSelfIp();
 
     /**
      * Stops the current scan and cancels all active scanning futures.

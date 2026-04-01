@@ -142,7 +142,13 @@ public class DesktopUI implements Disposable {
 
         Window.WindowStyle windowStyle = new Window.WindowStyle();
         windowStyle.titleFont = font;
-        windowStyle.background = skin.newDrawable("white", new Color(0.2f, 0.2f, 0.2f, 0.9f));
+        windowStyle.titleFontColor = Color.WHITE;
+        Drawable windowBackground = skin.newDrawable("white", new Color(0.2f, 0.2f, 0.2f, 0.9f));
+        windowBackground.setLeftWidth(10);
+        windowBackground.setRightWidth(10);
+        windowBackground.setTopHeight(30);
+        windowBackground.setBottomHeight(10);
+        windowStyle.background = windowBackground;
         skin.add("default", windowStyle);
 
         CheckBox.CheckBoxStyle checkBoxStyle = new CheckBox.CheckBoxStyle();

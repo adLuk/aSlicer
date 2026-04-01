@@ -30,6 +30,11 @@ import java.util.concurrent.ExecutionException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * Test for {@link DeviceDiscoveryService}.
+ * <p>Verifies that the discovery service correctly delegates to {@link NetworkScanner}
+ * with appropriate printer-specific ports and settings.</p>
+ */
 class DeviceDiscoveryServiceTest {
 
     private StubNetworkScanner networkScanner;
@@ -85,6 +90,18 @@ class DeviceDiscoveryServiceTest {
             }
             return CompletableFuture.completedFuture(new DiscoveredDevice(host));
         }
+
+        @Override
+        public void setTimeout(int timeoutMillis) {}
+
+        @Override
+        public int getTimeout() { return 500; }
+
+        @Override
+        public void setIncludeSelfIp(boolean include) {}
+
+        @Override
+        public boolean isIncludeSelfIp() { return false; }
 
         @Override
         public void stopScan() {

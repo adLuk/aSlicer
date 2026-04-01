@@ -19,7 +19,9 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.net.UnknownHostException;
 
 /**
- * Unit tests for IpUtils.
+ * Unit tests for {@link IpUtils}.
+ * <p>Verifies IP range calculations, prefix length validation, and host part extraction
+ * for IPv4 addresses.</p>
  */
 public class IpUtilsTest {
 

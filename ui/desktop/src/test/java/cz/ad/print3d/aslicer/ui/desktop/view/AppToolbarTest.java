@@ -21,12 +21,9 @@ import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.backends.headless.HeadlessApplication;
 import com.badlogic.gdx.backends.headless.HeadlessApplicationConfiguration;
-import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.graphics.Pixmap;
-import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.scenes.scene2d.Actor;
-import com.badlogic.gdx.scenes.scene2d.ui.*;
+import com.badlogic.gdx.scenes.scene2d.ui.ImageButton;
+import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import cz.ad.print3d.aslicer.logic.printer.PrinterRepository;
 import cz.ad.print3d.aslicer.ui.desktop.GdxTestUtils;
@@ -57,7 +54,7 @@ public class AppToolbarTest {
             public void create() {
                 try {
                     GdxTestUtils.mockGdxGL();
-                    Skin skin = createTestSkin();
+                    Skin skin = GdxTestUtils.createTestSkin();
                     PrinterRepository repository = createMockRepository();
                     AppToolbar toolbar = new AppToolbar(skin, new AppToolbar.ToolbarListener() {
                         @Override
@@ -104,37 +101,6 @@ public class AppToolbarTest {
                 }
             }
 
-            private Skin createTestSkin() {
-                Skin skin = new Skin();
-                Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
-                pixmap.setColor(Color.WHITE);
-                pixmap.fill();
-                skin.add("white", new Texture(pixmap));
-                BitmapFont font = new BitmapFont();
-                skin.add("default", font);
-                
-                TextButton.TextButtonStyle textButtonStyle = new TextButton.TextButtonStyle();
-                textButtonStyle.font = font;
-                skin.add("default", textButtonStyle);
-                
-                CheckBox.CheckBoxStyle checkBoxStyle = new CheckBox.CheckBoxStyle();
-                checkBoxStyle.font = font;
-                skin.add("default", checkBoxStyle);
-                
-                ScrollPane.ScrollPaneStyle scrollPaneStyle = new ScrollPane.ScrollPaneStyle();
-                skin.add("default", scrollPaneStyle);
-                
-                Window.WindowStyle windowStyle = new Window.WindowStyle();
-                windowStyle.titleFont = font;
-                skin.add("default", windowStyle);
-
-                com.badlogic.gdx.scenes.scene2d.ui.List.ListStyle listStyle = new com.badlogic.gdx.scenes.scene2d.ui.List.ListStyle();
-                listStyle.font = font;
-                listStyle.selection = skin.newDrawable("white", Color.LIGHT_GRAY);
-                skin.add("default", listStyle);
-
-                return skin;
-            }
 
             private PrinterRepository createMockRepository() {
                 return (PrinterRepository) Proxy.newProxyInstance(

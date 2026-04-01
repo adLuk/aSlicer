@@ -4,20 +4,9 @@ import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.backends.headless.HeadlessApplication;
 import com.badlogic.gdx.backends.headless.HeadlessApplicationConfiguration;
-import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.graphics.Pixmap;
-import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.Stage;
-import com.badlogic.gdx.scenes.scene2d.ui.CheckBox;
-import com.badlogic.gdx.scenes.scene2d.ui.Label;
-import com.badlogic.gdx.scenes.scene2d.ui.ScrollPane;
-import com.badlogic.gdx.scenes.scene2d.ui.Skin;
-import com.badlogic.gdx.scenes.scene2d.ui.Table;
-import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
-import com.badlogic.gdx.scenes.scene2d.ui.TextField;
-import com.badlogic.gdx.scenes.scene2d.ui.Window;
+import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import cz.ad.print3d.aslicer.logic.net.info.NetworkInformationCollector;
 import cz.ad.print3d.aslicer.logic.net.info.NetworkInterfaceInfo;
@@ -34,12 +23,14 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * UI tests for {@link PrinterDiscoveryDialog}.
+ * <p>These tests use libGDX HeadlessApplication to simulate the UI environment
+ * and verify that the dialog components are correctly initialized, updated,
+ * and interact with the scanning logic.</p>
+ */
 public class PrinterDiscoveryDialogTest {
 
     @Test
@@ -53,7 +44,7 @@ public class PrinterDiscoveryDialogTest {
             public void create() {
                 try {
                     GdxTestUtils.mockGdxGL();
-                    Skin skin = createTestSkin();
+                    Skin skin = GdxTestUtils.createTestSkin();
                     
                     NetworkScanner mockScanner = new NetworkScanner() {
                         @Override
@@ -93,6 +84,18 @@ public class PrinterDiscoveryDialogTest {
                         }
 
                         @Override
+                        public void setTimeout(int timeoutMillis) {}
+
+                        @Override
+                        public int getTimeout() { return 500; }
+
+                        @Override
+                        public void setIncludeSelfIp(boolean include) {}
+
+                        @Override
+                        public boolean isIncludeSelfIp() { return false; }
+
+                        @Override
                         public void stopScan() {
                         }
 
@@ -122,49 +125,6 @@ public class PrinterDiscoveryDialogTest {
                 }
             }
 
-            private Skin createTestSkin() {
-                Skin skin = new Skin();
-                Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
-                pixmap.setColor(Color.WHITE);
-                pixmap.fill();
-                skin.add("white", new Texture(pixmap));
-                BitmapFont font = new BitmapFont();
-                skin.add("default", font);
-
-                Label.LabelStyle labelStyle = new Label.LabelStyle();
-                labelStyle.font = font;
-                skin.add("default", labelStyle);
-
-                TextField.TextFieldStyle textFieldStyle = new TextField.TextFieldStyle();
-                textFieldStyle.font = font;
-                textFieldStyle.fontColor = Color.WHITE;
-                skin.add("default", textFieldStyle);
-
-                CheckBox.CheckBoxStyle checkBoxStyle = new CheckBox.CheckBoxStyle();
-                checkBoxStyle.font = font;
-                com.badlogic.gdx.scenes.scene2d.utils.Drawable checkboxOn = skin.newDrawable("white", Color.GREEN);
-                checkboxOn.setMinWidth(16);
-                checkboxOn.setMinHeight(16);
-                checkBoxStyle.checkboxOn = checkboxOn;
-                com.badlogic.gdx.scenes.scene2d.utils.Drawable checkboxOff = skin.newDrawable("white", Color.RED);
-                checkboxOff.setMinWidth(16);
-                checkboxOff.setMinHeight(16);
-                checkBoxStyle.checkboxOff = checkboxOff;
-                skin.add("default", checkBoxStyle);
-
-                TextButton.TextButtonStyle textButtonStyle = new TextButton.TextButtonStyle();
-                textButtonStyle.font = font;
-                skin.add("default", textButtonStyle);
-
-                ScrollPane.ScrollPaneStyle scrollPaneStyle = new ScrollPane.ScrollPaneStyle();
-                skin.add("default", scrollPaneStyle);
-
-                Window.WindowStyle windowStyle = new Window.WindowStyle();
-                windowStyle.titleFont = font;
-                skin.add("default", windowStyle);
-
-                return skin;
-            }
         }, config);
 
         assertTrue(latch.await(5, TimeUnit.SECONDS), "Test timed out");
@@ -179,6 +139,31 @@ public class PrinterDiscoveryDialogTest {
             }
         }
         assertTrue(foundCheckBox, "Deep Scan checkbox should be found in the dialog");
+
+        boolean foundIncludeSelfIp = false;
+        for (Actor actor : dialog.getChildren()) {
+            if (actor instanceof Table) {
+                foundIncludeSelfIp = findIncludeSelfIpCheckBoxInTable((Table) actor);
+                if (foundIncludeSelfIp) break;
+            }
+        }
+        assertTrue(foundIncludeSelfIp, "Include self IP checkbox should be found in the dialog");
+    }
+
+    private boolean findIncludeSelfIpCheckBoxInTable(Table table) {
+        for (Actor child : table.getChildren()) {
+            if (child instanceof CheckBox) {
+                CheckBox cb = (CheckBox) child;
+                if (cb.getText().toString().contains("Include self IP")) {
+                    return true;
+                }
+            } else if (child instanceof Table) {
+                if (findIncludeSelfIpCheckBoxInTable((Table) child)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     @Test
@@ -193,7 +178,7 @@ public class PrinterDiscoveryDialogTest {
             public void create() {
                 try {
                     GdxTestUtils.mockGdxGL();
-                    Skin skin = createTestSkin();
+                    Skin skin = GdxTestUtils.createTestSkin();
                     
                     NetworkScanner mockScanner = new NetworkScanner() {
                         @Override
@@ -233,6 +218,18 @@ public class PrinterDiscoveryDialogTest {
                         }
 
                         @Override
+                        public void setTimeout(int timeoutMillis) {}
+
+                        @Override
+                        public int getTimeout() { return 500; }
+
+                        @Override
+                        public void setIncludeSelfIp(boolean include) {}
+
+                        @Override
+                        public boolean isIncludeSelfIp() { return false; }
+
+                        @Override
                         public void stopScan() {
                         }
 
@@ -269,49 +266,6 @@ public class PrinterDiscoveryDialogTest {
                 }
             }
 
-            private Skin createTestSkin() {
-                Skin skin = new Skin();
-                Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
-                pixmap.setColor(Color.WHITE);
-                pixmap.fill();
-                skin.add("white", new Texture(pixmap));
-                BitmapFont font = new BitmapFont();
-                skin.add("default", font);
-
-                Label.LabelStyle labelStyle = new Label.LabelStyle();
-                labelStyle.font = font;
-                skin.add("default", labelStyle);
-
-                TextField.TextFieldStyle textFieldStyle = new TextField.TextFieldStyle();
-                textFieldStyle.font = font;
-                textFieldStyle.fontColor = Color.WHITE;
-                skin.add("default", textFieldStyle);
-
-                CheckBox.CheckBoxStyle checkBoxStyle = new CheckBox.CheckBoxStyle();
-                checkBoxStyle.font = font;
-                com.badlogic.gdx.scenes.scene2d.utils.Drawable checkboxOn = skin.newDrawable("white", Color.GREEN);
-                checkboxOn.setMinWidth(16);
-                checkboxOn.setMinHeight(16);
-                checkBoxStyle.checkboxOn = checkboxOn;
-                com.badlogic.gdx.scenes.scene2d.utils.Drawable checkboxOff = skin.newDrawable("white", Color.RED);
-                checkboxOff.setMinWidth(16);
-                checkboxOff.setMinHeight(16);
-                checkBoxStyle.checkboxOff = checkboxOff;
-                skin.add("default", checkBoxStyle);
-
-                TextButton.TextButtonStyle textButtonStyle = new TextButton.TextButtonStyle();
-                textButtonStyle.font = font;
-                skin.add("default", textButtonStyle);
-
-                ScrollPane.ScrollPaneStyle scrollPaneStyle = new ScrollPane.ScrollPaneStyle();
-                skin.add("default", scrollPaneStyle);
-
-                Window.WindowStyle windowStyle = new Window.WindowStyle();
-                windowStyle.titleFont = font;
-                skin.add("default", windowStyle);
-
-                return skin;
-            }
         }, config);
 
         assertTrue(latch.await(5, TimeUnit.SECONDS), "Test timed out");
@@ -356,7 +310,7 @@ public class PrinterDiscoveryDialogTest {
             public void create() {
                 try {
                     GdxTestUtils.mockGdxGL();
-                    Skin skin = createTestSkin();
+                    Skin skin = GdxTestUtils.createTestSkin();
 
                     NetworkScanner mockScanner = new NetworkScanner() {
                         private CompletableFuture<List<DiscoveredDevice>> currentFuture;
@@ -397,6 +351,18 @@ public class PrinterDiscoveryDialogTest {
                         }
 
                         @Override
+                        public void setTimeout(int timeoutMillis) {}
+
+                        @Override
+                        public int getTimeout() { return 500; }
+
+                        @Override
+                        public void setIncludeSelfIp(boolean include) {}
+
+                        @Override
+                        public boolean isIncludeSelfIp() { return false; }
+
+                        @Override
                         public void stopScan() {
                             if (currentFuture != null) {
                                 currentFuture.cancel(true);
@@ -429,49 +395,6 @@ public class PrinterDiscoveryDialogTest {
                 }
             }
 
-            private Skin createTestSkin() {
-                Skin skin = new Skin();
-                Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
-                pixmap.setColor(Color.WHITE);
-                pixmap.fill();
-                skin.add("white", new Texture(pixmap));
-                BitmapFont font = new BitmapFont();
-                skin.add("default", font);
-
-                Label.LabelStyle labelStyle = new Label.LabelStyle();
-                labelStyle.font = font;
-                skin.add("default", labelStyle);
-
-                TextField.TextFieldStyle textFieldStyle = new TextField.TextFieldStyle();
-                textFieldStyle.font = font;
-                textFieldStyle.fontColor = Color.WHITE;
-                skin.add("default", textFieldStyle);
-
-                CheckBox.CheckBoxStyle checkBoxStyle = new CheckBox.CheckBoxStyle();
-                checkBoxStyle.font = font;
-                com.badlogic.gdx.scenes.scene2d.utils.Drawable checkboxOn = skin.newDrawable("white", Color.GREEN);
-                checkboxOn.setMinWidth(16);
-                checkboxOn.setMinHeight(16);
-                checkBoxStyle.checkboxOn = checkboxOn;
-                com.badlogic.gdx.scenes.scene2d.utils.Drawable checkboxOff = skin.newDrawable("white", Color.RED);
-                checkboxOff.setMinWidth(16);
-                checkboxOff.setMinHeight(16);
-                checkBoxStyle.checkboxOff = checkboxOff;
-                skin.add("default", checkBoxStyle);
-
-                TextButton.TextButtonStyle textButtonStyle = new TextButton.TextButtonStyle();
-                textButtonStyle.font = font;
-                skin.add("default", textButtonStyle);
-
-                ScrollPane.ScrollPaneStyle scrollPaneStyle = new ScrollPane.ScrollPaneStyle();
-                skin.add("default", scrollPaneStyle);
-
-                Window.WindowStyle windowStyle = new Window.WindowStyle();
-                windowStyle.titleFont = font;
-                skin.add("default", windowStyle);
-
-                return skin;
-            }
         }, config);
 
         assertTrue(latch.await(5, TimeUnit.SECONDS), "Test timed out");
@@ -548,7 +471,7 @@ public class PrinterDiscoveryDialogTest {
             public void create() {
                 try {
                     GdxTestUtils.mockGdxGL();
-                    Skin skin = createTestSkin();
+                    Skin skin = GdxTestUtils.createTestSkin();
 
                     NetworkScanner mockScanner = new NetworkScanner() {
                         @Override
@@ -561,6 +484,10 @@ public class PrinterDiscoveryDialogTest {
                         @Override public CompletableFuture<DiscoveredDevice> scanHost(String h, List<Integer> p) { return null; }
                         @Override public CompletableFuture<DiscoveredDevice> scanHost(String h, List<Integer> p, boolean u) { return null; }
                         @Override public CompletableFuture<DiscoveredDevice> scanHost(String h, List<Integer> p, boolean u, ScanProgressListener l) { return null; }
+                        @Override public void setTimeout(int timeoutMillis) {}
+                        @Override public int getTimeout() { return 500; }
+                        @Override public void setIncludeSelfIp(boolean include) {}
+                        @Override public boolean isIncludeSelfIp() { return false; }
                         @Override public void stopScan() {}
                         @Override public void close() {}
                     };
@@ -581,40 +508,6 @@ public class PrinterDiscoveryDialogTest {
                 }
             }
 
-            private Skin createTestSkin() {
-                Skin skin = new Skin();
-                Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
-                pixmap.setColor(Color.WHITE);
-                pixmap.fill();
-                skin.add("white", new Texture(pixmap));
-                BitmapFont font = new BitmapFont();
-                skin.add("default", font);
-                Label.LabelStyle labelStyle = new Label.LabelStyle();
-                labelStyle.font = font;
-                skin.add("default", labelStyle);
-                TextField.TextFieldStyle textFieldStyle = new TextField.TextFieldStyle();
-                textFieldStyle.font = font;
-                textFieldStyle.fontColor = Color.WHITE;
-                skin.add("default", textFieldStyle);
-                CheckBox.CheckBoxStyle checkBoxStyle = new CheckBox.CheckBoxStyle();
-                checkBoxStyle.font = font;
-                com.badlogic.gdx.scenes.scene2d.utils.Drawable checkboxOn = skin.newDrawable("white", Color.GREEN);
-                checkboxOn.setMinWidth(16); checkboxOn.setMinHeight(16);
-                checkBoxStyle.checkboxOn = checkboxOn;
-                com.badlogic.gdx.scenes.scene2d.utils.Drawable checkboxOff = skin.newDrawable("white", Color.RED);
-                checkboxOff.setMinWidth(16); checkboxOff.setMinHeight(16);
-                checkBoxStyle.checkboxOff = checkboxOff;
-                skin.add("default", checkBoxStyle);
-                TextButton.TextButtonStyle textButtonStyle = new TextButton.TextButtonStyle();
-                textButtonStyle.font = font;
-                skin.add("default", textButtonStyle);
-                ScrollPane.ScrollPaneStyle scrollPaneStyle = new ScrollPane.ScrollPaneStyle();
-                skin.add("default", scrollPaneStyle);
-                Window.WindowStyle windowStyle = new Window.WindowStyle();
-                windowStyle.titleFont = font;
-                skin.add("default", windowStyle);
-                return skin;
-            }
         }, config);
 
         assertTrue(latch.await(5, TimeUnit.SECONDS), "Setup timed out");
@@ -689,7 +582,7 @@ public class PrinterDiscoveryDialogTest {
             public void create() {
                 try {
                     GdxTestUtils.mockGdxGL();
-                    Skin skin = createTestSkin();
+                    Skin skin = GdxTestUtils.createTestSkin();
                     Stage stage = new Stage(new ScreenViewport());
                     stageRef.set(stage);
 
@@ -725,6 +618,18 @@ public class PrinterDiscoveryDialogTest {
                         }
 
                         @Override
+                        public void setTimeout(int timeoutMillis) {}
+
+                        @Override
+                        public int getTimeout() { return 500; }
+
+                        @Override
+                        public void setIncludeSelfIp(boolean include) {}
+
+                        @Override
+                        public boolean isIncludeSelfIp() { return false; }
+
+                        @Override
                         public void stopScan() {
                         }
 
@@ -756,49 +661,6 @@ public class PrinterDiscoveryDialogTest {
                 }
             }
 
-            private Skin createTestSkin() {
-                Skin skin = new Skin();
-                Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
-                pixmap.setColor(Color.WHITE);
-                pixmap.fill();
-                skin.add("white", new Texture(pixmap));
-                BitmapFont font = new BitmapFont();
-                skin.add("default", font);
-
-                Label.LabelStyle labelStyle = new Label.LabelStyle();
-                labelStyle.font = font;
-                skin.add("default", labelStyle);
-
-                TextField.TextFieldStyle textFieldStyle = new TextField.TextFieldStyle();
-                textFieldStyle.font = font;
-                textFieldStyle.fontColor = Color.WHITE;
-                skin.add("default", textFieldStyle);
-
-                CheckBox.CheckBoxStyle checkBoxStyle = new CheckBox.CheckBoxStyle();
-                checkBoxStyle.font = font;
-                com.badlogic.gdx.scenes.scene2d.utils.Drawable checkboxOn = skin.newDrawable("white", Color.GREEN);
-                checkboxOn.setMinWidth(16);
-                checkboxOn.setMinHeight(16);
-                checkBoxStyle.checkboxOn = checkboxOn;
-                com.badlogic.gdx.scenes.scene2d.utils.Drawable checkboxOff = skin.newDrawable("white", Color.RED);
-                checkboxOff.setMinWidth(16);
-                checkboxOff.setMinHeight(16);
-                checkBoxStyle.checkboxOff = checkboxOff;
-                skin.add("default", checkBoxStyle);
-
-                TextButton.TextButtonStyle textButtonStyle = new TextButton.TextButtonStyle();
-                textButtonStyle.font = font;
-                skin.add("default", textButtonStyle);
-
-                ScrollPane.ScrollPaneStyle scrollPaneStyle = new ScrollPane.ScrollPaneStyle();
-                skin.add("default", scrollPaneStyle);
-
-                Window.WindowStyle windowStyle = new Window.WindowStyle();
-                windowStyle.titleFont = font;
-                skin.add("default", windowStyle);
-
-                return skin;
-            }
         }, config);
 
         assertTrue(latch.await(5, TimeUnit.SECONDS), "Test setup timed out");

@@ -10,6 +10,11 @@ import java.nio.file.Paths;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
+/**
+ * Test for {@link ZipPrinterRepository} with various path scenarios.
+ * <p>Specifically tests handling of paths that might not have a parent directory
+ * to ensure robust initialization.</p>
+ */
 public class ZipPrinterRepositoryPathTest {
 
     @TempDir

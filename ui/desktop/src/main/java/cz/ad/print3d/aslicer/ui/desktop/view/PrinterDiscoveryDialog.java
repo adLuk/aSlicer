@@ -57,6 +57,8 @@ public class PrinterDiscoveryDialog extends Window {
     final TextField startIpField;
     final TextField endIpField;
     final CheckBox deepScanCheckBox;
+    final CheckBox includeSelfIpCheckBox;
+    final TextField timeoutField;
     final Label progressLabel;
     final Table resultsTable;
     private final NetworkScanner scanner;
@@ -95,15 +97,19 @@ public class PrinterDiscoveryDialog extends Window {
         Table content = new Table();
         content.pad(10);
 
-        // IP Range section
-        Table rangeTable = new Table();
-        rangeTable.add(new Label("Start IP:", skin)).padRight(5);
-        startIpField = new TextField("", skin);
-        rangeTable.add(startIpField).width(120).padRight(10);
+        // IP Range and Settings section
+        Table settingsTable = new Table();
+        settingsTable.left();
 
-        rangeTable.add(new Label("End IP:", skin)).padRight(5);
+        // Row 1: IP Range and Search Button
+        Table ipRow = new Table();
+        ipRow.add(new Label("Start IP:", skin)).padRight(5);
+        startIpField = new TextField("", skin);
+        ipRow.add(startIpField).width(110).padRight(10);
+
+        ipRow.add(new Label("End IP:", skin)).padRight(5);
         endIpField = new TextField("", skin);
-        rangeTable.add(endIpField).width(120).padRight(10);
+        ipRow.add(endIpField).width(110).padRight(10);
 
         searchIcon = createSearchIcon();
         stopIcon = createStopIcon();
@@ -118,12 +124,25 @@ public class PrinterDiscoveryDialog extends Window {
                 }
             }
         });
-        rangeTable.add(searchButton).size(32).row();
+        ipRow.add(searchButton).size(32);
+        settingsTable.add(ipRow).left().row();
 
-        deepScanCheckBox = new CheckBox("Deep Scan (All IPs/Ports)", skin);
-        rangeTable.add(deepScanCheckBox).colspan(5).left().padTop(5);
+        // Row 2: Checkboxes and Timeout
+        Table optionsRow = new Table();
+        deepScanCheckBox = new CheckBox("Deep Scan", skin);
+        optionsRow.add(deepScanCheckBox).padRight(10);
 
-        content.add(rangeTable).fillX().row();
+        includeSelfIpCheckBox = new CheckBox("Include self IP", skin);
+        includeSelfIpCheckBox.setChecked(false);
+        optionsRow.add(includeSelfIpCheckBox).padRight(10);
+
+        optionsRow.add(new Label("Timeout (ms):", skin)).padRight(5);
+        timeoutField = new TextField("500", skin);
+        timeoutField.setTextFieldFilter(new TextField.TextFieldFilter.DigitsOnlyFilter());
+        optionsRow.add(timeoutField).width(60);
+        settingsTable.add(optionsRow).left().padTop(5).row();
+
+        content.add(settingsTable).fillX().row();
 
         // Progress section
         progressLabel = new Label("", skin);
@@ -204,6 +223,7 @@ public class PrinterDiscoveryDialog extends Window {
 
         String startIp = startIpField.getText();
         String endIp = endIpField.getText();
+        String timeoutStr = timeoutField.getText();
 
         if (startIp.isEmpty() || endIp.isEmpty()) {
             resultsTable.clear();
@@ -211,6 +231,17 @@ public class PrinterDiscoveryDialog extends Window {
             progressLabel.setText("");
             return;
         }
+
+        int timeout = 500;
+        try {
+            if (!timeoutStr.isEmpty()) {
+                timeout = Integer.parseInt(timeoutStr);
+            }
+        } catch (NumberFormatException e) {
+            // Use default
+        }
+        scanner.setTimeout(timeout);
+        scanner.setIncludeSelfIp(includeSelfIpCheckBox.isChecked());
 
         isScanning = true;
         searchButton.getStyle().imageUp = stopIcon;
@@ -228,7 +259,7 @@ public class PrinterDiscoveryDialog extends Window {
             }
         } else {
             // Common ports for 3D printers and related services
-            ports = List.of(80, 443, 3000, 5000, 7080, 8080, 8883);
+            ports = List.of(22, 80, 443, 3344, 5000, 7080, 7125, 8080, 8883);
         }
 
         scanner.scanRange(baseIp, startHost, endHost, ports, true, new NetworkScanner.ScanProgressListener() {

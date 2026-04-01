@@ -17,24 +17,27 @@
  */
 package cz.ad.print3d.aslicer.logic.net.scanner;
 
+import cz.ad.print3d.aslicer.logic.net.info.NetworkAddressInfo;
+import cz.ad.print3d.aslicer.logic.net.info.NetworkInformationCollector;
+import cz.ad.print3d.aslicer.logic.net.info.NetworkInterfaceInfo;
 import cz.ad.print3d.aslicer.logic.net.scanner.dto.DiscoveredDevice;
 import cz.ad.print3d.aslicer.logic.net.scanner.dto.PortScanResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Test for {@link NettyNetworkScanner}.
+ * <p>Verifies range scanning, progress reporting, and scan cancellation
+ * using a stubbed {@link PortScanner}.</p>
+ */
 class NetworkScannerTest {
 
     private StubPortScanner portScanner;
@@ -43,7 +46,24 @@ class NetworkScannerTest {
     @BeforeEach
     void setUp() {
         portScanner = new StubPortScanner();
-        networkScanner = new NettyNetworkScanner(portScanner);
+        // Use a mock MdnsScanner that returns immediately to avoid delays in tests
+        MdnsScanner mockMdns = new MdnsScanner() {
+            @Override
+            public CompletableFuture<Set<String>> discoverDevices(long timeoutMillis) {
+                return CompletableFuture.completedFuture(Collections.emptySet());
+            }
+
+            @Override
+            public void close() {}
+        };
+        // Use a mock collector that returns empty list immediately
+        NetworkInformationCollector mockCollector = new NetworkInformationCollector() {
+            @Override
+            public List<NetworkInterfaceInfo> collect() {
+                return Collections.emptyList();
+            }
+        };
+        networkScanner = new NettyNetworkScanner(portScanner, mockMdns, mockCollector);
     }
 
     private static class StubPortScanner implements PortScanner {
@@ -77,6 +97,12 @@ class NetworkScannerTest {
             }
             return CompletableFuture.completedFuture(result);
         }
+
+        @Override
+        public void setTimeout(int timeoutMillis) {}
+
+        @Override
+        public int getTimeout() { return 500; }
 
         @Override
         public void close() {}
@@ -135,12 +161,10 @@ class NetworkScannerTest {
 
         CompletableFuture<List<DiscoveredDevice>> future = networkScanner.scanRange(baseIp, 1, 10, ports);
         
-        // Give it a tiny bit of time to start the async loop and create at least one port future
-        // Since we are using StubPortScanner with immediate completion (if delayCompletion is false) 
-        // or adding to activeFutures, we need to ensure it reached that point.
+        // Give it a bit more time to start the async loop and create at least one port future
         int attempts = 0;
-        while (portScanner.activeFutures.isEmpty() && attempts < 50) {
-            Thread.sleep(10);
+        while (portScanner.activeFutures.isEmpty() && attempts < 100) {
+            Thread.sleep(20);
             attempts++;
         }
 
@@ -163,21 +187,26 @@ class NetworkScannerTest {
         // Device only has a service on a non-common port
         int rarePort = 999;
         portScanner.addResult(host, rarePort, new PortScanResult(rarePort, true));
-        // Common ports are closed
+        // Keep port 80 open so the host is considered UP for deep scan pre-check
+        portScanner.addResult(host, 80, new PortScanResult(80, true));
+        // Common ports (except 80) are closed
         for (int p : normalPorts) {
-            portScanner.addResult(host, p, new PortScanResult(p, false));
+            if (p != 80) {
+                portScanner.addResult(host, p, new PortScanResult(p, false));
+            }
         }
 
         // Normal scan
         CompletableFuture<DiscoveredDevice> normalFuture = networkScanner.scanHost(host, normalPorts);
         DiscoveredDevice normalDevice = normalFuture.get();
-        assertTrue(normalDevice.getServices().isEmpty(), "Normal scan should not find the rare port");
+        assertEquals(1, normalDevice.getServices().size(), "Normal scan should find port 80");
+        assertEquals(80, normalDevice.getServices().get(0).getPort());
 
         // Deep scan
         CompletableFuture<DiscoveredDevice> deepFuture = networkScanner.scanHost(host, allPorts);
         DiscoveredDevice deepDevice = deepFuture.get();
-        assertEquals(1, deepDevice.getServices().size(), "Deep scan should find the rare port");
-        assertEquals(rarePort, deepDevice.getServices().get(0).getPort());
+        assertEquals(2, deepDevice.getServices().size(), "Deep scan should find port 80 and the rare port");
+        assertTrue(deepDevice.getServices().stream().anyMatch(s -> s.getPort() == rarePort));
     }
 
     @Test
@@ -203,5 +232,50 @@ class NetworkScannerTest {
         
         assertEquals(1, discoveredRealTime.size(), "Should have discovered one device in real-time");
         assertEquals("192.168.1.5", discoveredRealTime.get(0).getIpAddress());
+    }
+
+    @Test
+    void testExcludeSelfIp() throws Exception {
+        String baseIp = "192.168.1.";
+        List<Integer> ports = Arrays.asList(80);
+        String selfIp = "192.168.1.5";
+
+        // Mock collector to return selfIp
+        NetworkAddressInfo addrInfo = new NetworkAddressInfo(selfIp, "localhost", true, 24);
+        NetworkInterfaceInfo niInfo = new NetworkInterfaceInfo("eth0", "Ethernet", null, List.of(addrInfo), false, true, false);
+        
+        NetworkInformationCollector mockCollector = new NetworkInformationCollector() {
+            @Override
+            public List<NetworkInterfaceInfo> collect() {
+                return List.of(niInfo);
+            }
+        };
+
+        // Create scanner with mock collector
+        NettyNetworkScanner scanner = new NettyNetworkScanner(portScanner, new NettyMdnsScanner(), mockCollector);
+        
+        // Ensure static cache is bypassed by our scanner which will call collector.collect() if cachedInfo is null.
+        // We can't easily clear the static cache, but we can ensure it's not used by clearing it if possible or 
+        // by the fact that we're providing a custom collector that will be called if needed.
+        
+        // By default, self IP should be excluded
+        scanner.setIncludeSelfIp(false);
+        
+        portScanner.addResult("192.168.1.5", 80, new PortScanResult(80, true));
+        portScanner.addResult("192.168.1.6", 80, new PortScanResult(80, true));
+
+        CompletableFuture<List<DiscoveredDevice>> future = scanner.scanRange(baseIp, 1, 10, ports);
+        List<DiscoveredDevice> result = future.get();
+
+        // 192.168.1.5 should be excluded
+        assertFalse(result.stream().anyMatch(d -> d.getIpAddress().equals(selfIp)), "Self IP should be excluded");
+        assertTrue(result.stream().anyMatch(d -> d.getIpAddress().equals("192.168.1.6")), "Other IP should be included");
+
+        // Now include self IP
+        scanner.setIncludeSelfIp(true);
+        future = scanner.scanRange(baseIp, 1, 10, ports);
+        result = future.get();
+
+        assertTrue(result.stream().anyMatch(d -> d.getIpAddress().equals(selfIp)), "Self IP should be included when set to true");
     }
 }

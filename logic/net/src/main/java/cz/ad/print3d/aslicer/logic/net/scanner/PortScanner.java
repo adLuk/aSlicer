@@ -44,6 +44,20 @@ public interface PortScanner extends AutoCloseable {
      */
     CompletableFuture<PortScanResult> scanPort(String host, int port, boolean useBannerGrabbing);
 
+    /**
+     * Sets the timeout for connection attempts in milliseconds.
+     *
+     * @param timeoutMillis the timeout in milliseconds
+     */
+    void setTimeout(int timeoutMillis);
+
+    /**
+     * Gets the timeout for connection attempts in milliseconds.
+     *
+     * @return the timeout in milliseconds
+     */
+    int getTimeout();
+
     @Override
     void close();
 }

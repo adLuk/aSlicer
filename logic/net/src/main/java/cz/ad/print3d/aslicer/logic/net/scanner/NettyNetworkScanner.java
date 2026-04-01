@@ -17,15 +17,20 @@
  */
 package cz.ad.print3d.aslicer.logic.net.scanner;
 
+import cz.ad.print3d.aslicer.logic.net.info.NetworkAddressInfo;
+import cz.ad.print3d.aslicer.logic.net.info.NetworkInformationCollector;
+import cz.ad.print3d.aslicer.logic.net.info.NetworkInterfaceInfo;
 import cz.ad.print3d.aslicer.logic.net.scanner.dto.DiscoveredDevice;
 import cz.ad.print3d.aslicer.logic.net.scanner.dto.PortScanResult;
 
+import java.net.InetAddress;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 /**
@@ -35,24 +40,53 @@ import java.util.stream.Collectors;
 public class NettyNetworkScanner implements NetworkScanner {
 
     private static final int MAX_CONCURRENT_PORT_SCANS = 500;
+    private static final long MDNS_TIMEOUT_MS = 1500;
+    private static final int DEEP_SCAN_THRESHOLD = 100;
     private final PortScanner portScanner;
+    private final MdnsScanner mdnsScanner;
+    private final NetworkInformationCollector collector;
     private final List<CompletableFuture<?>> activeFutures = new CopyOnWriteArrayList<>();
     private final Semaphore portScanSemaphore = new Semaphore(MAX_CONCURRENT_PORT_SCANS);
+    private boolean includeSelfIp = false;
 
     /**
-     * Constructs a new NettyNetworkScanner with a default NettyPortScanner.
+     * Constructs a new NettyNetworkScanner with a default NettyPortScanner, NettyMdnsScanner,
+     * and a default NetworkInformationCollector.
      */
     public NettyNetworkScanner() {
-        this(new NettyPortScanner());
+        this(new NettyPortScanner(), new NettyMdnsScanner(), new NetworkInformationCollector());
     }
 
     /**
-     * Constructs a new NettyNetworkScanner with a provided NettyPortScanner.
+     * Constructs a new NettyNetworkScanner with a provided NettyPortScanner and a default NettyMdnsScanner.
      *
      * @param portScanner the NettyPortScanner to use for connection attempts
      */
     public NettyNetworkScanner(PortScanner portScanner) {
+        this(portScanner, new NettyMdnsScanner(), new NetworkInformationCollector());
+    }
+
+    /**
+     * Constructs a new NettyNetworkScanner with a provided NettyPortScanner and MdnsScanner.
+     *
+     * @param portScanner the NettyPortScanner to use for connection attempts
+     * @param mdnsScanner the MdnsScanner to use for mDNS discovery
+     */
+    public NettyNetworkScanner(PortScanner portScanner, MdnsScanner mdnsScanner) {
+        this(portScanner, mdnsScanner, new NetworkInformationCollector());
+    }
+
+    /**
+     * Constructs a new NettyNetworkScanner with a provided PortScanner, MdnsScanner, and NetworkInformationCollector.
+     *
+     * @param portScanner the PortScanner to use for connection attempts
+     * @param mdnsScanner the MdnsScanner to use for mDNS discovery
+     * @param collector the NetworkInformationCollector to use for local IP identification
+     */
+    public NettyNetworkScanner(PortScanner portScanner, MdnsScanner mdnsScanner, NetworkInformationCollector collector) {
         this.portScanner = portScanner;
+        this.mdnsScanner = mdnsScanner;
+        this.collector = collector;
     }
 
     @Override
@@ -84,15 +118,63 @@ public class NettyNetworkScanner implements NetworkScanner {
 
         CompletableFuture.runAsync(() -> {
             try {
-                List<CompletableFuture<DiscoveredDevice>> hostFutures = new ArrayList<>();
-                int totalHosts = endHost - startHost + 1;
-                long totalPorts = (long) totalHosts * ports.size();
-                AtomicLong completedPorts = new AtomicLong(0);
-                AtomicLong lastProgressUpdate = new AtomicLong(0);
+                if (listener != null) {
+                    listener.onProgress(0.0, "Initiating mDNS discovery...");
+                }
 
+                Set<String> discoveredIps = mdnsScanner.discoverDevices(MDNS_TIMEOUT_MS).join();
+                if (externalFuture.isCancelled()) return;
+
+                Set<String> selfIps = Collections.emptySet();
+                if (!includeSelfIp) {
+                    List<NetworkInterfaceInfo> cachedInfo = NetworkInformationCollector.getCachedInfo();
+                    if (cachedInfo == null) {
+                        cachedInfo = collector.collect();
+                    }
+                    selfIps = cachedInfo.stream()
+                            .flatMap(ni -> ni.getAddresses().stream())
+                            .map(NetworkAddressInfo::getAddress)
+                            .collect(Collectors.toSet());
+                }
+
+                List<String> hostsToScan = new ArrayList<>();
+                String basePrefix = baseIp.endsWith(".") ? baseIp : baseIp + ".";
+
+                // Prioritize discovered IPs that are within the range
+                for (String ip : discoveredIps) {
+                    if (ip.startsWith(basePrefix)) {
+                        try {
+                            int hostPart = Integer.parseInt(ip.substring(basePrefix.length()));
+                            if (hostPart >= startHost && hostPart <= endHost) {
+                                if (includeSelfIp || !selfIps.contains(ip)) {
+                                    hostsToScan.add(ip);
+                                }
+                            }
+                        } catch (NumberFormatException ignored) {
+                            // Not a simple host part, ignore or handle differently
+                        }
+                    }
+                }
+
+                // Add remaining IPs in the range
                 for (int i = startHost; i <= endHost; i++) {
+                    String ip = basePrefix + i;
+                    if (!hostsToScan.contains(ip)) {
+                        if (includeSelfIp || !selfIps.contains(ip)) {
+                            hostsToScan.add(ip);
+                        }
+                    }
+                }
+
+                List<CompletableFuture<DiscoveredDevice>> hostFutures = new ArrayList<>();
+                int totalHosts = hostsToScan.size();
+                long totalPorts = (long) totalHosts * ports.size();
+                java.util.concurrent.atomic.AtomicLong completedPorts = new java.util.concurrent.atomic.AtomicLong(0);
+                java.util.concurrent.atomic.AtomicLong lastProgressUpdate = new java.util.concurrent.atomic.AtomicLong(0);
+
+                for (String ip : hostsToScan) {
                     if (externalFuture.isCancelled()) break;
-                    String ip = (baseIp.endsWith(".") ? baseIp : baseIp + ".") + i;
+                    
                     CompletableFuture<DiscoveredDevice> hostFuture = scanHost(ip, ports, useBannerGrabbing, new ScanProgressListener() {
                         @Override
                         public void onProgress(double progress, String currentIp) {
@@ -120,7 +202,7 @@ public class NettyNetworkScanner implements NetworkScanner {
                 CompletableFuture.allOf(hostFutures.toArray(new CompletableFuture<?>[0]))
                         .thenApply(v -> {
                             if (listener != null) {
-                                String lastIp = (baseIp.endsWith(".") ? baseIp : baseIp + ".") + endHost;
+                                String lastIp = basePrefix + endHost;
                                 listener.onProgress(1.0, lastIp);
                             }
                             return hostFutures.stream()
@@ -175,6 +257,26 @@ public class NettyNetworkScanner implements NetworkScanner {
 
         CompletableFuture.runAsync(() -> {
             try {
+                if (externalFuture.isCancelled()) return;
+
+                if (ports.size() > DEEP_SCAN_THRESHOLD) {
+                    CompletableFuture<Boolean> hostUpFuture = isHostUp(host);
+                    // Add to active futures so it can be cancelled if needed
+                    activeFutures.add(hostUpFuture);
+                    try {
+                        if (!hostUpFuture.join()) {
+                            // Report all ports as completed for progress consistency
+                            if (listener != null) {
+                                listener.onProgress(1.0, host);
+                            }
+                            externalFuture.complete(new DiscoveredDevice(host));
+                            return;
+                        }
+                    } finally {
+                        activeFutures.remove(hostUpFuture);
+                    }
+                }
+
                 if (externalFuture.isCancelled()) return;
 
                 int totalPorts = ports.size();
@@ -258,7 +360,60 @@ public class NettyNetworkScanner implements NetworkScanner {
     }
 
     @Override
+    public void setTimeout(int timeoutMillis) {
+        portScanner.setTimeout(timeoutMillis);
+    }
+
+    @Override
+    public int getTimeout() {
+        return portScanner.getTimeout();
+    }
+
+    @Override
+    public void setIncludeSelfIp(boolean include) {
+        this.includeSelfIp = include;
+    }
+
+    @Override
+    public boolean isIncludeSelfIp() {
+        return includeSelfIp;
+    }
+
+    /**
+     * Checks if a host is up by trying to ping it and checking common ports.
+     *
+     * @param host the host to check
+     * @return a CompletableFuture that completes with true if host is up, false otherwise
+     */
+    private CompletableFuture<Boolean> isHostUp(String host) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                InetAddress addr = InetAddress.getByName(host);
+                // Try ping first (ICMP Echo or TCP Echo on port 7)
+                if (addr.isReachable(getTimeout())) {
+                    return true;
+                }
+            } catch (Exception ignored) {
+            }
+            return false;
+        }).thenCompose(reachable -> {
+            if (reachable) return CompletableFuture.completedFuture(true);
+
+            // If ping failed, try a few common ports that are likely to be open on 3D printers or servers
+            List<Integer> checkPorts = List.of(80, 443, 22, 5000, 7125);
+            List<CompletableFuture<PortScanResult>> checks = new ArrayList<>();
+            for (int p : checkPorts) {
+                checks.add(portScanner.scanPort(host, p, false));
+            }
+
+            return CompletableFuture.allOf(checks.toArray(new CompletableFuture<?>[0]))
+                    .thenApply(v -> checks.stream().anyMatch(f -> f.join().isOpen()));
+        });
+    }
+
+    @Override
     public void close() {
         portScanner.close();
+        mdnsScanner.close();
     }
 }

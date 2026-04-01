@@ -37,8 +37,8 @@ import java.util.concurrent.TimeUnit;
 public class NettyPortScanner implements PortScanner {
 
     private final EventLoopGroup group;
-    private final int timeoutMillis;
-    private final int bannerTimeoutMillis;
+    private int timeoutMillis;
+    private int bannerTimeoutMillis;
 
     /**
      * Constructs a new NettyPortScanner with default timeout (500ms) and a shared event loop group.
@@ -112,6 +112,16 @@ public class NettyPortScanner implements PortScanner {
         });
 
         return future;
+    }
+
+    @Override
+    public void setTimeout(int timeoutMillis) {
+        this.timeoutMillis = timeoutMillis;
+    }
+
+    @Override
+    public int getTimeout() {
+        return timeoutMillis;
     }
 
     @Override

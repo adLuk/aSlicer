@@ -137,12 +137,6 @@ public final class ModelListWindow extends Window {
         setResizable(true);
         setSize(300, 450);
 
-        // Adjust padding to make room for title and have some margin around content
-        padTop(30);
-        padBottom(10);
-        padLeft(10);
-        padRight(10);
-
         // Create the underlying list for selection management
         list = new List<>(skin);
         list.getSelection().setMultiple(true);
