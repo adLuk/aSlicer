@@ -30,6 +30,9 @@ public class DiscoveredDevice {
 
     private final String ipAddress;
     private final List<PortScanResult> services;
+    private String name;
+    private String vendor;
+    private String model;
 
     /**
      * Constructs a new DiscoveredDevice.
@@ -70,6 +73,60 @@ public class DiscoveredDevice {
     }
 
     /**
+     * Returns the name of the device if identified.
+     *
+     * @return the device name, or null if unknown
+     */
+    public String getName() {
+        return name;
+    }
+
+    /**
+     * Sets the name of the device.
+     *
+     * @param name the device name
+     */
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    /**
+     * Returns the vendor of the device if identified.
+     *
+     * @return the device vendor, or null if unknown
+     */
+    public String getVendor() {
+        return vendor;
+    }
+
+    /**
+     * Sets the vendor of the device.
+     *
+     * @param vendor the device vendor
+     */
+    public void setVendor(String vendor) {
+        this.vendor = vendor;
+    }
+
+    /**
+     * Returns the model of the device if identified.
+     *
+     * @return the device model, or null if unknown
+     */
+    public String getModel() {
+        return model;
+    }
+
+    /**
+     * Sets the model of the device.
+     *
+     * @param model the device model
+     */
+    public void setModel(String model) {
+        this.model = model;
+    }
+
+    /**
      * Adds a service discovery result to this device.
      *
      * @param result the port scan result to add
@@ -85,18 +142,25 @@ public class DiscoveredDevice {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         DiscoveredDevice that = (DiscoveredDevice) o;
-        return Objects.equals(ipAddress, that.ipAddress) && Objects.equals(services, that.services);
+        return Objects.equals(ipAddress, that.ipAddress) && 
+                Objects.equals(services, that.services) &&
+                Objects.equals(name, that.name) &&
+                Objects.equals(vendor, that.vendor) &&
+                Objects.equals(model, that.model);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(ipAddress, services);
+        return Objects.hash(ipAddress, services, name, vendor, model);
     }
 
     @Override
     public String toString() {
         return "DiscoveredDevice{" +
                 "ipAddress='" + ipAddress + '\'' +
+                ", name='" + name + '\'' +
+                ", vendor='" + vendor + '\'' +
+                ", model='" + model + '\'' +
                 ", services=" + services +
                 '}';
     }

@@ -1,11 +1,13 @@
 package cz.ad.print3d.aslicer.logic.net.scanner;
 
 import cz.ad.print3d.aslicer.logic.net.scanner.dto.DiscoveredDevice;
+import cz.ad.print3d.aslicer.logic.net.scanner.dto.MdnsServiceInfo;
 import cz.ad.print3d.aslicer.logic.net.scanner.dto.PortScanResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -65,8 +67,8 @@ class NettyNetworkScannerDeepScanTest {
 
     private static class StubMdnsScanner implements MdnsScanner {
         @Override
-        public CompletableFuture<Set<String>> discoverDevices(long timeoutMillis) {
-            return CompletableFuture.completedFuture(Set.of());
+        public CompletableFuture<Set<MdnsServiceInfo>> discoverDevices(long timeoutMillis) {
+            return CompletableFuture.completedFuture(Collections.emptySet());
         }
 
         @Override

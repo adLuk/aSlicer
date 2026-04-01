@@ -21,6 +21,7 @@ import cz.ad.print3d.aslicer.logic.net.info.NetworkAddressInfo;
 import cz.ad.print3d.aslicer.logic.net.info.NetworkInformationCollector;
 import cz.ad.print3d.aslicer.logic.net.info.NetworkInterfaceInfo;
 import cz.ad.print3d.aslicer.logic.net.scanner.dto.DiscoveredDevice;
+import cz.ad.print3d.aslicer.logic.net.scanner.dto.MdnsServiceInfo;
 import cz.ad.print3d.aslicer.logic.net.scanner.dto.PortScanResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -49,7 +50,7 @@ class NetworkScannerTest {
         // Use a mock MdnsScanner that returns immediately to avoid delays in tests
         MdnsScanner mockMdns = new MdnsScanner() {
             @Override
-            public CompletableFuture<Set<String>> discoverDevices(long timeoutMillis) {
+            public CompletableFuture<Set<MdnsServiceInfo>> discoverDevices(long timeoutMillis) {
                 return CompletableFuture.completedFuture(Collections.emptySet());
             }
 

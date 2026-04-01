@@ -21,13 +21,11 @@ import cz.ad.print3d.aslicer.logic.net.info.NetworkAddressInfo;
 import cz.ad.print3d.aslicer.logic.net.info.NetworkInformationCollector;
 import cz.ad.print3d.aslicer.logic.net.info.NetworkInterfaceInfo;
 import cz.ad.print3d.aslicer.logic.net.scanner.dto.DiscoveredDevice;
+import cz.ad.print3d.aslicer.logic.net.scanner.dto.MdnsServiceInfo;
 import cz.ad.print3d.aslicer.logic.net.scanner.dto.PortScanResult;
 
 import java.net.InetAddress;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Semaphore;
@@ -122,8 +120,12 @@ public class NettyNetworkScanner implements NetworkScanner {
                     listener.onProgress(0.0, "Initiating mDNS discovery...");
                 }
 
-                Set<String> discoveredIps = mdnsScanner.discoverDevices(MDNS_TIMEOUT_MS).join();
+                Set<MdnsServiceInfo> discoveredServices = mdnsScanner.discoverDevices(MDNS_TIMEOUT_MS).join();
                 if (externalFuture.isCancelled()) return;
+
+                Map<String, List<MdnsServiceInfo>> servicesByIp = discoveredServices.stream()
+                        .collect(Collectors.groupingBy(MdnsServiceInfo::getIpAddress));
+                Set<String> discoveredIps = servicesByIp.keySet();
 
                 Set<String> selfIps = Collections.emptySet();
                 if (!includeSelfIp) {
@@ -168,23 +170,48 @@ public class NettyNetworkScanner implements NetworkScanner {
 
                 List<CompletableFuture<DiscoveredDevice>> hostFutures = new ArrayList<>();
                 int totalHosts = hostsToScan.size();
-                long totalPorts = (long) totalHosts * ports.size();
+                int portsPerHost = ports.size();
+                long totalPorts = (long) totalHosts * portsPerHost;
                 java.util.concurrent.atomic.AtomicLong completedPorts = new java.util.concurrent.atomic.AtomicLong(0);
                 java.util.concurrent.atomic.AtomicLong lastProgressUpdate = new java.util.concurrent.atomic.AtomicLong(0);
 
                 for (String ip : hostsToScan) {
                     if (externalFuture.isCancelled()) break;
+
+                    /**
+                     * Tracks how many ports have already been accounted for this specific host
+                     * to ensure global progress is incremented correctly even with skipped hosts.
+                     * For example, if a host is determined to be offline during a deep scan,
+                     * scanHost will report 100% progress immediately. This mechanism ensures
+                     * all ports of that host are added to the global completedPorts count.
+                     */
+                    java.util.concurrent.atomic.AtomicInteger hostAccountedPorts = new java.util.concurrent.atomic.AtomicInteger(0);
                     
                     CompletableFuture<DiscoveredDevice> hostFuture = scanHost(ip, ports, useBannerGrabbing, new ScanProgressListener() {
                         @Override
                         public void onProgress(double progress, String currentIp) {
                             if (listener != null) {
-                                long completed = completedPorts.incrementAndGet();
-                                long now = System.currentTimeMillis();
-                                long last = lastProgressUpdate.get();
-                                // Throttled progress update
-                                if (now - last > 100 && lastProgressUpdate.compareAndSet(last, now)) {
-                                    listener.onProgress((double) completed / totalPorts, currentIp);
+                                // Calculate how many ports are completed for this host based on progress (0.0 to 1.0)
+                                int currentCompletedForHost = (int) Math.round(progress * portsPerHost);
+                                int prevAccounted;
+                                int newlyCompleted = 0;
+                                
+                                // Safely update hostAccountedPorts and calculate newlyCompleted
+                                while ((prevAccounted = hostAccountedPorts.get()) < currentCompletedForHost) {
+                                    if (hostAccountedPorts.compareAndSet(prevAccounted, currentCompletedForHost)) {
+                                        newlyCompleted = currentCompletedForHost - prevAccounted;
+                                        break;
+                                    }
+                                }
+
+                                if (newlyCompleted > 0) {
+                                    long completed = completedPorts.addAndGet(newlyCompleted);
+                                    long now = System.currentTimeMillis();
+                                    long last = lastProgressUpdate.get();
+                                    // Throttled progress update to avoid flooding the listener
+                                    if (now - last > 100 && lastProgressUpdate.compareAndSet(last, now)) {
+                                        listener.onProgress((double) completed / totalPorts, currentIp);
+                                    }
                                 }
                             }
                         }
@@ -207,7 +234,13 @@ public class NettyNetworkScanner implements NetworkScanner {
                             }
                             return hostFutures.stream()
                                     .map(CompletableFuture::join)
-                                    .filter(device -> !device.getServices().isEmpty())
+                                    .filter(device -> !device.getServices().isEmpty() || servicesByIp.containsKey(device.getIpAddress()))
+                                    .peek(device -> {
+                                        List<MdnsServiceInfo> services = servicesByIp.get(device.getIpAddress());
+                                        if (services != null) {
+                                            enrichDeviceWithMdns(device, services);
+                                        }
+                                    })
                                     .collect(Collectors.toList());
                         })
                         .thenAccept(externalFuture::complete)
@@ -415,5 +448,52 @@ public class NettyNetworkScanner implements NetworkScanner {
     public void close() {
         portScanner.close();
         mdnsScanner.close();
+    }
+
+    /**
+     * Enriches a DiscoveredDevice with information from mDNS discovery.
+     * Extracts name, vendor, and model from mDNS service info and TXT records.
+     *
+     * @param device   the device to enrich
+     * @param services the list of mDNS services associated with this device's IP
+     */
+    private void enrichDeviceWithMdns(DiscoveredDevice device, List<MdnsServiceInfo> services) {
+        for (MdnsServiceInfo service : services) {
+            // Set name if not already set
+            if (device.getName() == null || device.getName().isEmpty()) {
+                device.setName(service.getName());
+            }
+
+            Map<String, String> attrs = service.getAttributes();
+
+            // Try to identify vendor from common TXT record keys
+            if (device.getVendor() == null) {
+                String vendor = attrs.get("mfg");
+                if (vendor == null) vendor = attrs.get("manufacturer");
+                if (vendor == null) vendor = attrs.get("usb_MFG");
+                if (vendor != null) device.setVendor(vendor);
+            }
+
+            // Try to identify model from common TXT record keys
+            if (device.getModel() == null) {
+                String model = attrs.get("mdl");
+                if (model == null) model = attrs.get("model");
+                if (model == null) model = attrs.get("ty");
+                if (model == null) model = attrs.get("product");
+                if (model == null) model = attrs.get("usb_MDL");
+                if (model != null) device.setModel(model);
+            }
+
+            // Add the service discovered by mDNS to the device's services list if not already present
+            boolean portFound = device.getServices().stream().anyMatch(s -> s.getPort() == service.getPort());
+            if (!portFound && service.getPort() > 0) {
+                String serviceType = service.getType();
+                // Strip leading underscore and .local suffix for better readability
+                if (serviceType.startsWith("_") && serviceType.contains(".")) {
+                    serviceType = serviceType.substring(1, serviceType.indexOf('.'));
+                }
+                device.addService(new PortScanResult(service.getPort(), true, serviceType, "Discovered via mDNS"));
+            }
+        }
     }
 }

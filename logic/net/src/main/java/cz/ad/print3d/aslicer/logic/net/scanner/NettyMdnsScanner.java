@@ -1,28 +1,18 @@
 package cz.ad.print3d.aslicer.logic.net.scanner;
 
+import cz.ad.print3d.aslicer.logic.net.scanner.dto.MdnsServiceInfo;
 import io.netty.bootstrap.Bootstrap;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelFutureListener;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.EventLoopGroup;
-import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.buffer.ByteBuf;
+import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioDatagramChannel;
-import io.netty.handler.codec.dns.DatagramDnsQuery;
-import io.netty.handler.codec.dns.DatagramDnsQueryEncoder;
-import io.netty.handler.codec.dns.DatagramDnsResponse;
-import io.netty.handler.codec.dns.DatagramDnsResponseDecoder;
-import io.netty.handler.codec.dns.DnsRecordType;
-import io.netty.handler.codec.dns.DnsSection;
-import io.netty.handler.codec.dns.DefaultDnsQuestion;
+import io.netty.handler.codec.dns.*;
+import io.netty.util.CharsetUtil;
 
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.net.UnknownHostException;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
@@ -33,8 +23,28 @@ import java.util.logging.Logger;
  * It sends DNS queries for common services used by 3D printers and related devices.
  * 
  * <p>This scanner utilizes Netty's DNS codec to construct and parse mDNS messages.
- * It queries for common service types like _http._tcp.local. and _octoprint._tcp.local.
- * to identify potential 3D printers and management interfaces.</p>
+ * It queries for common service types like {@code _http._tcp.local.}, {@code _octoprint._tcp.local.},
+ * and {@code _printer._tcp.local.} to identify potential 3D printers and management interfaces.</p>
+ * 
+ * <p>Discovery Process:
+ * <ol>
+ *   <li>Binds a UDP channel to an ephemeral port.</li>
+ *   <li>Sends PTR queries for common service types to the mDNS multicast address (224.0.0.251:5353).</li>
+ *   <li>Listens for responses for a specified timeout period.</li>
+ *   <li>Parses {@code ANSWER} and {@code ADDITIONAL} sections of mDNS responses.</li>
+ *   <li>Correlates PTR, SRV, TXT, and A/AAAA records to build comprehensive {@link MdnsServiceInfo} objects.</li>
+ * </ol>
+ * </p>
+ * 
+ * <p>Record Parsing Details:
+ * <ul>
+ *   <li>{@code PTR}: Links a service type to a specific service instance name.</li>
+ *   <li>{@code SRV}: Provides the port number and target hostname for a service instance.</li>
+ *   <li>{@code TXT}: Contains key-value pairs with metadata like manufacturer (mfg) and model (mdl).</li>
+ *   <li>{@code A/AAAA}: Resolves a hostname to an IP address.</li>
+ * </ul>
+ * The scanner also uses the sender's IP address as a fallback if no address records are present in the response.
+ * </p>
  */
 public class NettyMdnsScanner implements MdnsScanner {
 
@@ -75,9 +85,9 @@ public class NettyMdnsScanner implements MdnsScanner {
     }
 
     @Override
-    public CompletableFuture<Set<String>> discoverDevices(long timeoutMillis) {
-        CompletableFuture<Set<String>> future = new CompletableFuture<>();
-        Set<String> discoveredIps = Collections.synchronizedSet(new HashSet<>());
+    public CompletableFuture<Set<MdnsServiceInfo>> discoverDevices(long timeoutMillis) {
+        CompletableFuture<Set<MdnsServiceInfo>> future = new CompletableFuture<>();
+        Set<MdnsServiceInfo> discoveredServices = Collections.synchronizedSet(new HashSet<>());
 
         Bootstrap b = new Bootstrap();
         b.group(group)
@@ -90,9 +100,11 @@ public class NettyMdnsScanner implements MdnsScanner {
                         ch.pipeline().addLast(new SimpleChannelInboundHandler<DatagramDnsResponse>() {
                             @Override
                             protected void channelRead0(ChannelHandlerContext ctx, DatagramDnsResponse msg) {
-                                String senderIp = msg.sender().getAddress().getHostAddress();
-                                discoveredIps.add(senderIp);
-                                LOGGER.log(Level.FINE, "mDNS response received from: {0}", senderIp);
+                                try {
+                                    processResponse(msg, discoveredServices);
+                                } catch (Exception e) {
+                                    LOGGER.log(Level.WARNING, "Error processing mDNS response", e);
+                                }
                             }
                         });
                     }
@@ -117,12 +129,140 @@ public class NettyMdnsScanner implements MdnsScanner {
 
                 group.schedule(() -> {
                     ch.close();
-                    future.complete(new HashSet<>(discoveredIps));
+                    future.complete(new HashSet<>(discoveredServices));
                 }, timeoutMillis, TimeUnit.MILLISECONDS);
             }
         });
 
         return future;
+    }
+
+    private void processResponse(DatagramDnsResponse msg, Set<MdnsServiceInfo> results) {
+        String senderIp = msg.sender().getAddress().getHostAddress();
+        Map<String, ServiceBuilder> builders = new HashMap<>();
+        Map<String, String> hostnameToIp = new HashMap<>();
+
+        // Process all records in ANSWER and ADDITIONAL sections
+        for (DnsSection section : new DnsSection[]{DnsSection.ANSWER, DnsSection.ADDITIONAL}) {
+            for (int i = 0; i < msg.count(section); i++) {
+                DnsRecord record = msg.recordAt(section, i);
+                String name = record.name();
+
+                if (record.type() == DnsRecordType.PTR && record instanceof DnsPtrRecord) {
+                    String serviceInstanceName = ((DnsPtrRecord) record).hostname();
+                    ServiceBuilder builder = builders.computeIfAbsent(serviceInstanceName, k -> new ServiceBuilder());
+                    builder.type = name;
+                    builder.instanceName = serviceInstanceName;
+                } else if (record.type() == DnsRecordType.SRV) {
+                    ServiceBuilder builder = builders.computeIfAbsent(name, k -> new ServiceBuilder());
+                    parseSrvRecord(record, builder);
+                } else if (record.type() == DnsRecordType.TXT) {
+                    ServiceBuilder builder = builders.computeIfAbsent(name, k -> new ServiceBuilder());
+                    parseTxtRecord(record, builder);
+                } else if (record.type() == DnsRecordType.A || record.type() == DnsRecordType.AAAA) {
+                    parseAddressRecord(record, hostnameToIp);
+                }
+            }
+        }
+
+        // Build results
+        for (ServiceBuilder builder : builders.values()) {
+            if (builder.instanceName == null) continue;
+
+            String ip = builder.ipAddress;
+            if (ip == null && builder.hostname != null) {
+                ip = hostnameToIp.get(builder.hostname);
+            }
+            if (ip == null) {
+                ip = senderIp; // Fallback to sender IP
+            }
+
+            String simpleName = extractSimpleName(builder.instanceName);
+            MdnsServiceInfo info = new MdnsServiceInfo(
+                    simpleName,
+                    builder.type,
+                    ip,
+                    builder.port,
+                    builder.hostname,
+                    builder.attributes
+            );
+            results.add(info);
+            LOGGER.log(Level.FINE, "Discovered mDNS service: {0} at {1}:{2}", new Object[]{simpleName, ip, builder.port});
+        }
+    }
+
+    private void parseSrvRecord(DnsRecord record, ServiceBuilder builder) {
+        if (record instanceof DnsRawRecord) {
+            ByteBuf content = ((DnsRawRecord) record).content();
+            if (content.readableBytes() >= 6) {
+                content.markReaderIndex();
+                content.readShort(); // priority
+                content.readShort(); // weight
+                builder.port = content.readUnsignedShort();
+                // Target is harder to parse due to name compression if we only have the raw content
+                // But often it's just the next part of the packet.
+                // However, Netty's DnsRawRecord only contains the RDATA.
+                content.resetReaderIndex();
+            }
+        }
+        // If Netty decoded it to a higher level record in the future, we could handle it here
+    }
+
+    private void parseTxtRecord(DnsRecord record, ServiceBuilder builder) {
+        if (record instanceof DnsRawRecord) {
+            ByteBuf content = ((DnsRawRecord) record).content();
+            content.markReaderIndex();
+            while (content.isReadable()) {
+                short length = content.readUnsignedByte();
+                if (length == 0) break;
+                if (content.readableBytes() < length) break;
+                
+                String attr = content.readSlice(length).toString(CharsetUtil.UTF_8);
+                int idx = attr.indexOf('=');
+                if (idx > 0) {
+                    builder.attributes.put(attr.substring(0, idx), attr.substring(idx + 1));
+                } else {
+                    builder.attributes.put(attr, "");
+                }
+            }
+            content.resetReaderIndex();
+        }
+    }
+
+    private void parseAddressRecord(DnsRecord record, Map<String, String> hostnameToIp) {
+        if (record instanceof DnsRawRecord) {
+            ByteBuf content = ((DnsRawRecord) record).content();
+            if (content.readableBytes() == 4) { // IPv4
+                byte[] addr = new byte[4];
+                content.getBytes(content.readerIndex(), addr);
+                try {
+                    hostnameToIp.put(record.name(), InetAddress.getByAddress(addr).getHostAddress());
+                } catch (UnknownHostException ignored) {}
+            } else if (content.readableBytes() == 16) { // IPv6
+                byte[] addr = new byte[16];
+                content.getBytes(content.readerIndex(), addr);
+                try {
+                    hostnameToIp.put(record.name(), InetAddress.getByAddress(addr).getHostAddress());
+                } catch (UnknownHostException ignored) {}
+            }
+        }
+    }
+
+    private String extractSimpleName(String serviceInstanceName) {
+        int firstDot = serviceInstanceName.indexOf('.');
+        if (firstDot > 0) {
+            return serviceInstanceName.substring(0, firstDot);
+        }
+        return serviceInstanceName;
+    }
+
+    private static class ServiceBuilder {
+        String instanceName;
+        String type;
+        String hostname;
+        String ipAddress;
+        int port;
+        Map<String, String> attributes = new HashMap<>();
     }
 
     @Override

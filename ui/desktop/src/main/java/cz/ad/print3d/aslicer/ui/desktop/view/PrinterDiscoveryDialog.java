@@ -23,15 +23,7 @@ import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.scenes.scene2d.Actor;
-import com.badlogic.gdx.scenes.scene2d.ui.CheckBox;
-import com.badlogic.gdx.scenes.scene2d.ui.ImageButton;
-import com.badlogic.gdx.scenes.scene2d.ui.Label;
-import com.badlogic.gdx.scenes.scene2d.ui.ScrollPane;
-import com.badlogic.gdx.scenes.scene2d.ui.Skin;
-import com.badlogic.gdx.scenes.scene2d.ui.Table;
-import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
-import com.badlogic.gdx.scenes.scene2d.ui.TextField;
-import com.badlogic.gdx.scenes.scene2d.ui.Window;
+import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
@@ -357,7 +349,24 @@ public class PrinterDiscoveryDialog extends Window {
         Table deviceTable = new Table();
         deviceTable.setName(device.getIpAddress());
         deviceTable.left();
-        deviceTable.add(new Label(device.getIpAddress(), skin)).left().expandX();
+        
+        StringBuilder deviceLabelText = new StringBuilder(device.getIpAddress());
+        if (device.getName() != null && !device.getName().isEmpty()) {
+            deviceLabelText.append(" - ").append(device.getName());
+        }
+        if ((device.getVendor() != null && !device.getVendor().isEmpty()) || (device.getModel() != null && !device.getModel().isEmpty())) {
+            deviceLabelText.append(" [");
+            if (device.getVendor() != null) deviceLabelText.append(device.getVendor());
+            if (device.getVendor() != null && !device.getVendor().isEmpty() && device.getModel() != null && !device.getModel().isEmpty()) {
+                deviceLabelText.append(" ");
+            }
+            if (device.getModel() != null) deviceLabelText.append(device.getModel());
+            deviceLabelText.append("]");
+        }
+        
+        Label deviceLabel = new Label(deviceLabelText.toString(), skin);
+        deviceLabel.setColor(Color.WHITE);
+        deviceTable.add(deviceLabel).left().expandX();
         deviceTable.row();
         for (PortScanResult service : device.getServices()) {
             String serviceName = service.getService() != null ? service.getService() : "Open";

@@ -2,6 +2,7 @@ package cz.ad.print3d.aslicer.logic.net.scanner;
 
 import cz.ad.print3d.aslicer.logic.net.info.NetworkInformationCollector;
 import cz.ad.print3d.aslicer.logic.net.scanner.dto.DiscoveredDevice;
+import cz.ad.print3d.aslicer.logic.net.scanner.dto.MdnsServiceInfo;
 import cz.ad.print3d.aslicer.logic.net.scanner.dto.PortScanResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -65,11 +66,11 @@ class NettyNetworkScannerMdnsTest {
     }
 
     private static class StubMdnsScanner implements MdnsScanner {
-        Set<String> discoveredIps = Set.of();
+        Set<MdnsServiceInfo> discoveredServices = Set.of();
 
         @Override
-        public CompletableFuture<Set<String>> discoverDevices(long timeoutMillis) {
-            return CompletableFuture.completedFuture(discoveredIps);
+        public CompletableFuture<Set<MdnsServiceInfo>> discoverDevices(long timeoutMillis) {
+            return CompletableFuture.completedFuture(discoveredServices);
         }
 
         @Override
@@ -82,7 +83,7 @@ class NettyNetworkScannerMdnsTest {
         List<Integer> ports = List.of(80);
         
         // mDNS finds 192.168.1.50
-        mdnsScanner.discoveredIps = Set.of("192.168.1.50");
+        mdnsScanner.discoveredServices = Set.of(new MdnsServiceInfo("TestPrinter", "_http._tcp.local.", "192.168.1.50", 80, "printer.local", Collections.emptyMap()));
         
         // Scan range 1 to 50
         CompletableFuture<List<DiscoveredDevice>> future = networkScanner.scanRange(baseIp, 1, 50, ports);

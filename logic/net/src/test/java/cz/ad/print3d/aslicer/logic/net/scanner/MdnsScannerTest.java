@@ -1,5 +1,6 @@
 package cz.ad.print3d.aslicer.logic.net.scanner;
 
+import cz.ad.print3d.aslicer.logic.net.scanner.dto.MdnsServiceInfo;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,10 +34,10 @@ class MdnsScannerTest {
     void testDiscoverDevices() throws Exception {
         // This test might not find any devices in a CI environment, 
         // but we can at least verify it completes without errors.
-        CompletableFuture<Set<String>> future = scanner.discoverDevices(500);
-        Set<String> discoveredIps = future.get(2, TimeUnit.SECONDS);
+        CompletableFuture<Set<MdnsServiceInfo>> future = scanner.discoverDevices(500);
+        Set<MdnsServiceInfo> discoveredServices = future.get(2, TimeUnit.SECONDS);
         
-        assertNotNull(discoveredIps);
-        // We can't guarantee any IPs are discovered, but it should not be null
+        assertNotNull(discoveredServices);
+        // We can't guarantee any services are discovered, but it should not be null
     }
 }
