@@ -25,6 +25,7 @@ import com.badlogic.gdx.graphics.g3d.utils.CameraInputController;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.Touchable;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
+import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
@@ -54,6 +55,7 @@ public class DesktopUI implements Disposable {
     private final Table rootTable;
     private SettingsWindow settingsWindow;
     private ModelListWindow modelListWindow;
+    private PrinterDiscoveryDialog printerDiscoveryDialog;
 
     /**
      * Creates a new DesktopUI instance.
@@ -144,10 +146,24 @@ public class DesktopUI implements Disposable {
         skin.add("default", windowStyle);
 
         CheckBox.CheckBoxStyle checkBoxStyle = new CheckBox.CheckBoxStyle();
-        checkBoxStyle.checkboxOn = skin.newDrawable("white", Color.GREEN);
-        checkBoxStyle.checkboxOff = skin.newDrawable("white", Color.RED);
+        Drawable checkboxOn = skin.newDrawable("white", Color.GREEN);
+        checkboxOn.setMinWidth(16);
+        checkboxOn.setMinHeight(16);
+        checkBoxStyle.checkboxOn = checkboxOn;
+        Drawable checkboxOff = skin.newDrawable("white", Color.RED);
+        checkboxOff.setMinWidth(16);
+        checkboxOff.setMinHeight(16);
+        checkBoxStyle.checkboxOff = checkboxOff;
         checkBoxStyle.font = font;
         skin.add("default", checkBoxStyle);
+
+        TextField.TextFieldStyle textFieldStyle = new TextField.TextFieldStyle();
+        textFieldStyle.font = font;
+        textFieldStyle.fontColor = Color.WHITE;
+        textFieldStyle.background = skin.newDrawable("white", Color.DARK_GRAY);
+        textFieldStyle.cursor = skin.newDrawable("white", Color.LIGHT_GRAY);
+        textFieldStyle.selection = skin.newDrawable("white", Color.BLUE);
+        skin.add("default", textFieldStyle);
 
         return skin;
     }
@@ -184,6 +200,22 @@ public class DesktopUI implements Disposable {
             addDialog(modelListWindow);
         } else {
             modelListWindow.setVisible(!modelListWindow.isVisible());
+        }
+    }
+
+    /**
+     * Toggles the visibility of the printer discovery window.
+     */
+    public void togglePrinterDiscoveryWindow() {
+        if (printerDiscoveryDialog == null) {
+            printerDiscoveryDialog = new PrinterDiscoveryDialog(skin);
+            printerDiscoveryDialog.centerWindow();
+            addDialog(printerDiscoveryDialog);
+        } else {
+            printerDiscoveryDialog.setVisible(!printerDiscoveryDialog.isVisible());
+            if (printerDiscoveryDialog.isVisible()) {
+                printerDiscoveryDialog.centerWindow();
+            }
         }
     }
 
@@ -281,6 +313,9 @@ public class DesktopUI implements Disposable {
 
     @Override
     public void dispose() {
+        if (printerDiscoveryDialog != null) {
+            printerDiscoveryDialog.remove();
+        }
         view1Stage.dispose();
         view2Stage.dispose();
         menuStage.dispose();

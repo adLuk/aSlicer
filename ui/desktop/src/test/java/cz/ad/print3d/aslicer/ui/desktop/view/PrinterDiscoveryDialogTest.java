@@ -1,0 +1,850 @@
+package cz.ad.print3d.aslicer.ui.desktop.view;
+
+import com.badlogic.gdx.ApplicationAdapter;
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.backends.headless.HeadlessApplication;
+import com.badlogic.gdx.backends.headless.HeadlessApplicationConfiguration;
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.Pixmap;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.scenes.scene2d.Actor;
+import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.scenes.scene2d.ui.CheckBox;
+import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.ui.ScrollPane;
+import com.badlogic.gdx.scenes.scene2d.ui.Skin;
+import com.badlogic.gdx.scenes.scene2d.ui.Table;
+import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
+import com.badlogic.gdx.scenes.scene2d.ui.TextField;
+import com.badlogic.gdx.scenes.scene2d.ui.Window;
+import com.badlogic.gdx.utils.viewport.ScreenViewport;
+import cz.ad.print3d.aslicer.logic.net.info.NetworkInformationCollector;
+import cz.ad.print3d.aslicer.logic.net.info.NetworkInterfaceInfo;
+import cz.ad.print3d.aslicer.logic.net.scanner.NetworkScanner;
+import cz.ad.print3d.aslicer.logic.net.scanner.dto.DiscoveredDevice;
+import cz.ad.print3d.aslicer.ui.desktop.GdxTestUtils;
+import org.junit.jupiter.api.Test;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+public class PrinterDiscoveryDialogTest {
+
+    @Test
+    void testDialogComponents() throws InterruptedException {
+        HeadlessApplicationConfiguration config = new HeadlessApplicationConfiguration();
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<PrinterDiscoveryDialog> dialogRef = new AtomicReference<>();
+
+        new HeadlessApplication(new ApplicationAdapter() {
+            @Override
+            public void create() {
+                try {
+                    GdxTestUtils.mockGdxGL();
+                    Skin skin = createTestSkin();
+                    
+                    NetworkScanner mockScanner = new NetworkScanner() {
+                        @Override
+                        public CompletableFuture<List<DiscoveredDevice>> scanRange(String baseIp, int startHost, int endHost, List<Integer> ports) {
+                            return CompletableFuture.completedFuture(Collections.emptyList());
+                        }
+
+                        @Override
+                        public CompletableFuture<List<DiscoveredDevice>> scanRange(String baseIp, int startHost, int endHost, List<Integer> ports, boolean useBannerGrabbing) {
+                            return CompletableFuture.completedFuture(Collections.emptyList());
+                        }
+
+                        @Override
+                        public CompletableFuture<List<DiscoveredDevice>> scanRange(String baseIp, int startHost, int endHost, List<Integer> ports, boolean useBannerGrabbing, ScanProgressListener listener) {
+                            if (listener != null) {
+                                listener.onProgress(0.5, "192.168.1.1");
+                            }
+                            return CompletableFuture.completedFuture(Collections.emptyList());
+                        }
+
+                        @Override
+                        public CompletableFuture<DiscoveredDevice> scanHost(String host, List<Integer> ports) {
+                            return CompletableFuture.completedFuture(new DiscoveredDevice(host));
+                        }
+
+                        @Override
+                        public CompletableFuture<DiscoveredDevice> scanHost(String host, List<Integer> ports, boolean useBannerGrabbing) {
+                            return scanHost(host, ports, useBannerGrabbing, null);
+                        }
+
+                        @Override
+                        public CompletableFuture<DiscoveredDevice> scanHost(String host, List<Integer> ports, boolean useBannerGrabbing, ScanProgressListener listener) {
+                            if (listener != null) {
+                                listener.onProgress(1.0, host);
+                            }
+                            return CompletableFuture.completedFuture(new DiscoveredDevice(host));
+                        }
+
+                        @Override
+                        public void stopScan() {
+                        }
+
+                        @Override
+                        public void close() {}
+                    };
+                    
+                    NetworkInformationCollector mockCollector = new NetworkInformationCollector() {
+                        @Override
+                        public List<NetworkInterfaceInfo> collect() {
+                            return Collections.emptyList();
+                        }
+
+                        @Override
+                        public synchronized CompletableFuture<List<NetworkInterfaceInfo>> collectAsync() {
+                            return CompletableFuture.completedFuture(Collections.emptyList());
+                        }
+                    };
+
+                    PrinterDiscoveryDialog dialog = new PrinterDiscoveryDialog(skin, mockScanner, mockCollector);
+                    dialogRef.set(dialog);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                } finally {
+                    latch.countDown();
+                    Gdx.app.exit();
+                }
+            }
+
+            private Skin createTestSkin() {
+                Skin skin = new Skin();
+                Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+                pixmap.setColor(Color.WHITE);
+                pixmap.fill();
+                skin.add("white", new Texture(pixmap));
+                BitmapFont font = new BitmapFont();
+                skin.add("default", font);
+
+                Label.LabelStyle labelStyle = new Label.LabelStyle();
+                labelStyle.font = font;
+                skin.add("default", labelStyle);
+
+                TextField.TextFieldStyle textFieldStyle = new TextField.TextFieldStyle();
+                textFieldStyle.font = font;
+                textFieldStyle.fontColor = Color.WHITE;
+                skin.add("default", textFieldStyle);
+
+                CheckBox.CheckBoxStyle checkBoxStyle = new CheckBox.CheckBoxStyle();
+                checkBoxStyle.font = font;
+                com.badlogic.gdx.scenes.scene2d.utils.Drawable checkboxOn = skin.newDrawable("white", Color.GREEN);
+                checkboxOn.setMinWidth(16);
+                checkboxOn.setMinHeight(16);
+                checkBoxStyle.checkboxOn = checkboxOn;
+                com.badlogic.gdx.scenes.scene2d.utils.Drawable checkboxOff = skin.newDrawable("white", Color.RED);
+                checkboxOff.setMinWidth(16);
+                checkboxOff.setMinHeight(16);
+                checkBoxStyle.checkboxOff = checkboxOff;
+                skin.add("default", checkBoxStyle);
+
+                TextButton.TextButtonStyle textButtonStyle = new TextButton.TextButtonStyle();
+                textButtonStyle.font = font;
+                skin.add("default", textButtonStyle);
+
+                ScrollPane.ScrollPaneStyle scrollPaneStyle = new ScrollPane.ScrollPaneStyle();
+                skin.add("default", scrollPaneStyle);
+
+                Window.WindowStyle windowStyle = new Window.WindowStyle();
+                windowStyle.titleFont = font;
+                skin.add("default", windowStyle);
+
+                return skin;
+            }
+        }, config);
+
+        assertTrue(latch.await(5, TimeUnit.SECONDS), "Test timed out");
+        PrinterDiscoveryDialog dialog = dialogRef.get();
+        assertNotNull(dialog, "Dialog should not be null");
+
+        boolean foundCheckBox = false;
+        for (Actor actor : dialog.getChildren()) {
+            if (actor instanceof Table) {
+                foundCheckBox = findCheckBoxInTable((Table) actor);
+                if (foundCheckBox) break;
+            }
+        }
+        assertTrue(foundCheckBox, "Deep Scan checkbox should be found in the dialog");
+    }
+
+    @Test
+    void testDeepScanCheckboxModeChange() throws InterruptedException {
+        HeadlessApplicationConfiguration config = new HeadlessApplicationConfiguration();
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<PrinterDiscoveryDialog> dialogRef = new AtomicReference<>();
+        AtomicReference<List<Integer>> capturedPorts = new AtomicReference<>();
+
+        new HeadlessApplication(new ApplicationAdapter() {
+            @Override
+            public void create() {
+                try {
+                    GdxTestUtils.mockGdxGL();
+                    Skin skin = createTestSkin();
+                    
+                    NetworkScanner mockScanner = new NetworkScanner() {
+                        @Override
+                        public CompletableFuture<List<DiscoveredDevice>> scanRange(String baseIp, int startHost, int endHost, List<Integer> ports) {
+                            capturedPorts.set(ports);
+                            return CompletableFuture.completedFuture(Collections.emptyList());
+                        }
+
+                        @Override
+                        public CompletableFuture<List<DiscoveredDevice>> scanRange(String baseIp, int startHost, int endHost, List<Integer> ports, boolean useBannerGrabbing) {
+                            capturedPorts.set(ports);
+                            return CompletableFuture.completedFuture(Collections.emptyList());
+                        }
+
+                        @Override
+                        public CompletableFuture<List<DiscoveredDevice>> scanRange(String baseIp, int startHost, int endHost, List<Integer> ports, boolean useBannerGrabbing, ScanProgressListener listener) {
+                            capturedPorts.set(ports);
+                            return CompletableFuture.completedFuture(Collections.emptyList());
+                        }
+
+                        @Override
+                        public CompletableFuture<DiscoveredDevice> scanHost(String host, List<Integer> ports) {
+                            return CompletableFuture.completedFuture(new DiscoveredDevice(host));
+                        }
+
+                        @Override
+                        public CompletableFuture<DiscoveredDevice> scanHost(String host, List<Integer> ports, boolean useBannerGrabbing) {
+                            return scanHost(host, ports, useBannerGrabbing, null);
+                        }
+
+                        @Override
+                        public CompletableFuture<DiscoveredDevice> scanHost(String host, List<Integer> ports, boolean useBannerGrabbing, ScanProgressListener listener) {
+                            if (listener != null) {
+                                listener.onProgress(1.0, host);
+                            }
+                            return CompletableFuture.completedFuture(new DiscoveredDevice(host));
+                        }
+
+                        @Override
+                        public void stopScan() {
+                        }
+
+                        @Override
+                        public void close() {}
+                    };
+                    
+                    NetworkInformationCollector mockCollector = new NetworkInformationCollector() {
+                        @Override
+                        public List<NetworkInterfaceInfo> collect() {
+                            return Collections.emptyList();
+                        }
+
+                        @Override
+                        public synchronized CompletableFuture<List<NetworkInterfaceInfo>> collectAsync() {
+                            return CompletableFuture.completedFuture(Collections.emptyList());
+                        }
+                    };
+
+                    PrinterDiscoveryDialog dialog = new PrinterDiscoveryDialog(skin, mockScanner, mockCollector);
+                    dialog.startIpField.setText("192.168.1.1");
+                    dialog.endIpField.setText("192.168.1.1");
+                    
+                    // Test 1: Default scan (should be normal scan)
+                    dialog.deepScanCheckBox.setChecked(false);
+                    // We need to call startScan() via reflection or just use the fact it's private and we are in same package?
+                    // Oh, it's private. Let's make it package-private too.
+                    
+                    dialogRef.set(dialog);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                } finally {
+                    latch.countDown();
+                }
+            }
+
+            private Skin createTestSkin() {
+                Skin skin = new Skin();
+                Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+                pixmap.setColor(Color.WHITE);
+                pixmap.fill();
+                skin.add("white", new Texture(pixmap));
+                BitmapFont font = new BitmapFont();
+                skin.add("default", font);
+
+                Label.LabelStyle labelStyle = new Label.LabelStyle();
+                labelStyle.font = font;
+                skin.add("default", labelStyle);
+
+                TextField.TextFieldStyle textFieldStyle = new TextField.TextFieldStyle();
+                textFieldStyle.font = font;
+                textFieldStyle.fontColor = Color.WHITE;
+                skin.add("default", textFieldStyle);
+
+                CheckBox.CheckBoxStyle checkBoxStyle = new CheckBox.CheckBoxStyle();
+                checkBoxStyle.font = font;
+                com.badlogic.gdx.scenes.scene2d.utils.Drawable checkboxOn = skin.newDrawable("white", Color.GREEN);
+                checkboxOn.setMinWidth(16);
+                checkboxOn.setMinHeight(16);
+                checkBoxStyle.checkboxOn = checkboxOn;
+                com.badlogic.gdx.scenes.scene2d.utils.Drawable checkboxOff = skin.newDrawable("white", Color.RED);
+                checkboxOff.setMinWidth(16);
+                checkboxOff.setMinHeight(16);
+                checkBoxStyle.checkboxOff = checkboxOff;
+                skin.add("default", checkBoxStyle);
+
+                TextButton.TextButtonStyle textButtonStyle = new TextButton.TextButtonStyle();
+                textButtonStyle.font = font;
+                skin.add("default", textButtonStyle);
+
+                ScrollPane.ScrollPaneStyle scrollPaneStyle = new ScrollPane.ScrollPaneStyle();
+                skin.add("default", scrollPaneStyle);
+
+                Window.WindowStyle windowStyle = new Window.WindowStyle();
+                windowStyle.titleFont = font;
+                skin.add("default", windowStyle);
+
+                return skin;
+            }
+        }, config);
+
+        assertTrue(latch.await(5, TimeUnit.SECONDS), "Test timed out");
+        PrinterDiscoveryDialog dialog = dialogRef.get();
+        assertNotNull(dialog, "Dialog should not be null");
+
+        // Test 1: Normal scan (checkbox unchecked)
+        Gdx.app.postRunnable(() -> {
+            dialog.deepScanCheckBox.setChecked(false);
+            dialog.startScan();
+        });
+        
+        // Wait a bit for processing
+        Thread.sleep(200);
+        assertNotNull(capturedPorts.get(), "Ports should be captured for normal scan");
+        assertTrue(capturedPorts.get().size() < 10, "Normal scan should have few ports");
+        assertTrue(capturedPorts.get().contains(80), "Normal scan should include port 80");
+
+        // Test 2: Deep scan (checkbox checked)
+        capturedPorts.set(null);
+        Gdx.app.postRunnable(() -> {
+            dialog.deepScanCheckBox.setChecked(true);
+            dialog.startScan();
+        });
+        
+        Thread.sleep(500); // Port generation for deep scan can take a bit longer
+        assertNotNull(capturedPorts.get(), "Ports should be captured for deep scan");
+        assertTrue(capturedPorts.get().size() > 65000, "Deep scan should have all ports");
+        assertTrue(capturedPorts.get().contains(1), "Deep scan should include port 1");
+        assertTrue(capturedPorts.get().contains(65535), "Deep scan should include port 65535");
+    }
+
+    @Test
+    void testRepetitiveSearchAndCancellation() throws InterruptedException {
+        HeadlessApplicationConfiguration config = new HeadlessApplicationConfiguration();
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<PrinterDiscoveryDialog> dialogRef = new AtomicReference<>();
+        AtomicReference<String> capturedBaseIp = new AtomicReference<>();
+
+        new HeadlessApplication(new ApplicationAdapter() {
+            @Override
+            public void create() {
+                try {
+                    GdxTestUtils.mockGdxGL();
+                    Skin skin = createTestSkin();
+
+                    NetworkScanner mockScanner = new NetworkScanner() {
+                        private CompletableFuture<List<DiscoveredDevice>> currentFuture;
+
+                        @Override
+                        public CompletableFuture<List<DiscoveredDevice>> scanRange(String baseIp, int startHost, int endHost, List<Integer> ports) {
+                            return scanRange(baseIp, startHost, endHost, ports, false);
+                        }
+
+                        @Override
+                        public CompletableFuture<List<DiscoveredDevice>> scanRange(String baseIp, int startHost, int endHost, List<Integer> ports, boolean useBannerGrabbing) {
+                            return scanRange(baseIp, startHost, endHost, ports, useBannerGrabbing, null);
+                        }
+
+                        @Override
+                        public CompletableFuture<List<DiscoveredDevice>> scanRange(String baseIp, int startHost, int endHost, List<Integer> ports, boolean useBannerGrabbing, ScanProgressListener listener) {
+                            capturedBaseIp.set(baseIp);
+                            currentFuture = new CompletableFuture<>();
+                            return currentFuture;
+                        }
+
+                        @Override
+                        public CompletableFuture<DiscoveredDevice> scanHost(String host, List<Integer> ports) {
+                            return CompletableFuture.completedFuture(new DiscoveredDevice(host));
+                        }
+
+                        @Override
+                        public CompletableFuture<DiscoveredDevice> scanHost(String host, List<Integer> ports, boolean useBannerGrabbing) {
+                            return scanHost(host, ports, useBannerGrabbing, null);
+                        }
+
+                        @Override
+                        public CompletableFuture<DiscoveredDevice> scanHost(String host, List<Integer> ports, boolean useBannerGrabbing, ScanProgressListener listener) {
+                            if (listener != null) {
+                                listener.onProgress(1.0, host);
+                            }
+                            return CompletableFuture.completedFuture(new DiscoveredDevice(host));
+                        }
+
+                        @Override
+                        public void stopScan() {
+                            if (currentFuture != null) {
+                                currentFuture.cancel(true);
+                            }
+                        }
+
+                        @Override
+                        public void close() {
+                        }
+                    };
+
+                    NetworkInformationCollector mockCollector = new NetworkInformationCollector() {
+                        @Override
+                        public List<NetworkInterfaceInfo> collect() {
+                            return Collections.emptyList();
+                        }
+
+                        @Override
+                        public synchronized CompletableFuture<List<NetworkInterfaceInfo>> collectAsync() {
+                            return CompletableFuture.completedFuture(Collections.emptyList());
+                        }
+                    };
+
+                    PrinterDiscoveryDialog dialog = new PrinterDiscoveryDialog(skin, mockScanner, mockCollector);
+                    dialogRef.set(dialog);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                } finally {
+                    latch.countDown();
+                }
+            }
+
+            private Skin createTestSkin() {
+                Skin skin = new Skin();
+                Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+                pixmap.setColor(Color.WHITE);
+                pixmap.fill();
+                skin.add("white", new Texture(pixmap));
+                BitmapFont font = new BitmapFont();
+                skin.add("default", font);
+
+                Label.LabelStyle labelStyle = new Label.LabelStyle();
+                labelStyle.font = font;
+                skin.add("default", labelStyle);
+
+                TextField.TextFieldStyle textFieldStyle = new TextField.TextFieldStyle();
+                textFieldStyle.font = font;
+                textFieldStyle.fontColor = Color.WHITE;
+                skin.add("default", textFieldStyle);
+
+                CheckBox.CheckBoxStyle checkBoxStyle = new CheckBox.CheckBoxStyle();
+                checkBoxStyle.font = font;
+                com.badlogic.gdx.scenes.scene2d.utils.Drawable checkboxOn = skin.newDrawable("white", Color.GREEN);
+                checkboxOn.setMinWidth(16);
+                checkboxOn.setMinHeight(16);
+                checkBoxStyle.checkboxOn = checkboxOn;
+                com.badlogic.gdx.scenes.scene2d.utils.Drawable checkboxOff = skin.newDrawable("white", Color.RED);
+                checkboxOff.setMinWidth(16);
+                checkboxOff.setMinHeight(16);
+                checkBoxStyle.checkboxOff = checkboxOff;
+                skin.add("default", checkBoxStyle);
+
+                TextButton.TextButtonStyle textButtonStyle = new TextButton.TextButtonStyle();
+                textButtonStyle.font = font;
+                skin.add("default", textButtonStyle);
+
+                ScrollPane.ScrollPaneStyle scrollPaneStyle = new ScrollPane.ScrollPaneStyle();
+                skin.add("default", scrollPaneStyle);
+
+                Window.WindowStyle windowStyle = new Window.WindowStyle();
+                windowStyle.titleFont = font;
+                skin.add("default", windowStyle);
+
+                return skin;
+            }
+        }, config);
+
+        assertTrue(latch.await(5, TimeUnit.SECONDS), "Test timed out");
+        PrinterDiscoveryDialog dialog = dialogRef.get();
+
+        // 1. Test search with specific IP
+        Gdx.app.postRunnable(() -> {
+            dialog.startIpField.setText("10.0.0.1");
+            dialog.endIpField.setText("10.0.0.10");
+            dialog.startScan();
+        });
+        Thread.sleep(200);
+        assertEquals("10.0.0.", capturedBaseIp.get());
+
+        // 2. Test cancellation
+        Gdx.app.postRunnable(() -> dialog.stopScan());
+        Thread.sleep(200);
+        // After cancellation, it should be possible to start again
+        
+        // 3. Test repetitive search with different IP
+        capturedBaseIp.set(null);
+        Gdx.app.postRunnable(() -> {
+            dialog.startIpField.setText("192.168.2.1");
+            dialog.endIpField.setText("192.168.2.5");
+            dialog.startScan();
+        });
+        Thread.sleep(200);
+        assertEquals("192.168.2.", capturedBaseIp.get(), "Search should use updated IP range");
+    }
+
+    private boolean findCheckBoxInTable(Table table) {
+        for (Actor child : table.getChildren()) {
+            if (child instanceof CheckBox) {
+                CheckBox cb = (CheckBox) child;
+                if (cb.getText().toString().contains("Deep Scan")) {
+                    return true;
+                }
+            } else if (child instanceof Table) {
+                if (findCheckBoxInTable((Table) child)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Helper method to find a button by its text.
+     */
+    private TextButton findButton(Table table, String text) {
+        for (Actor actor : table.getChildren()) {
+            if (actor instanceof TextButton) {
+                TextButton button = (TextButton) actor;
+                if (button.getText().toString().equals(text)) {
+                    return button;
+                }
+            } else if (actor instanceof Table) {
+                TextButton found = findButton((Table) actor, text);
+                if (found != null) return found;
+            }
+        }
+        return null;
+    }
+
+    @Test
+    void testRealTimeResultsAndScrolling() throws InterruptedException {
+        HeadlessApplicationConfiguration config = new HeadlessApplicationConfiguration();
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<PrinterDiscoveryDialog> dialogRef = new AtomicReference<>();
+        AtomicReference<NetworkScanner.ScanProgressListener> capturedListener = new AtomicReference<>();
+
+        new HeadlessApplication(new ApplicationAdapter() {
+            @Override
+            public void create() {
+                try {
+                    GdxTestUtils.mockGdxGL();
+                    Skin skin = createTestSkin();
+
+                    NetworkScanner mockScanner = new NetworkScanner() {
+                        @Override
+                        public CompletableFuture<List<DiscoveredDevice>> scanRange(String baseIp, int startHost, int endHost, List<Integer> ports, boolean useBannerGrabbing, ScanProgressListener listener) {
+                            capturedListener.set(listener);
+                            return new CompletableFuture<>(); // Never completes automatically
+                        }
+                        @Override public CompletableFuture<List<DiscoveredDevice>> scanRange(String b, int s, int e, List<Integer> p) { return null; }
+                        @Override public CompletableFuture<List<DiscoveredDevice>> scanRange(String b, int s, int e, List<Integer> p, boolean u) { return null; }
+                        @Override public CompletableFuture<DiscoveredDevice> scanHost(String h, List<Integer> p) { return null; }
+                        @Override public CompletableFuture<DiscoveredDevice> scanHost(String h, List<Integer> p, boolean u) { return null; }
+                        @Override public CompletableFuture<DiscoveredDevice> scanHost(String h, List<Integer> p, boolean u, ScanProgressListener l) { return null; }
+                        @Override public void stopScan() {}
+                        @Override public void close() {}
+                    };
+
+                    NetworkInformationCollector mockCollector = new NetworkInformationCollector() {
+                        @Override public List<NetworkInterfaceInfo> collect() { return Collections.emptyList(); }
+                        @Override public synchronized CompletableFuture<List<NetworkInterfaceInfo>> collectAsync() { return CompletableFuture.completedFuture(Collections.emptyList()); }
+                    };
+
+                    PrinterDiscoveryDialog dialog = new PrinterDiscoveryDialog(skin, mockScanner, mockCollector);
+                    dialog.startIpField.setText("192.168.1.1");
+                    dialog.endIpField.setText("192.168.1.10");
+                    dialogRef.set(dialog);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                } finally {
+                    latch.countDown();
+                }
+            }
+
+            private Skin createTestSkin() {
+                Skin skin = new Skin();
+                Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+                pixmap.setColor(Color.WHITE);
+                pixmap.fill();
+                skin.add("white", new Texture(pixmap));
+                BitmapFont font = new BitmapFont();
+                skin.add("default", font);
+                Label.LabelStyle labelStyle = new Label.LabelStyle();
+                labelStyle.font = font;
+                skin.add("default", labelStyle);
+                TextField.TextFieldStyle textFieldStyle = new TextField.TextFieldStyle();
+                textFieldStyle.font = font;
+                textFieldStyle.fontColor = Color.WHITE;
+                skin.add("default", textFieldStyle);
+                CheckBox.CheckBoxStyle checkBoxStyle = new CheckBox.CheckBoxStyle();
+                checkBoxStyle.font = font;
+                com.badlogic.gdx.scenes.scene2d.utils.Drawable checkboxOn = skin.newDrawable("white", Color.GREEN);
+                checkboxOn.setMinWidth(16); checkboxOn.setMinHeight(16);
+                checkBoxStyle.checkboxOn = checkboxOn;
+                com.badlogic.gdx.scenes.scene2d.utils.Drawable checkboxOff = skin.newDrawable("white", Color.RED);
+                checkboxOff.setMinWidth(16); checkboxOff.setMinHeight(16);
+                checkBoxStyle.checkboxOff = checkboxOff;
+                skin.add("default", checkBoxStyle);
+                TextButton.TextButtonStyle textButtonStyle = new TextButton.TextButtonStyle();
+                textButtonStyle.font = font;
+                skin.add("default", textButtonStyle);
+                ScrollPane.ScrollPaneStyle scrollPaneStyle = new ScrollPane.ScrollPaneStyle();
+                skin.add("default", scrollPaneStyle);
+                Window.WindowStyle windowStyle = new Window.WindowStyle();
+                windowStyle.titleFont = font;
+                skin.add("default", windowStyle);
+                return skin;
+            }
+        }, config);
+
+        assertTrue(latch.await(5, TimeUnit.SECONDS), "Setup timed out");
+        PrinterDiscoveryDialog dialog = dialogRef.get();
+
+        // Start scan
+        Gdx.app.postRunnable(() -> dialog.startScan());
+        Thread.sleep(500);
+
+        assertNotNull(capturedListener.get(), "Listener should be captured");
+
+        // Simulate discovery of first device
+        DiscoveredDevice device1 = new DiscoveredDevice("192.168.1.5");
+        Gdx.app.postRunnable(() -> capturedListener.get().onDeviceDiscovered(device1));
+        Thread.sleep(200);
+
+        // Check if device1 is in resultsTable
+        assertTrue(hasDevice(dialog.resultsTable, "192.168.1.5"), "First device should be displayed immediately");
+
+        // Simulate discovery of second device
+        DiscoveredDevice device2 = new DiscoveredDevice("192.168.1.7");
+        Gdx.app.postRunnable(() -> capturedListener.get().onDeviceDiscovered(device2));
+        Thread.sleep(200);
+
+        assertTrue(hasDevice(dialog.resultsTable, "192.168.1.5"), "First device should still be there");
+        assertTrue(hasDevice(dialog.resultsTable, "192.168.1.7"), "Second device should be appended");
+        
+        // Check if resultsTable is inside a ScrollPane
+        boolean foundScrollPane = false;
+        for (Actor actor : dialog.getChildren()) {
+            if (actor instanceof Table) {
+                foundScrollPane = hasScrollPaneInTable((Table) actor, dialog.resultsTable);
+                if (foundScrollPane) break;
+            }
+        }
+        assertTrue(foundScrollPane, "Results should be inside a ScrollPane");
+
+        Gdx.app.exit();
+    }
+
+    private boolean hasDevice(Table resultsTable, String ip) {
+        for (Actor actor : resultsTable.getChildren()) {
+            if (actor instanceof Table && ip.equals(actor.getName())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean hasScrollPaneInTable(Table table, Table targetActor) {
+        for (Actor actor : table.getChildren()) {
+            if (actor instanceof ScrollPane) {
+                ScrollPane sp = (ScrollPane) actor;
+                if (sp.getActor() == targetActor) return true;
+            } else if (actor instanceof Table) {
+                if (hasScrollPaneInTable((Table) actor, targetActor)) return true;
+            }
+        }
+        return false;
+    }
+
+    @Test
+    void testDialogReopenVisibilityAndScannerLifecycle() throws InterruptedException {
+        HeadlessApplicationConfiguration config = new HeadlessApplicationConfiguration();
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<PrinterDiscoveryDialog> dialogRef = new AtomicReference<>();
+        AtomicReference<Stage> stageRef = new AtomicReference<>();
+        AtomicBoolean scannerClosed = new AtomicBoolean(false);
+
+        new HeadlessApplication(new ApplicationAdapter() {
+            @Override
+            public void create() {
+                try {
+                    GdxTestUtils.mockGdxGL();
+                    Skin skin = createTestSkin();
+                    Stage stage = new Stage(new ScreenViewport());
+                    stageRef.set(stage);
+
+                    NetworkScanner mockScanner = new NetworkScanner() {
+                        @Override
+                        public CompletableFuture<List<DiscoveredDevice>> scanRange(String baseIp, int startHost, int endHost, List<Integer> ports) {
+                            return CompletableFuture.completedFuture(Collections.emptyList());
+                        }
+
+                        @Override
+                        public CompletableFuture<List<DiscoveredDevice>> scanRange(String baseIp, int startHost, int endHost, List<Integer> ports, boolean useBannerGrabbing) {
+                            return CompletableFuture.completedFuture(Collections.emptyList());
+                        }
+
+                        @Override
+                        public CompletableFuture<List<DiscoveredDevice>> scanRange(String baseIp, int startHost, int endHost, List<Integer> ports, boolean useBannerGrabbing, ScanProgressListener listener) {
+                            return CompletableFuture.completedFuture(Collections.emptyList());
+                        }
+
+                        @Override
+                        public CompletableFuture<DiscoveredDevice> scanHost(String host, List<Integer> ports) {
+                            return CompletableFuture.completedFuture(new DiscoveredDevice(host));
+                        }
+
+                        @Override
+                        public CompletableFuture<DiscoveredDevice> scanHost(String host, List<Integer> ports, boolean useBannerGrabbing) {
+                            return scanHost(host, ports, useBannerGrabbing, null);
+                        }
+
+                        @Override
+                        public CompletableFuture<DiscoveredDevice> scanHost(String host, List<Integer> ports, boolean useBannerGrabbing, ScanProgressListener listener) {
+                            return CompletableFuture.completedFuture(new DiscoveredDevice(host));
+                        }
+
+                        @Override
+                        public void stopScan() {
+                        }
+
+                        @Override
+                        public void close() {
+                            scannerClosed.set(true);
+                        }
+                    };
+
+                    NetworkInformationCollector mockCollector = new NetworkInformationCollector() {
+                        @Override
+                        public List<NetworkInterfaceInfo> collect() {
+                            return Collections.emptyList();
+                        }
+
+                        @Override
+                        public synchronized CompletableFuture<List<NetworkInterfaceInfo>> collectAsync() {
+                            return CompletableFuture.completedFuture(Collections.emptyList());
+                        }
+                    };
+
+                    PrinterDiscoveryDialog dialog = new PrinterDiscoveryDialog(skin, mockScanner, mockCollector);
+                    stage.addActor(dialog);
+                    dialogRef.set(dialog);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                } finally {
+                    latch.countDown();
+                }
+            }
+
+            private Skin createTestSkin() {
+                Skin skin = new Skin();
+                Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+                pixmap.setColor(Color.WHITE);
+                pixmap.fill();
+                skin.add("white", new Texture(pixmap));
+                BitmapFont font = new BitmapFont();
+                skin.add("default", font);
+
+                Label.LabelStyle labelStyle = new Label.LabelStyle();
+                labelStyle.font = font;
+                skin.add("default", labelStyle);
+
+                TextField.TextFieldStyle textFieldStyle = new TextField.TextFieldStyle();
+                textFieldStyle.font = font;
+                textFieldStyle.fontColor = Color.WHITE;
+                skin.add("default", textFieldStyle);
+
+                CheckBox.CheckBoxStyle checkBoxStyle = new CheckBox.CheckBoxStyle();
+                checkBoxStyle.font = font;
+                com.badlogic.gdx.scenes.scene2d.utils.Drawable checkboxOn = skin.newDrawable("white", Color.GREEN);
+                checkboxOn.setMinWidth(16);
+                checkboxOn.setMinHeight(16);
+                checkBoxStyle.checkboxOn = checkboxOn;
+                com.badlogic.gdx.scenes.scene2d.utils.Drawable checkboxOff = skin.newDrawable("white", Color.RED);
+                checkboxOff.setMinWidth(16);
+                checkboxOff.setMinHeight(16);
+                checkBoxStyle.checkboxOff = checkboxOff;
+                skin.add("default", checkBoxStyle);
+
+                TextButton.TextButtonStyle textButtonStyle = new TextButton.TextButtonStyle();
+                textButtonStyle.font = font;
+                skin.add("default", textButtonStyle);
+
+                ScrollPane.ScrollPaneStyle scrollPaneStyle = new ScrollPane.ScrollPaneStyle();
+                skin.add("default", scrollPaneStyle);
+
+                Window.WindowStyle windowStyle = new Window.WindowStyle();
+                windowStyle.titleFont = font;
+                skin.add("default", windowStyle);
+
+                return skin;
+            }
+        }, config);
+
+        assertTrue(latch.await(5, TimeUnit.SECONDS), "Test setup timed out");
+        PrinterDiscoveryDialog dialog = dialogRef.get();
+        assertNotNull(dialog);
+        assertTrue(dialog.isVisible());
+
+        // Close via button
+        CountDownLatch closeLatch = new CountDownLatch(1);
+        Gdx.app.postRunnable(() -> {
+            TextButton closeButton = findButton(dialog, "Close");
+            if (closeButton != null) {
+                closeButton.toggle();
+            }
+            closeLatch.countDown();
+        });
+        assertTrue(closeLatch.await(2, TimeUnit.SECONDS), "Close action timed out");
+        
+        // Should be hidden but NOT removed and NOT closed
+        assertNotNull(dialog.getStage(), "Dialog should still be on stage after closing");
+        assertFalse(dialog.isVisible(), "Dialog should be hidden after closing");
+        assertFalse(scannerClosed.get(), "Scanner should NOT be closed after hiding dialog");
+
+        // Toggle visibility back on (simulate DesktopUI)
+        CountDownLatch reopenLatch = new CountDownLatch(1);
+        Gdx.app.postRunnable(() -> {
+            dialog.setVisible(!dialog.isVisible());
+            reopenLatch.countDown();
+        });
+        assertTrue(reopenLatch.await(2, TimeUnit.SECONDS), "Reopen action timed out");
+        
+        assertTrue(dialog.isVisible(), "Dialog should be visible again");
+        assertNotNull(dialog.getStage(), "Dialog should still be on stage");
+        assertFalse(scannerClosed.get(), "Scanner should still be functional");
+
+        // Now remove it truly (simulate disposal)
+        CountDownLatch removeLatch = new CountDownLatch(1);
+        Gdx.app.postRunnable(() -> {
+            dialog.remove();
+            removeLatch.countDown();
+        });
+        assertTrue(removeLatch.await(2, TimeUnit.SECONDS), "Remove action timed out");
+        
+        assertNull(dialog.getStage(), "Dialog should be removed from stage");
+        assertTrue(scannerClosed.get(), "Scanner should be closed after true removal from stage");
+
+        Gdx.app.exit();
+    }
+}

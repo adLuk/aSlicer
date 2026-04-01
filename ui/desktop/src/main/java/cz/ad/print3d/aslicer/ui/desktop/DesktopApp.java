@@ -200,6 +200,9 @@ public class DesktopApp implements ApplicationListener {
 
     @Override
     public void create() {
+        // Start network information collection as early as possible
+        new cz.ad.print3d.aslicer.logic.net.info.NetworkInformationCollector().collectAsync();
+
         AppConfigDto dto = appConfig.loadToDto();
         lastDir = dto.getLastDir();
         currentModelPath = dto.getLastFile();
@@ -337,6 +340,11 @@ public class DesktopApp implements ApplicationListener {
             public void onSettings() {
                 toggleSettingsWindow();
             }
+
+            @Override
+            public void onAddPrinter() {
+                togglePrinterDiscoveryWindow();
+            }
         }, printerRepository);
 
         AppStageToolbar stageToolbar = new AppStageToolbar(desktopUI.getSkin(), new AppStageToolbar.StageToolbarListener() {
@@ -402,6 +410,13 @@ public class DesktopApp implements ApplicationListener {
         if (desktopUI.getModelListWindow() != null) {
             desktopUI.getModelListWindow().setSelectedIndices(modelManager.getSelectedIndices());
         }
+    }
+
+    /**
+     * Toggles the visibility of the printer discovery window.
+     */
+    public void togglePrinterDiscoveryWindow() {
+        desktopUI.togglePrinterDiscoveryWindow();
     }
 
     @Override

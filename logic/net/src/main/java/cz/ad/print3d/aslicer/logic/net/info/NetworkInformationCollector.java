@@ -19,12 +19,14 @@ package cz.ad.print3d.aslicer.logic.net.info;
 
 import java.net.Inet4Address;
 import java.net.InetAddress;
+import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -36,6 +38,46 @@ import java.util.logging.Logger;
 public class NetworkInformationCollector {
 
     private static final Logger LOGGER = Logger.getLogger(NetworkInformationCollector.class.getName());
+
+    private static List<NetworkInterfaceInfo> cachedInfo;
+    private static CompletableFuture<List<NetworkInterfaceInfo>> collectionFuture;
+
+    /**
+     * Starts the asynchronous collection of network information if not already started.
+     * The result is cached for future use.
+     *
+     * @return a CompletableFuture with the collected network information
+     */
+    public synchronized CompletableFuture<List<NetworkInterfaceInfo>> collectAsync() {
+        if (collectionFuture == null) {
+            collectionFuture = CompletableFuture.supplyAsync(() -> {
+                List<NetworkInterfaceInfo> info = collect();
+                synchronized (NetworkInformationCollector.class) {
+                    cachedInfo = info;
+                }
+                return info;
+            });
+        }
+        return collectionFuture;
+    }
+
+    /**
+     * Returns the cached network information if available.
+     *
+     * @return the cached list of network interface information, or null if not yet collected
+     */
+    public static synchronized List<NetworkInterfaceInfo> getCachedInfo() {
+        return cachedInfo;
+    }
+
+    /**
+     * Resets the asynchronous collection and cache.
+     * Primarily used for unit testing.
+     */
+    static synchronized void resetAsyncCollection() {
+        collectionFuture = null;
+        cachedInfo = null;
+    }
 
     /**
      * Collects all available network interfaces and their details.
@@ -82,13 +124,14 @@ public class NetworkInformationCollector {
      */
     private NetworkInterfaceInfo createInterfaceInfo(NetworkInterface ni) throws SocketException {
         List<NetworkAddressInfo> addresses = new ArrayList<>();
-        Enumeration<InetAddress> inetAddresses = ni.getInetAddresses();
-        while (inetAddresses.hasMoreElements()) {
-            InetAddress addr = inetAddresses.nextElement();
+        List<InterfaceAddress> interfaceAddresses = ni.getInterfaceAddresses();
+        for (InterfaceAddress ia : interfaceAddresses) {
+            InetAddress addr = ia.getAddress();
             addresses.add(new NetworkAddressInfo(
                     addr.getHostAddress(),
                     addr.getHostName(),
-                    addr instanceof Inet4Address
+                    addr instanceof Inet4Address,
+                    ia.getNetworkPrefixLength()
             ));
         }
 

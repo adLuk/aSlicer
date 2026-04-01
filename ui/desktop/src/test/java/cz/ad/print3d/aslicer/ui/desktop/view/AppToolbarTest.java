@@ -50,6 +50,7 @@ public class AppToolbarTest {
         AtomicBoolean clearCalled = new AtomicBoolean(false);
         AtomicBoolean openCalled = new AtomicBoolean(false);
         AtomicBoolean settingsCalled = new AtomicBoolean(false);
+        AtomicBoolean addPrinterCalled = new AtomicBoolean(false);
 
         new HeadlessApplication(new ApplicationAdapter() {
             @Override
@@ -72,6 +73,11 @@ public class AppToolbarTest {
                         @Override
                         public void onSettings() {
                             settingsCalled.set(true);
+                        }
+
+                        @Override
+                        public void onAddPrinter() {
+                            addPrinterCalled.set(true);
                         }
                     }, repository);
 
@@ -146,5 +152,6 @@ public class AppToolbarTest {
         assertTrue(clearCalled.get(), "onClear should have been called");
         assertTrue(openCalled.get(), "onOpen should have been called");
         assertTrue(settingsCalled.get(), "onSettings should have been called");
+        assertTrue(addPrinterCalled.get(), "onAddPrinter should have been called");
     }
 }

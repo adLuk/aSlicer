@@ -54,9 +54,17 @@ class DeviceDiscoveryServiceTest {
 
         @Override
         public CompletableFuture<List<DiscoveredDevice>> scanRange(String baseIp, int startHost, int endHost, List<Integer> ports, boolean useBannerGrabbing) {
+            return scanRange(baseIp, startHost, endHost, ports, useBannerGrabbing, null);
+        }
+
+        @Override
+        public CompletableFuture<List<DiscoveredDevice>> scanRange(String baseIp, int startHost, int endHost, List<Integer> ports, boolean useBannerGrabbing, ScanProgressListener listener) {
             this.lastBaseIp = baseIp;
             this.lastPorts = ports;
             this.lastUseBannerGrabbing = useBannerGrabbing;
+            if (listener != null) {
+                listener.onProgress(1.0, baseIp + endHost);
+            }
             return CompletableFuture.completedFuture(resultToReturn);
         }
 
@@ -67,7 +75,20 @@ class DeviceDiscoveryServiceTest {
 
         @Override
         public CompletableFuture<DiscoveredDevice> scanHost(String host, List<Integer> ports, boolean useBannerGrabbing) {
+            return scanHost(host, ports, useBannerGrabbing, null);
+        }
+
+        @Override
+        public CompletableFuture<DiscoveredDevice> scanHost(String host, List<Integer> ports, boolean useBannerGrabbing, ScanProgressListener listener) {
+            if (listener != null) {
+                listener.onProgress(1.0, host);
+            }
             return CompletableFuture.completedFuture(new DiscoveredDevice(host));
+        }
+
+        @Override
+        public void stopScan() {
+            // No-op for stub
         }
 
         @Override

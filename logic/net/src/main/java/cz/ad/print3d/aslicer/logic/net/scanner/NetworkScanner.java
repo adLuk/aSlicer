@@ -28,6 +28,28 @@ import java.util.concurrent.CompletableFuture;
 public interface NetworkScanner extends AutoCloseable {
 
     /**
+     * Interface for monitoring progress of a network scan.
+     */
+    interface ScanProgressListener {
+        /**
+         * Called when scan progress is updated.
+         *
+         * @param progress value from 0.0 to 1.0 representing progress
+         * @param currentIp currently scanned IP address
+         */
+        void onProgress(double progress, String currentIp);
+
+        /**
+         * Called when a device is discovered during the scan.
+         * This can be used to display results in real-time before the entire
+         * scan completes.
+         *
+         * @param device the discovered device containing its IP and open services
+         */
+        default void onDeviceDiscovered(DiscoveredDevice device) {}
+    }
+
+    /**
      * Scans a range of IP addresses for a set of ports.
      *
      * @param baseIp    the base IP address (e.g., "192.168.1.")
@@ -51,6 +73,19 @@ public interface NetworkScanner extends AutoCloseable {
     CompletableFuture<List<DiscoveredDevice>> scanRange(String baseIp, int startHost, int endHost, List<Integer> ports, boolean useBannerGrabbing);
 
     /**
+     * Scans a range of IP addresses for a set of ports with optional banner grabbing and progress monitoring.
+     *
+     * @param baseIp            the base IP address (e.g., "192.168.1.")
+     * @param startHost         the starting host number (inclusive, 1-254)
+     * @param endHost           the ending host number (inclusive, 1-254)
+     * @param ports             the list of ports to scan on each IP
+     * @param useBannerGrabbing true to attempt banner grabbing, false otherwise
+     * @param listener          listener to receive progress updates
+     * @return a CompletableFuture that completes with a list of discovered devices
+     */
+    CompletableFuture<List<DiscoveredDevice>> scanRange(String baseIp, int startHost, int endHost, List<Integer> ports, boolean useBannerGrabbing, ScanProgressListener listener);
+
+    /**
      * Scans a single host for a set of ports.
      *
      * @param host  the host IP address or name
@@ -68,6 +103,25 @@ public interface NetworkScanner extends AutoCloseable {
      * @return a CompletableFuture that completes with a DiscoveredDevice containing open ports
      */
     CompletableFuture<DiscoveredDevice> scanHost(String host, List<Integer> ports, boolean useBannerGrabbing);
+
+    /**
+     * Scans a single host for a set of ports with optional banner grabbing and progress monitoring.
+     *
+     * @param host              the host IP address or name
+     * @param ports             the list of ports to scan
+     * @param useBannerGrabbing true to attempt banner grabbing, false otherwise
+     * @param listener          listener to receive progress updates (for individual ports)
+     * @return a CompletableFuture that completes with a DiscoveredDevice containing open ports
+     */
+    CompletableFuture<DiscoveredDevice> scanHost(String host, List<Integer> ports, boolean useBannerGrabbing, ScanProgressListener listener);
+
+    /**
+     * Stops the current scan and cancels all active scanning futures.
+     * This method will attempt to cancel all ongoing host and port scans
+     * started by this scanner. It is recommended to call this method
+     * before starting a new scan if one is already in progress.
+     */
+    void stopScan();
 
     @Override
     void close();

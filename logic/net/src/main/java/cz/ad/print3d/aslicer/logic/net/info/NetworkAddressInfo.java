@@ -25,18 +25,21 @@ public class NetworkAddressInfo {
     private final String address;
     private final String hostname;
     private final boolean ipv4;
+    private final int prefixLength;
 
     /**
      * Constructs a new {@code NetworkAddressInfo}.
      *
-     * @param address  the IP address string in textual representation
-     * @param hostname the hostname obtained from reverse DNS lookup
-     * @param ipv4     {@code true} if it's an IPv4 address, {@code false} if it's an IPv6 address
+     * @param address      the IP address string in textual representation
+     * @param hostname     the hostname obtained from reverse DNS lookup
+     * @param ipv4         {@code true} if it's an IPv4 address, {@code false} if it's an IPv6 address
+     * @param prefixLength the network prefix length (subnet mask bits)
      */
-    public NetworkAddressInfo(String address, String hostname, boolean ipv4) {
+    public NetworkAddressInfo(String address, String hostname, boolean ipv4, int prefixLength) {
         this.address = address;
         this.hostname = hostname;
         this.ipv4 = ipv4;
+        this.prefixLength = prefixLength;
     }
 
     /**
@@ -75,12 +78,22 @@ public class NetworkAddressInfo {
         return !ipv4;
     }
 
+    /**
+     * Returns the network prefix length.
+     *
+     * @return the prefix length
+     */
+    public int getPrefixLength() {
+        return prefixLength;
+    }
+
     @Override
     public String toString() {
         return "NetworkAddressInfo{" +
                 "address='" + address + '\'' +
                 ", hostname='" + hostname + '\'' +
                 ", ipv4=" + ipv4 +
+                ", prefixLength=" + prefixLength +
                 '}';
     }
 }

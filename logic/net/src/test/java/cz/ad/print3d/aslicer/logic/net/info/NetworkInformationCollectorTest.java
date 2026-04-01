@@ -17,13 +17,21 @@
  */
 package cz.ad.print3d.aslicer.logic.net.info;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class NetworkInformationCollectorTest {
+
+    @BeforeEach
+    void setUp() {
+        NetworkInformationCollector.resetAsyncCollection();
+    }
 
     @Test
     void testCollectInterfaces() {
@@ -51,6 +59,32 @@ class NetworkInformationCollectorTest {
                 .anyMatch(addr -> addr.isIpv6() && (addr.getAddress().equals("0:0:0:0:0:0:0:1") || addr.getAddress().equals("::1")));
         
         assertTrue(hasIpv4Localhost || hasIpv6Localhost, "Loopback should have at least 127.0.0.1 or ::1");
+    }
+
+    @Test
+    void testCollectAsyncAndCaching() throws Exception {
+        NetworkInformationCollector collector = new NetworkInformationCollector();
+        
+        // Before collection, cache should be null
+        assertNull(NetworkInformationCollector.getCachedInfo());
+        
+        // Start async collection
+        CompletableFuture<List<NetworkInterfaceInfo>> future = collector.collectAsync();
+        assertNotNull(future);
+        
+        // Wait for it to complete
+        List<NetworkInterfaceInfo> result = future.get(30, TimeUnit.SECONDS);
+        assertNotNull(result);
+        assertFalse(result.isEmpty());
+        
+        // After completion, cache should be populated
+        List<NetworkInterfaceInfo> cached = NetworkInformationCollector.getCachedInfo();
+        assertNotNull(cached);
+        assertEquals(result.size(), cached.size());
+        
+        // Subsequent calls to collectAsync should return the same future
+        CompletableFuture<List<NetworkInterfaceInfo>> future2 = collector.collectAsync();
+        assertSame(future, future2);
     }
 
     @Test

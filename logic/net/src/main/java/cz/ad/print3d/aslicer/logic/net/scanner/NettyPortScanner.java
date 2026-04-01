@@ -19,6 +19,7 @@ package cz.ad.print3d.aslicer.logic.net.scanner;
 
 import cz.ad.print3d.aslicer.logic.net.scanner.dto.PortScanResult;
 import io.netty.bootstrap.Bootstrap;
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
@@ -90,7 +91,8 @@ public class NettyPortScanner implements PortScanner {
                     }
                 });
 
-        b.connect(host, port).addListener((ChannelFutureListener) f -> {
+        ChannelFuture connectFuture = b.connect(host, port);
+        connectFuture.addListener((ChannelFutureListener) f -> {
             if (!f.isSuccess()) {
                 future.complete(new PortScanResult(port, false));
             } else if (!useBannerGrabbing) {
@@ -98,6 +100,15 @@ public class NettyPortScanner implements PortScanner {
                 future.complete(new PortScanResult(port, true));
             }
             // If useBannerGrabbing is true, the BannerHandler will complete the future
+        });
+
+        future.whenComplete((res, ex) -> {
+            if (future.isCancelled()) {
+                connectFuture.cancel(true);
+                if (connectFuture.channel() != null) {
+                    connectFuture.channel().close();
+                }
+            }
         });
 
         return future;

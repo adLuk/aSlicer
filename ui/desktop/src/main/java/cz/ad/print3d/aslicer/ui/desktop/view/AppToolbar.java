@@ -54,6 +54,11 @@ public final class AppToolbar extends Table {
          * Called when the settings button is clicked.
          */
         void onSettings();
+
+        /**
+         * Called when the add printer button is clicked.
+         */
+        void onAddPrinter();
     }
 
     private final Skin skin;
@@ -107,6 +112,15 @@ public final class AppToolbar extends Table {
             }
         });
 
+        ImageButton.ImageButtonStyle addPrinterStyle = createButtonStyle(createAddPrinterIcon());
+        ImageButton addPrinterButton = new ImageButton(addPrinterStyle);
+        addPrinterButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                if (listener != null) listener.onAddPrinter();
+            }
+        });
+
         ToolbarGroup modelGroup = new ToolbarGroup(skin);
         modelGroup.addButton(clearButton);
         modelGroup.addButton(openButton);
@@ -114,6 +128,7 @@ public final class AppToolbar extends Table {
         PrinterSelectBox printerSelectBox = new PrinterSelectBox(skin, repository);
         ToolbarGroup printerGroup = new ToolbarGroup(skin);
         printerGroup.addButton(printerSelectBox);
+        printerGroup.addButton(addPrinterButton);
 
         ToolbarGroup settingsGroup = new ToolbarGroup(skin);
         settingsGroup.addButton(settingsButton);
@@ -174,6 +189,22 @@ public final class AppToolbar extends Table {
         Texture texture = new Texture(pixmap);
         pixmap.dispose();
         skin.add("openIcon", texture);
+        return new TextureRegionDrawable(new TextureRegion(texture));
+    }
+
+    /**
+     * Creates the icon for the add printer action (green plus).
+     *
+     * @return the add printer icon drawable
+     */
+    private Drawable createAddPrinterIcon() {
+        Pixmap pixmap = new Pixmap(32, 32, Pixmap.Format.RGBA8888);
+        pixmap.setColor(Color.GREEN);
+        pixmap.fillRectangle(14, 4, 4, 24); // vertical
+        pixmap.fillRectangle(4, 14, 24, 4); // horizontal
+        Texture texture = new Texture(pixmap);
+        pixmap.dispose();
+        skin.add("addPrinterIcon", texture);
         return new TextureRegionDrawable(new TextureRegion(texture));
     }
 }
