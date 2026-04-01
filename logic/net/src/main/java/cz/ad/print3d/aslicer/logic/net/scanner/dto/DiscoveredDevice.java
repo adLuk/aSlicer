@@ -30,6 +30,7 @@ public class DiscoveredDevice {
 
     private final String ipAddress;
     private final List<PortScanResult> services;
+    private final List<MdnsServiceInfo> mdnsServices = new ArrayList<>();
     private String name;
     private String vendor;
     private String model;
@@ -70,6 +71,26 @@ public class DiscoveredDevice {
      */
     public List<PortScanResult> getServices() {
         return Collections.unmodifiableList(services);
+    }
+
+    /**
+     * Returns an unmodifiable list of mDNS services associated with this device.
+     *
+     * @return the list of mDNS services
+     */
+    public List<MdnsServiceInfo> getMdnsServices() {
+        return Collections.unmodifiableList(mdnsServices);
+    }
+
+    /**
+     * Adds an mDNS service info to this device.
+     *
+     * @param service the mDNS service info to add
+     */
+    public void addMdnsService(MdnsServiceInfo service) {
+        if (service != null && !mdnsServices.contains(service)) {
+            mdnsServices.add(service);
+        }
     }
 
     /**
@@ -144,6 +165,7 @@ public class DiscoveredDevice {
         DiscoveredDevice that = (DiscoveredDevice) o;
         return Objects.equals(ipAddress, that.ipAddress) && 
                 Objects.equals(services, that.services) &&
+                Objects.equals(mdnsServices, that.mdnsServices) &&
                 Objects.equals(name, that.name) &&
                 Objects.equals(vendor, that.vendor) &&
                 Objects.equals(model, that.model);
@@ -151,7 +173,7 @@ public class DiscoveredDevice {
 
     @Override
     public int hashCode() {
-        return Objects.hash(ipAddress, services, name, vendor, model);
+        return Objects.hash(ipAddress, services, mdnsServices, name, vendor, model);
     }
 
     @Override
@@ -162,6 +184,7 @@ public class DiscoveredDevice {
                 ", vendor='" + vendor + '\'' +
                 ", model='" + model + '\'' +
                 ", services=" + services +
+                ", mdnsServices=" + mdnsServices +
                 '}';
     }
 }

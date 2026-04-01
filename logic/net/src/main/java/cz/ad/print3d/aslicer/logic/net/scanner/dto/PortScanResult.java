@@ -28,6 +28,8 @@ public class PortScanResult {
     private final boolean open;
     private final String service;
     private final String serviceDetails;
+    private final boolean fromMdns;
+    private boolean verificationInProgress;
 
     /**
      * Constructs a new PortScanResult.
@@ -36,7 +38,7 @@ public class PortScanResult {
      * @param open true if the port is open and accepting connections, false otherwise
      */
     public PortScanResult(int port, boolean open) {
-        this(port, open, null, null);
+        this(port, open, null, null, false);
     }
 
     /**
@@ -47,7 +49,7 @@ public class PortScanResult {
      * @param service an optional description of the service identified on the port
      */
     public PortScanResult(int port, boolean open, String service) {
-        this(port, open, service, null);
+        this(port, open, service, null, false);
     }
 
     /**
@@ -59,10 +61,25 @@ public class PortScanResult {
      * @param serviceDetails optional details about the service
      */
     public PortScanResult(int port, boolean open, String service, String serviceDetails) {
+        this(port, open, service, serviceDetails, false);
+    }
+
+    /**
+     * Constructs a new PortScanResult with all information.
+     *
+     * @param port           the port number that was scanned
+     * @param open           true if the port is open and accepting connections, false otherwise
+     * @param service        an optional description of the service identified on the port
+     * @param serviceDetails optional details about the service
+     * @param fromMdns       true if the port was reported by mDNS
+     */
+    public PortScanResult(int port, boolean open, String service, String serviceDetails, boolean fromMdns) {
         this.port = port;
         this.open = open;
         this.service = service;
         this.serviceDetails = serviceDetails;
+        this.fromMdns = fromMdns;
+        this.verificationInProgress = fromMdns && !open;
     }
 
     /**
@@ -101,17 +118,47 @@ public class PortScanResult {
         return serviceDetails;
     }
 
+    /**
+     * Returns whether the port was reported by mDNS.
+     *
+     * @return true if from mDNS, false otherwise
+     */
+    public boolean isFromMdns() {
+        return fromMdns;
+    }
+
+    /**
+     * Returns whether verification of this port is in progress.
+     *
+     * @return true if verification is in progress, false otherwise
+     */
+    public boolean isVerificationInProgress() {
+        return verificationInProgress;
+    }
+
+    /**
+     * Sets the verification in progress status.
+     *
+     * @param verificationInProgress true if verification is in progress, false otherwise
+     */
+    public void setVerificationInProgress(boolean verificationInProgress) {
+        this.verificationInProgress = verificationInProgress;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         PortScanResult that = (PortScanResult) o;
-        return port == that.port && open == that.open && Objects.equals(service, that.service) && Objects.equals(serviceDetails, that.serviceDetails);
+        return port == that.port && open == that.open && fromMdns == that.fromMdns &&
+                verificationInProgress == that.verificationInProgress &&
+                Objects.equals(service, that.service) &&
+                Objects.equals(serviceDetails, that.serviceDetails);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(port, open, service, serviceDetails);
+        return Objects.hash(port, open, service, serviceDetails, fromMdns, verificationInProgress);
     }
 
     @Override
@@ -119,6 +166,8 @@ public class PortScanResult {
         return "PortScanResult{" +
                 "port=" + port +
                 ", open=" + open +
+                ", fromMdns=" + fromMdns +
+                ", verificationInProgress=" + verificationInProgress +
                 ", service='" + service + '\'' +
                 ", serviceDetails='" + serviceDetails + '\'' +
                 '}';

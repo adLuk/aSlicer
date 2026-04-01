@@ -67,7 +67,7 @@ class NettyNetworkScannerDeepScanTest {
 
     private static class StubMdnsScanner implements MdnsScanner {
         @Override
-        public CompletableFuture<Set<MdnsServiceInfo>> discoverDevices(long timeoutMillis) {
+        public CompletableFuture<Set<MdnsServiceInfo>> discoverDevices(long timeoutMillis, MdnsDiscoveryListener listener, java.net.NetworkInterface networkInterface) {
             return CompletableFuture.completedFuture(Collections.emptySet());
         }
 

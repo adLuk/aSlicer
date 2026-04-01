@@ -64,7 +64,7 @@ class NettyNetworkScannerProgressTest {
 
     private static class StubMdnsScanner implements MdnsScanner {
         @Override
-        public CompletableFuture<Set<MdnsServiceInfo>> discoverDevices(long timeoutMillis) {
+        public CompletableFuture<Set<MdnsServiceInfo>> discoverDevices(long timeoutMillis, MdnsDiscoveryListener listener, java.net.NetworkInterface networkInterface) {
             return CompletableFuture.completedFuture(Collections.emptySet());
         }
 
@@ -86,9 +86,9 @@ class NettyNetworkScannerProgressTest {
             manyPorts.add(i);
         }
 
-        // 2 hosts, 200 ports each = 400 total ports
+        // 3 hosts, 200 ports each = 600 total ports
         int startHost = 1;
-        int endHost = 2;
+        int endHost = 3;
         String baseIp = "192.0.2.";
 
         List<Double> progressUpdates = Collections.synchronizedList(new ArrayList<>());
@@ -108,13 +108,16 @@ class NettyNetworkScannerProgressTest {
         // Analyze progress updates.
         // We are interested in the last progress update BEFORE the final 1.0 that is manually set.
         // If it's correctly calculating progress, it should be close to 1.0 before the final manual set.
-        // Total ports = 400.
+        // Total ports = 600.
         // 1st host completes (skipped) -> reports 1.0 to nested listener.
-        // Nested listener (before fix) increments global completedPorts by 1.
-        // Progress = 1 / 400 = 0.0025.
+        // Range listener increments global completedPorts by 200.
+        // Progress = 200 / 600 = 0.33.
         // 2nd host completes (skipped) -> reports 1.0 to nested listener.
-        // Nested listener (before fix) increments global completedPorts by 1.
-        // Progress = 2 / 400 = 0.005.
+        // Range listener increments global completedPorts by 200.
+        // Progress = 400 / 600 = 0.66.
+        // 3rd host completes (skipped) -> reports 1.0 to nested listener.
+        // Range listener increments global completedPorts by 200.
+        // Progress = 600 / 600 = 1.0.
         // Then scanRange finishes and calls onProgress(1.0, ...).
 
         double maxProgressBeforeFinish = 0;
@@ -124,14 +127,9 @@ class NettyNetworkScannerProgressTest {
             }
         }
 
-        // Before fix, it should be very small (around 0.005)
-        // After fix, it should be around 0.5 (after first host) and then it might jump to 1.0.
-        // Wait, after 2nd host finishes, it should report (2 * 200) / 400 = 1.0.
+        // Before fix, it should be very small (around 2/600 = 0.0033)
+        // After fix, it should be at least 0.33 or 0.66.
         
-        // Let's use 3 hosts to be sure.
-        // 3 hosts * 200 ports = 600.
-        // After 2nd host: 400/600 = 0.66.
-        
-        assertTrue(maxProgressBeforeFinish > 0.1, "Progress was stuck! Max intermediate progress: " + maxProgressBeforeFinish);
+        assertTrue(maxProgressBeforeFinish > 0.1, "Progress was stuck! Max intermediate progress: " + maxProgressBeforeFinish + ", updates: " + progressUpdates);
     }
 }

@@ -18,6 +18,7 @@
 package cz.ad.print3d.aslicer.logic.net.scanner;
 
 import cz.ad.print3d.aslicer.logic.net.scanner.dto.DiscoveredDevice;
+import cz.ad.print3d.aslicer.logic.net.scanner.dto.PortScanResult;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -51,6 +52,14 @@ public interface NetworkScanner extends AutoCloseable {
          * @param device the discovered device containing its IP and open services
          */
         default void onDeviceDiscovered(DiscoveredDevice device) {}
+
+        /**
+         * Called when an individual port is discovered on a host.
+         *
+         * @param host       the host IP address
+         * @param portResult the result of the port scan
+         */
+        default void onPortDiscovered(String host, PortScanResult portResult) {}
     }
 
     /**

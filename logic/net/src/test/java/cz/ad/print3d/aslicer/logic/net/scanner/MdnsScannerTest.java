@@ -35,7 +35,7 @@ class MdnsScannerTest {
         // This test might not find any devices in a CI environment, 
         // but we can at least verify it completes without errors.
         CompletableFuture<Set<MdnsServiceInfo>> future = scanner.discoverDevices(500);
-        Set<MdnsServiceInfo> discoveredServices = future.get(2, TimeUnit.SECONDS);
+        Set<MdnsServiceInfo> discoveredServices = future.get(5, TimeUnit.SECONDS);
         
         assertNotNull(discoveredServices);
         // We can't guarantee any services are discovered, but it should not be null

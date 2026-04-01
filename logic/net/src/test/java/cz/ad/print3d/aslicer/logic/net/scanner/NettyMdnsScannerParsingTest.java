@@ -17,6 +17,7 @@
  */
 package cz.ad.print3d.aslicer.logic.net.scanner;
 
+import cz.ad.print3d.aslicer.logic.net.scanner.MdnsScanner.MdnsDiscoveryListener;
 import cz.ad.print3d.aslicer.logic.net.scanner.dto.MdnsServiceInfo;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -72,9 +73,9 @@ class NettyMdnsScannerParsingTest {
         msg.addRecord(DnsSection.ADDITIONAL, aRecord);
 
         // Access private processResponse method via reflection
-        Method method = NettyMdnsScanner.class.getDeclaredMethod("processResponse", DatagramDnsResponse.class, Set.class);
+        Method method = NettyMdnsScanner.class.getDeclaredMethod("processResponse", DatagramDnsResponse.class, Set.class, MdnsDiscoveryListener.class);
         method.setAccessible(true);
-        method.invoke(scanner, msg, results);
+        method.invoke(scanner, msg, results, null);
 
         assertFalse(results.isEmpty(), "Should have discovered one service");
         MdnsServiceInfo info = null;
@@ -94,9 +95,83 @@ class NettyMdnsScannerParsingTest {
         assertEquals("Creality", attrs.get("mfg"));
         assertEquals("Ender-3", attrs.get("mdl"));
         
-        scanner.close();
-        // DatagramDnsResponse release is handled by Netty usually, but here we should release it if it's a real one
         msg.release();
+        scanner.close();
+    }
+
+    @Test
+    void testProcessResponseWithoutPtr() throws Exception {
+        NettyMdnsScanner scanner = new NettyMdnsScanner();
+        Set<MdnsServiceInfo> results = new HashSet<>();
+
+        InetSocketAddress sender = new InetSocketAddress("192.168.1.110", 5353);
+        InetSocketAddress recipient = new InetSocketAddress("224.0.0.251", 5353);
+        DatagramDnsResponse msg = new DatagramDnsResponse(sender, recipient, 0);
+
+        // NO PTR record
+
+        // 1. SRV record: Bambu-A1._bambu-network._tcp.local. -> port 8888
+        ByteBuf srvContent = Unpooled.buffer();
+        srvContent.writeShort(0); // priority
+        srvContent.writeShort(0); // weight
+        srvContent.writeShort(8888); // port
+        DnsRawRecord srvRecord = new DefaultDnsRawRecord("Bambu-A1._bambu-network._tcp.local.", DnsRecordType.SRV, 3600, srvContent);
+        msg.addRecord(DnsSection.ANSWER, srvRecord);
+
+        // 2. TXT record: Bambu-A1._bambu-network._tcp.local. -> mfg=Bambu, mdl=A1
+        ByteBuf txtContent = Unpooled.buffer();
+        writeTxtEntry(txtContent, "mfg=Bambu");
+        writeTxtEntry(txtContent, "mdl=A1");
+        DnsRawRecord txtRecord = new DefaultDnsRawRecord("Bambu-A1._bambu-network._tcp.local.", DnsRecordType.TXT, 3600, txtContent);
+        msg.addRecord(DnsSection.ANSWER, txtRecord);
+
+        Method method = NettyMdnsScanner.class.getDeclaredMethod("processResponse", DatagramDnsResponse.class, Set.class, MdnsDiscoveryListener.class);
+        method.setAccessible(true);
+        method.invoke(scanner, msg, results, null);
+
+        assertFalse(results.isEmpty(), "Should have discovered service even without PTR record");
+        MdnsServiceInfo info = results.iterator().next();
+        assertEquals("Bambu-A1", info.getName());
+        assertEquals("_bambu-network._tcp.local.", info.getType());
+        assertEquals(8888, info.getPort());
+        assertEquals("192.168.1.110", info.getIpAddress());
+
+        msg.release();
+        scanner.close();
+    }
+
+    @Test
+    void testProcessResponseWithSenderIpFallback() throws Exception {
+        NettyMdnsScanner scanner = new NettyMdnsScanner();
+        Set<MdnsServiceInfo> results = new HashSet<>();
+
+        InetSocketAddress sender = new InetSocketAddress("192.168.1.110", 5353);
+        InetSocketAddress recipient = new InetSocketAddress("224.0.0.251", 5353);
+        DatagramDnsResponse msg = new DatagramDnsResponse(sender, recipient, 0);
+
+        // PTR: _bambu-network._tcp.local. -> Bambu-A1._bambu-network._tcp.local.
+        DnsPtrRecord ptrRecord = new DefaultDnsPtrRecord("_bambu-network._tcp.local.", DnsRecord.CLASS_IN, 3600, "Bambu-A1._bambu-network._tcp.local.");
+        msg.addRecord(DnsSection.ANSWER, ptrRecord);
+
+        // SRV: Bambu-A1._bambu-network._tcp.local. -> port 8888, target printer.local.
+        ByteBuf srvContent = Unpooled.buffer();
+        srvContent.writeShort(0); srvContent.writeShort(0); srvContent.writeShort(8888);
+        DnsRawRecord srvRecord = new DefaultDnsRawRecord("Bambu-A1._bambu-network._tcp.local.", DnsRecordType.SRV, 3600, srvContent);
+        msg.addRecord(DnsSection.ANSWER, srvRecord);
+
+        // NO A record for printer.local.
+
+        Method method = NettyMdnsScanner.class.getDeclaredMethod("processResponse", DatagramDnsResponse.class, Set.class, MdnsDiscoveryListener.class);
+        method.setAccessible(true);
+        method.invoke(scanner, msg, results, null);
+
+        assertFalse(results.isEmpty(), "Should have discovered service");
+        MdnsServiceInfo info = results.iterator().next();
+        assertEquals("192.168.1.110", info.getIpAddress(), "Should fall back to sender IP");
+        assertEquals(8888, info.getPort());
+
+        msg.release();
+        scanner.close();
     }
 
     private void writeTxtEntry(ByteBuf buf, String entry) {

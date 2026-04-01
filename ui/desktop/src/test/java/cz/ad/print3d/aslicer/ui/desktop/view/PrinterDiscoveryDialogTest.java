@@ -7,16 +7,20 @@ import com.badlogic.gdx.backends.headless.HeadlessApplicationConfiguration;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
+import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import cz.ad.print3d.aslicer.logic.net.info.NetworkInformationCollector;
 import cz.ad.print3d.aslicer.logic.net.info.NetworkInterfaceInfo;
 import cz.ad.print3d.aslicer.logic.net.scanner.NetworkScanner;
 import cz.ad.print3d.aslicer.logic.net.scanner.dto.DiscoveredDevice;
+import cz.ad.print3d.aslicer.logic.net.scanner.dto.MdnsServiceInfo;
+import cz.ad.print3d.aslicer.logic.net.scanner.dto.PortScanResult;
 import cz.ad.print3d.aslicer.ui.desktop.GdxTestUtils;
 import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -707,6 +711,315 @@ public class PrinterDiscoveryDialogTest {
         assertNull(dialog.getStage(), "Dialog should be removed from stage");
         assertTrue(scannerClosed.get(), "Scanner should be closed after true removal from stage");
 
+        Gdx.app.exit();
+    }
+    @Test
+    void testMdnsDetailsButton() throws InterruptedException {
+        HeadlessApplicationConfiguration config = new HeadlessApplicationConfiguration();
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<PrinterDiscoveryDialog> dialogRef = new AtomicReference<>();
+        AtomicReference<NetworkScanner.ScanProgressListener> capturedListener = new AtomicReference<>();
+
+        new HeadlessApplication(new ApplicationAdapter() {
+            @Override
+            public void create() {
+                try {
+                    GdxTestUtils.mockGdxGL();
+                    Skin skin = GdxTestUtils.createTestSkin();
+
+                    NetworkScanner mockScanner = new NetworkScanner() {
+                        @Override
+                        public CompletableFuture<List<DiscoveredDevice>> scanRange(String baseIp, int startHost, int endHost, List<Integer> ports, boolean useBannerGrabbing, ScanProgressListener listener) {
+                            capturedListener.set(listener);
+                            return new CompletableFuture<>();
+                        }
+                        @Override public CompletableFuture<List<DiscoveredDevice>> scanRange(String b, int s, int e, List<Integer> p) { return null; }
+                        @Override public CompletableFuture<List<DiscoveredDevice>> scanRange(String b, int s, int e, List<Integer> p, boolean u) { return null; }
+                        @Override public CompletableFuture<DiscoveredDevice> scanHost(String h, List<Integer> p) { return null; }
+                        @Override public CompletableFuture<DiscoveredDevice> scanHost(String h, List<Integer> p, boolean u) { return null; }
+                        @Override public CompletableFuture<DiscoveredDevice> scanHost(String h, List<Integer> p, boolean u, ScanProgressListener l) { return null; }
+                        @Override public void setTimeout(int timeoutMillis) {}
+                        @Override public int getTimeout() { return 500; }
+                        @Override public void setIncludeSelfIp(boolean include) {}
+                        @Override public boolean isIncludeSelfIp() { return false; }
+                        @Override public void stopScan() {}
+                        @Override public void close() {}
+                    };
+
+                    NetworkInformationCollector mockCollector = new NetworkInformationCollector() {
+                        @Override public List<NetworkInterfaceInfo> collect() { return Collections.emptyList(); }
+                        @Override public synchronized CompletableFuture<List<NetworkInterfaceInfo>> collectAsync() { return CompletableFuture.completedFuture(Collections.emptyList()); }
+                    };
+
+                    PrinterDiscoveryDialog dialog = new PrinterDiscoveryDialog(skin, mockScanner, mockCollector);
+                    dialog.startIpField.setText("192.168.1.1");
+                    dialog.endIpField.setText("192.168.1.10");
+                    dialogRef.set(dialog);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                } finally {
+                    latch.countDown();
+                }
+            }
+        }, config);
+
+        assertTrue(latch.await(5, TimeUnit.SECONDS), "Setup timed out");
+        PrinterDiscoveryDialog dialog = dialogRef.get();
+
+        // Start scan
+        Gdx.app.postRunnable(() -> dialog.startScan());
+        Thread.sleep(500);
+
+        // Simulate discovery of a device WITH mDNS
+        DiscoveredDevice deviceWithMdns = new DiscoveredDevice("192.168.1.5");
+        MdnsServiceInfo service = new MdnsServiceInfo("TestPrinter", "_http._tcp.local.", "192.168.1.5", 80, "printer.local", Collections.singletonMap("v", "1"));
+        deviceWithMdns.addMdnsService(service);
+        Gdx.app.postRunnable(() -> capturedListener.get().onDeviceDiscovered(deviceWithMdns));
+        Thread.sleep(200);
+
+        // Simulate discovery of a device WITHOUT mDNS
+        DiscoveredDevice deviceWithoutMdns = new DiscoveredDevice("192.168.1.7");
+        Gdx.app.postRunnable(() -> capturedListener.get().onDeviceDiscovered(deviceWithoutMdns));
+        Thread.sleep(200);
+
+        // Find the device tables
+        Table tableWithMdns = null;
+        Table tableWithoutMdns = null;
+        for (Actor actor : dialog.resultsTable.getChildren()) {
+            if (actor instanceof Table) {
+                if ("192.168.1.5".equals(actor.getName())) tableWithMdns = (Table) actor;
+                if ("192.168.1.7".equals(actor.getName())) tableWithoutMdns = (Table) actor;
+            }
+        }
+
+        assertNotNull(tableWithMdns, "Table with mDNS should exist");
+        assertNotNull(tableWithoutMdns, "Table without mDNS should exist");
+
+        // Find the "?" buttons
+        TextButton buttonWithMdns = findButton(tableWithMdns, "?");
+        TextButton buttonWithoutMdns = findButton(tableWithoutMdns, "?");
+
+        assertNotNull(buttonWithMdns, "Button '?' should exist for mDNS device");
+        assertNotNull(buttonWithoutMdns, "Button '?' should exist for non-mDNS device");
+
+        assertFalse(buttonWithMdns.isDisabled(), "Button should be ENABLED for mDNS device");
+        assertTrue(buttonWithoutMdns.isDisabled(), "Button should be DISABLED for non-mDNS device");
+
+        Gdx.app.exit();
+    }
+
+    @Test
+    void testMdnsDetailsScrolling() throws InterruptedException {
+        HeadlessApplicationConfiguration config = new HeadlessApplicationConfiguration();
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<PrinterDiscoveryDialog> dialogRef = new AtomicReference<>();
+        AtomicReference<Stage> stageRef = new AtomicReference<>();
+        AtomicReference<NetworkScanner.ScanProgressListener> capturedListener = new AtomicReference<>();
+
+        new HeadlessApplication(new ApplicationAdapter() {
+            @Override
+            public void create() {
+                try {
+                    GdxTestUtils.mockGdxGL();
+                    Skin skin = GdxTestUtils.createTestSkin();
+                    Stage stage = new Stage(new ScreenViewport());
+                    stageRef.set(stage);
+
+                    NetworkScanner mockScanner = new NetworkScanner() {
+                        @Override
+                        public CompletableFuture<List<DiscoveredDevice>> scanRange(String baseIp, int startHost, int endHost, List<Integer> ports, boolean useBannerGrabbing, ScanProgressListener listener) {
+                            capturedListener.set(listener);
+                            return new CompletableFuture<>();
+                        }
+                        @Override public CompletableFuture<List<DiscoveredDevice>> scanRange(String b, int s, int e, List<Integer> p) { return null; }
+                        @Override public CompletableFuture<List<DiscoveredDevice>> scanRange(String b, int s, int e, List<Integer> p, boolean u) { return null; }
+                        @Override public CompletableFuture<DiscoveredDevice> scanHost(String h, List<Integer> p) { return null; }
+                        @Override public CompletableFuture<DiscoveredDevice> scanHost(String h, List<Integer> p, boolean u) { return null; }
+                        @Override public CompletableFuture<DiscoveredDevice> scanHost(String h, List<Integer> p, boolean u, ScanProgressListener l) { return null; }
+                        @Override public void setTimeout(int timeoutMillis) {}
+                        @Override public int getTimeout() { return 500; }
+                        @Override public void setIncludeSelfIp(boolean include) {}
+                        @Override public boolean isIncludeSelfIp() { return false; }
+                        @Override public void stopScan() {}
+                        @Override public void close() {}
+                    };
+
+                    PrinterDiscoveryDialog dialog = new PrinterDiscoveryDialog(skin, mockScanner, new NetworkInformationCollector());
+                    stage.addActor(dialog);
+                    dialogRef.set(dialog);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                } finally {
+                    latch.countDown();
+                }
+            }
+        }, config);
+
+        assertTrue(latch.await(5, TimeUnit.SECONDS), "Setup timed out");
+        PrinterDiscoveryDialog dialog = dialogRef.get();
+
+        Gdx.app.postRunnable(() -> {
+            dialog.startIpField.setText("192.168.1.1");
+            dialog.endIpField.setText("192.168.1.254");
+            dialog.startScan();
+        });
+        Thread.sleep(500);
+
+        DiscoveredDevice device = new DiscoveredDevice("192.168.1.50");
+        device.addMdnsService(new MdnsServiceInfo("TestPrinter", "_http._tcp.local.", "192.168.1.50", 80, "printer.local", Map.of("v", "1")));
+        
+        Gdx.app.postRunnable(() -> {
+            assertNotNull(capturedListener.get(), "Listener should be captured");
+            capturedListener.get().onDeviceDiscovered(device);
+            
+            // Find and click hint button
+            Table deviceTable = null;
+            for (Actor actor : dialog.resultsTable.getChildren()) {
+                if (actor instanceof Table && "192.168.1.50".equals(actor.getName())) {
+                    deviceTable = (Table) actor;
+                    break;
+                }
+            }
+            assertNotNull(deviceTable, "Device table should be present");
+            TextButton hintButton = findButton(deviceTable, "?");
+            assertNotNull(hintButton, "Hint button should be present");
+            hintButton.fire(new ChangeListener.ChangeEvent());
+            
+            // Look for mDNS details dialog and ScrollPane within it
+            Dialog mdnsDialog = null;
+            for (Actor actor : stageRef.get().getActors()) {
+                if (actor instanceof Dialog && "mDNS Details".equals(((Dialog) actor).getTitleLabel().getText().toString())) {
+                    mdnsDialog = (Dialog) actor;
+                    break;
+                }
+            }
+            assertNotNull(mdnsDialog, "mDNS Details dialog should be open");
+            
+            boolean foundScrollPane = false;
+            for (Actor actor : mdnsDialog.getContentTable().getChildren()) {
+                if (actor instanceof ScrollPane) {
+                    foundScrollPane = true;
+                    ScrollPane sp = (ScrollPane) actor;
+                    assertFalse(sp.getFadeScrollBars(), "Scrollbars should not fade for clarity");
+                    break;
+                }
+            }
+            assertTrue(foundScrollPane, "mDNS Details content should be inside a ScrollPane");
+        });
+
+        Thread.sleep(500);
+        Gdx.app.exit();
+    }
+
+    @Test
+    void testScanCancellationRetention() throws InterruptedException {
+        HeadlessApplicationConfiguration config = new HeadlessApplicationConfiguration();
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicBoolean resultsRetained = new AtomicBoolean(false);
+
+        new HeadlessApplication(new ApplicationAdapter() {
+            @Override
+            public void create() {
+                try {
+                    GdxTestUtils.mockGdxGL();
+                    Skin skin = GdxTestUtils.createTestSkin();
+                    
+                    CompletableFuture<List<DiscoveredDevice>> scanFuture = new CompletableFuture<>();
+                    
+                    NetworkScanner mockScanner = new NetworkScanner() {
+                        @Override
+                        public CompletableFuture<List<DiscoveredDevice>> scanRange(String baseIp, int startHost, int endHost, List<Integer> ports, boolean useBannerGrabbing, ScanProgressListener listener) {
+                            if (listener != null) {
+                                DiscoveredDevice device = new DiscoveredDevice("192.168.1.10");
+                                device.addService(new PortScanResult(80, true));
+                                listener.onDeviceDiscovered(device);
+                            }
+                            return scanFuture;
+                        }
+
+                        @Override public CompletableFuture<List<DiscoveredDevice>> scanRange(String baseIp, int startHost, int endHost, List<Integer> ports) { return scanFuture; }
+                        @Override public CompletableFuture<List<DiscoveredDevice>> scanRange(String baseIp, int startHost, int endHost, List<Integer> ports, boolean useBannerGrabbing) { return scanFuture; }
+                        @Override public CompletableFuture<DiscoveredDevice> scanHost(String host, List<Integer> ports) { return null; }
+                        @Override public CompletableFuture<DiscoveredDevice> scanHost(String host, List<Integer> ports, boolean useBannerGrabbing) { return null; }
+                        @Override public CompletableFuture<DiscoveredDevice> scanHost(String host, List<Integer> ports, boolean useBannerGrabbing, ScanProgressListener listener) { return null; }
+                        @Override public void setTimeout(int timeoutMillis) {}
+                        @Override public int getTimeout() { return 500; }
+                        @Override public void setIncludeSelfIp(boolean include) {}
+                        @Override public boolean isIncludeSelfIp() { return false; }
+                        @Override public void stopScan() { scanFuture.cancel(true); }
+                        @Override public void close() {}
+                    };
+                    
+                    NetworkInformationCollector mockCollector = new NetworkInformationCollector() {
+                        @Override public List<NetworkInterfaceInfo> collect() { return Collections.emptyList(); }
+                        @Override public CompletableFuture<List<NetworkInterfaceInfo>> collectAsync() { return CompletableFuture.completedFuture(Collections.emptyList()); }
+                    };
+
+                    PrinterDiscoveryDialog dialog = new PrinterDiscoveryDialog(skin, mockScanner, mockCollector);
+                    dialog.startIpField.setText("192.168.1.1");
+                    dialog.endIpField.setText("192.168.1.1");
+
+                    // Start scan
+                    dialog.startScan();
+                    
+                    // The device discovery is posted via Gdx.app.postRunnable
+                    Gdx.app.postRunnable(() -> {
+                        // Verify device is added to UI
+                        boolean deviceFoundBeforeCancel = false;
+                        for (Actor actor : dialog.resultsTable.getChildren()) {
+                            if (actor instanceof Table && "192.168.1.10".equals(actor.getName())) {
+                                deviceFoundBeforeCancel = true;
+                                break;
+                            }
+                        }
+                        
+                        if (!deviceFoundBeforeCancel) {
+                            latch.countDown();
+                            return;
+                        }
+
+                        // Stop scan (triggers cancellation)
+                        dialog.stopScan();
+                        
+                        // The completion happens on Gdx thread via postRunnable
+                        Gdx.app.postRunnable(() -> {
+                            boolean deviceFoundAfterCancel = false;
+                            for (Actor actor : dialog.resultsTable.getChildren()) {
+                                if (actor instanceof Table && "192.168.1.10".equals(actor.getName())) {
+                                    deviceFoundAfterCancel = true;
+                                    break;
+                                }
+                            }
+                            resultsRetained.set(deviceFoundAfterCancel);
+                            
+                            // Now start a second scan and verify results are cleared
+                            dialog.startScan();
+                            boolean resultsClearedOnSecondScan = true;
+                            for (Actor actor : dialog.resultsTable.getChildren()) {
+                                if (actor instanceof Table && "192.168.1.10".equals(actor.getName())) {
+                                    resultsClearedOnSecondScan = false;
+                                    break;
+                                }
+                            }
+                            
+                            if (resultsClearedOnSecondScan) {
+                                latch.countDown();
+                            } else {
+                                // Explicitly fail if results not cleared
+                                resultsRetained.set(false);
+                                latch.countDown();
+                            }
+                        });
+                    });
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    latch.countDown();
+                }
+            }
+        }, config);
+        
+        assertTrue(latch.await(5, TimeUnit.SECONDS), "Test timed out");
+        assertTrue(resultsRetained.get(), "Results should be retained after scan cancellation");
         Gdx.app.exit();
     }
 }

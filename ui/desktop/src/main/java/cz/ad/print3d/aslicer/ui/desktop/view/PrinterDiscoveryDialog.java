@@ -33,11 +33,14 @@ import cz.ad.print3d.aslicer.logic.net.info.NetworkInterfaceInfo;
 import cz.ad.print3d.aslicer.logic.net.scanner.NettyNetworkScanner;
 import cz.ad.print3d.aslicer.logic.net.scanner.NetworkScanner;
 import cz.ad.print3d.aslicer.logic.net.scanner.dto.DiscoveredDevice;
+import cz.ad.print3d.aslicer.logic.net.scanner.dto.MdnsServiceInfo;
 import cz.ad.print3d.aslicer.logic.net.scanner.dto.PortScanResult;
 import cz.ad.print3d.aslicer.logic.net.util.IpUtils;
 
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Dialog window for discovering 3D printers on the network.
@@ -146,6 +149,7 @@ public class PrinterDiscoveryDialog extends Window {
         resultsTable.top().left();
         ScrollPane scrollPane = new ScrollPane(resultsTable, skin);
         scrollPane.setFadeScrollBars(false);
+        scrollPane.setOverscroll(false, false);
         content.add(scrollPane).expand().fill().padTop(10).row();
 
         // Close button
@@ -268,6 +272,11 @@ public class PrinterDiscoveryDialog extends Window {
             public void onDeviceDiscovered(DiscoveredDevice device) {
                 Gdx.app.postRunnable(() -> addDiscoveredDevice(device));
             }
+
+            @Override
+            public void onPortDiscovered(String host, PortScanResult portResult) {
+                Gdx.app.postRunnable(() -> addOrUpdatePort(host, portResult));
+            }
         }).thenAccept(devices -> Gdx.app.postRunnable(() -> {
             if (isScanning) {
                 isScanning = false;
@@ -281,10 +290,10 @@ public class PrinterDiscoveryDialog extends Window {
                 isScanning = false;
                 searchButton.getStyle().imageUp = searchIcon;
                 searchButton.setDisabled(false);
-                resultsTable.clear();
                 if (ex.getCause() instanceof java.util.concurrent.CancellationException || ex instanceof java.util.concurrent.CancellationException) {
                     progressLabel.setText("Scan stopped.");
                 } else {
+                    resultsTable.clear();
                     resultsTable.add(new Label("Scan failed: " + ex.getMessage(), skin));
                     progressLabel.setText("");
                 }
@@ -325,9 +334,9 @@ public class PrinterDiscoveryDialog extends Window {
     }
 
     /**
-     * Adds a single discovered device to the results table.
+     * Adds a single discovered device to the results table or updates an existing one.
      *
-     * @param device the discovered device to add
+     * @param device the discovered device to add or update
      */
     private void addDiscoveredDevice(DiscoveredDevice device) {
         // Remove initial labels if present
@@ -339,44 +348,245 @@ public class PrinterDiscoveryDialog extends Window {
             }
         }
 
-        // Check if device already added (prevent duplicates)
+        // Check if device already added (prevent duplicates, allow updates)
+        Table deviceTable = null;
         for (Actor actor : resultsTable.getChildren()) {
             if (actor instanceof Table && device.getIpAddress().equals(actor.getName())) {
-                return;
+                deviceTable = (Table) actor;
+                break;
             }
         }
 
-        Table deviceTable = new Table();
-        deviceTable.setName(device.getIpAddress());
-        deviceTable.left();
-        
-        StringBuilder deviceLabelText = new StringBuilder(device.getIpAddress());
-        if (device.getName() != null && !device.getName().isEmpty()) {
-            deviceLabelText.append(" - ").append(device.getName());
+        DiscoveredDevice currentDevice;
+        if (deviceTable == null) {
+            deviceTable = new Table();
+            deviceTable.setName(device.getIpAddress());
+            deviceTable.left();
+            currentDevice = new DiscoveredDevice(device.getIpAddress());
+            deviceTable.setUserObject(currentDevice);
+            resultsTable.add(deviceTable).fillX().padBottom(10).row();
+        } else {
+            currentDevice = (DiscoveredDevice) deviceTable.getUserObject();
+            deviceTable.clear();
         }
-        if ((device.getVendor() != null && !device.getVendor().isEmpty()) || (device.getModel() != null && !device.getModel().isEmpty())) {
+
+        // Merge device information
+        if (device.getName() != null && (currentDevice.getName() == null || currentDevice.getName().isEmpty())) {
+            currentDevice.setName(device.getName());
+        }
+        if (device.getVendor() != null && (currentDevice.getVendor() == null || currentDevice.getVendor().isEmpty())) {
+            currentDevice.setVendor(device.getVendor());
+        }
+        if (device.getModel() != null && (currentDevice.getModel() == null || currentDevice.getModel().isEmpty())) {
+            currentDevice.setModel(device.getModel());
+        }
+
+        // Merge services (ports)
+        for (PortScanResult service : device.getServices()) {
+            boolean found = false;
+            for (PortScanResult existing : currentDevice.getServices()) {
+                if (existing.getPort() == service.getPort()) {
+                    // Update verification status if it changed (e.g., from in-progress to verified)
+                    if (existing.isVerificationInProgress() && !service.isVerificationInProgress()) {
+                        existing.setVerificationInProgress(false);
+                    }
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                currentDevice.addService(service);
+            }
+        }
+
+        // Merge mDNS services
+        for (MdnsServiceInfo mdnsService : device.getMdnsServices()) {
+            currentDevice.addMdnsService(mdnsService);
+        }
+
+        StringBuilder deviceLabelText = new StringBuilder(currentDevice.getIpAddress());
+        if (currentDevice.getName() != null && !currentDevice.getName().isEmpty()) {
+            deviceLabelText.append(" - ").append(currentDevice.getName());
+        }
+        if ((currentDevice.getVendor() != null && !currentDevice.getVendor().isEmpty()) || (currentDevice.getModel() != null && !currentDevice.getModel().isEmpty())) {
             deviceLabelText.append(" [");
-            if (device.getVendor() != null) deviceLabelText.append(device.getVendor());
-            if (device.getVendor() != null && !device.getVendor().isEmpty() && device.getModel() != null && !device.getModel().isEmpty()) {
+            if (currentDevice.getVendor() != null) deviceLabelText.append(currentDevice.getVendor());
+            if (currentDevice.getVendor() != null && !currentDevice.getVendor().isEmpty() && currentDevice.getModel() != null && !currentDevice.getModel().isEmpty()) {
                 deviceLabelText.append(" ");
             }
-            if (device.getModel() != null) deviceLabelText.append(device.getModel());
+            if (currentDevice.getModel() != null) deviceLabelText.append(currentDevice.getModel());
             deviceLabelText.append("]");
         }
-        
+
         Label deviceLabel = new Label(deviceLabelText.toString(), skin);
         deviceLabel.setColor(Color.WHITE);
         deviceTable.add(deviceLabel).left().expandX();
+
+        TextButton hintButton = new TextButton("?", skin);
+        hintButton.setDisabled(currentDevice.getMdnsServices().isEmpty());
+        hintButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                showMdnsDetails(currentDevice);
+            }
+        });
+        deviceTable.add(hintButton).right().padRight(10);
         deviceTable.row();
-        for (PortScanResult service : device.getServices()) {
-            String serviceName = service.getService() != null ? service.getService() : "Open";
-            String details = service.getServiceDetails() != null ? " (" + service.getServiceDetails() + ")" : "";
-            String serviceInfo = "Port " + service.getPort() + ": " + serviceName + details;
-            Label serviceLabel = new Label("  " + serviceInfo, skin);
-            serviceLabel.setColor(Color.LIGHT_GRAY);
-            deviceTable.add(serviceLabel).left().padLeft(20).row();
+
+        for (PortScanResult service : currentDevice.getServices()) {
+            addPortToTable(deviceTable, service);
         }
-        resultsTable.add(deviceTable).fillX().padBottom(10).row();
+    }
+
+    /**
+     * Displays a dialog with all mDNS data received for a device.
+     *
+     * @param device the device to show mDNS details for
+     */
+    private void showMdnsDetails(DiscoveredDevice device) {
+        Dialog dialog = new Dialog("mDNS Details", skin) {
+            @Override
+            protected void result(Object object) {
+                hide();
+            }
+        };
+        
+        Table content = new Table();
+        content.pad(10);
+        content.left();
+
+        for (MdnsServiceInfo service : device.getMdnsServices()) {
+            content.add(new Label("Service: " + service.getName(), skin, "default", Color.CYAN)).left().row();
+            content.add(new Label("Type: " + service.getType(), skin)).left().padLeft(10).row();
+            content.add(new Label("Hostname: " + service.getHostname(), skin)).left().padLeft(10).row();
+            content.add(new Label("Address: " + service.getIpAddress() + ":" + service.getPort(), skin)).left().padLeft(10).row();
+
+            if (!service.getAttributes().isEmpty()) {
+                content.add(new Label("Attributes:", skin)).left().padLeft(10).row();
+                for (Map.Entry<String, String> entry : service.getAttributes().entrySet()) {
+                    content.add(new Label("  " + entry.getKey() + " = " + entry.getValue(), skin)).left().padLeft(20).row();
+                }
+            }
+            content.add(new Label("", skin)).row(); // Spacer
+        }
+
+        ScrollPane scrollPane = new ScrollPane(content, skin);
+        scrollPane.setFadeScrollBars(false);
+        dialog.getContentTable().add(scrollPane).expand().fill().minSize(400, 300);
+
+        dialog.button("Close");
+        dialog.show(getStage());
+    }
+
+    /**
+     * Adds a single port result to the specified device table with appropriate styling.
+     *
+     * @param deviceTable the table representing the device
+     * @param service     the port scan result to add
+     */
+    private void addPortToTable(Table deviceTable, PortScanResult service) {
+        String serviceName = service.getService() != null ? service.getService() : "Open";
+        String details = service.getServiceDetails() != null ? " (" + service.getServiceDetails() + ")" : "";
+        String status = service.isVerificationInProgress() ? " [Verification in progress]" : "";
+        String serviceInfo = "Port " + service.getPort() + ": " + serviceName + details + status;
+        
+        Label serviceLabel = new Label("  " + serviceInfo, skin);
+        serviceLabel.setName("port-" + service.getPort());
+        
+        // Coloring based on source and status
+        if (service.isVerificationInProgress()) {
+            serviceLabel.setColor(Color.ORANGE);
+        } else if (service.isFromMdns()) {
+            serviceLabel.setColor(Color.CYAN);
+        } else {
+            serviceLabel.setColor(Color.GREEN);
+        }
+        
+        deviceTable.add(serviceLabel).left().padLeft(20).row();
+    }
+
+    /**
+     * Adds or updates a single port result for a host in the results table.
+     *
+     * @param host       the host IP address
+     * @param portResult the port scan result
+     */
+    private void addOrUpdatePort(String host, PortScanResult portResult) {
+        Table deviceTable = null;
+        for (Actor actor : resultsTable.getChildren()) {
+            if (actor instanceof Table && host.equals(actor.getName())) {
+                deviceTable = (Table) actor;
+                break;
+            }
+        }
+
+        if (deviceTable == null) {
+            if (portResult.isOpen() || portResult.isVerificationInProgress()) {
+                // Device not found, create it with just this port
+                DiscoveredDevice device = new DiscoveredDevice(host);
+                device.addService(portResult);
+                addDiscoveredDevice(device);
+            }
+            return;
+        }
+
+        // Update the underlying data object
+        DiscoveredDevice currentDevice = (DiscoveredDevice) deviceTable.getUserObject();
+        if (currentDevice != null) {
+            boolean found = false;
+            for (PortScanResult existing : currentDevice.getServices()) {
+                if (existing.getPort() == portResult.getPort()) {
+                    if (existing.isVerificationInProgress() && !portResult.isVerificationInProgress()) {
+                        existing.setVerificationInProgress(false);
+                    }
+                    found = true;
+                    break;
+                }
+            }
+            if (!found && (portResult.isOpen() || portResult.isVerificationInProgress())) {
+                currentDevice.addService(portResult);
+            }
+        }
+
+        // Check if port already displayed
+        Label portLabel = null;
+        for (Actor actor : deviceTable.getChildren()) {
+            if (actor instanceof Label && ("port-" + portResult.getPort()).equals(actor.getName())) {
+                portLabel = (Label) actor;
+                break;
+            }
+        }
+
+        if (portLabel != null) {
+            if (!portResult.isOpen() && !portResult.isVerificationInProgress()) {
+                // Remove closed port label (e.g., if mDNS said it's there but scan said it's closed)
+                portLabel.remove();
+                
+                // If the device table is now empty (no more ports and no name), we might want to keep it or remove it.
+                // Keeping it for now as it shows the IP.
+                return;
+            }
+
+            // Update existing port label
+            String serviceName = portResult.getService() != null ? portResult.getService() : "Open";
+            String details = portResult.getServiceDetails() != null ? " (" + portResult.getServiceDetails() + ")" : "";
+            String status = portResult.isVerificationInProgress() ? " [Verification in progress]" : "";
+            String serviceInfo = "Port " + portResult.getPort() + ": " + serviceName + details + status;
+            portLabel.setText("  " + serviceInfo);
+            
+            if (portResult.isVerificationInProgress()) {
+                portLabel.setColor(Color.ORANGE);
+            } else if (portResult.isFromMdns()) {
+                portLabel.setColor(Color.CYAN);
+            } else {
+                portLabel.setColor(Color.GREEN);
+            }
+        } else {
+            // Add new port label if it's open or in progress
+            if (portResult.isOpen() || portResult.isVerificationInProgress()) {
+                addPortToTable(deviceTable, portResult);
+            }
+        }
     }
 
     /**

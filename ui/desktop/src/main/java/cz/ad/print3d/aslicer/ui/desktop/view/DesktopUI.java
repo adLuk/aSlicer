@@ -138,6 +138,20 @@ public class DesktopUI implements Disposable {
         skin.add("default", listStyle);
 
         ScrollPane.ScrollPaneStyle scrollPaneStyle = new ScrollPane.ScrollPaneStyle();
+        Drawable scrollBackground = skin.newDrawable("white", new Color(0.1f, 0.1f, 0.1f, 0.5f));
+        scrollPaneStyle.background = scrollBackground;
+        
+        Drawable scrollBar = skin.newDrawable("white", Color.GRAY);
+        scrollBar.setMinWidth(10);
+        scrollBar.setMinHeight(10);
+        scrollPaneStyle.vScroll = scrollBar;
+        scrollPaneStyle.hScroll = scrollBar;
+
+        Drawable scrollKnob = skin.newDrawable("white", Color.LIGHT_GRAY);
+        scrollKnob.setMinWidth(10);
+        scrollKnob.setMinHeight(10);
+        scrollPaneStyle.vScrollKnob = scrollKnob;
+        scrollPaneStyle.hScrollKnob = scrollKnob;
         skin.add("default", scrollPaneStyle);
 
         Window.WindowStyle windowStyle = new Window.WindowStyle();

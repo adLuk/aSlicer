@@ -9,9 +9,7 @@ import io.netty.channel.socket.nio.NioDatagramChannel;
 import io.netty.handler.codec.dns.*;
 import io.netty.util.CharsetUtil;
 
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.UnknownHostException;
+import java.net.*;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -55,9 +53,13 @@ public class NettyMdnsScanner implements MdnsScanner {
             "_http._tcp.local.",
             "_octoprint._tcp.local.",
             "_printer._tcp.local.",
+            "_ipp._tcp.local.",
+            "_ipps._tcp.local.",
             "_ssh._tcp.local.",
             "_moonraker._tcp.local.",
-            "_workstation._tcp.local."
+            "_workstation._tcp.local.",
+            "_bambu-network._tcp.local.",
+            "_bambulab._tcp.local."
     );
 
     private final EventLoopGroup group;
@@ -86,6 +88,16 @@ public class NettyMdnsScanner implements MdnsScanner {
 
     @Override
     public CompletableFuture<Set<MdnsServiceInfo>> discoverDevices(long timeoutMillis) {
+        return discoverDevices(timeoutMillis, null);
+    }
+
+    @Override
+    public CompletableFuture<Set<MdnsServiceInfo>> discoverDevices(long timeoutMillis, MdnsDiscoveryListener listener) {
+        return discoverDevices(timeoutMillis, listener, null);
+    }
+
+    @Override
+    public CompletableFuture<Set<MdnsServiceInfo>> discoverDevices(long timeoutMillis, MdnsDiscoveryListener listener, NetworkInterface networkInterface) {
         CompletableFuture<Set<MdnsServiceInfo>> future = new CompletableFuture<>();
         Set<MdnsServiceInfo> discoveredServices = Collections.synchronizedSet(new HashSet<>());
 
@@ -95,16 +107,25 @@ public class NettyMdnsScanner implements MdnsScanner {
                 .handler(new ChannelInitializer<NioDatagramChannel>() {
                     @Override
                     protected void initChannel(NioDatagramChannel ch) {
+                        if (networkInterface != null) {
+                            ch.config().setNetworkInterface(networkInterface);
+                        }
                         ch.pipeline().addLast(new DatagramDnsQueryEncoder());
                         ch.pipeline().addLast(new DatagramDnsResponseDecoder());
                         ch.pipeline().addLast(new SimpleChannelInboundHandler<DatagramDnsResponse>() {
                             @Override
                             protected void channelRead0(ChannelHandlerContext ctx, DatagramDnsResponse msg) {
                                 try {
-                                    processResponse(msg, discoveredServices);
+                                    processResponse(msg, discoveredServices, listener);
                                 } catch (Exception e) {
                                     LOGGER.log(Level.WARNING, "Error processing mDNS response", e);
                                 }
+                            }
+
+                            @Override
+                            public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+                                LOGGER.log(Level.WARNING, "mDNS channel exception", cause);
+                                ctx.close();
                             }
                         });
                     }
@@ -129,7 +150,9 @@ public class NettyMdnsScanner implements MdnsScanner {
 
                 group.schedule(() -> {
                     ch.close();
-                    future.complete(new HashSet<>(discoveredServices));
+                    synchronized (discoveredServices) {
+                        future.complete(new HashSet<>(discoveredServices));
+                    }
                 }, timeoutMillis, TimeUnit.MILLISECONDS);
             }
         });
@@ -137,7 +160,7 @@ public class NettyMdnsScanner implements MdnsScanner {
         return future;
     }
 
-    private void processResponse(DatagramDnsResponse msg, Set<MdnsServiceInfo> results) {
+    private void processResponse(DatagramDnsResponse msg, Set<MdnsServiceInfo> results, MdnsDiscoveryListener listener) {
         String senderIp = msg.sender().getAddress().getHostAddress();
         Map<String, ServiceBuilder> builders = new HashMap<>();
         Map<String, String> hostnameToIp = new HashMap<>();
@@ -155,9 +178,13 @@ public class NettyMdnsScanner implements MdnsScanner {
                     builder.instanceName = serviceInstanceName;
                 } else if (record.type() == DnsRecordType.SRV) {
                     ServiceBuilder builder = builders.computeIfAbsent(name, k -> new ServiceBuilder());
+                    if (builder.instanceName == null) builder.instanceName = name;
+                    if (builder.type == null) builder.type = inferTypeFromName(name);
                     parseSrvRecord(record, builder);
                 } else if (record.type() == DnsRecordType.TXT) {
                     ServiceBuilder builder = builders.computeIfAbsent(name, k -> new ServiceBuilder());
+                    if (builder.instanceName == null) builder.instanceName = name;
+                    if (builder.type == null) builder.type = inferTypeFromName(name);
                     parseTxtRecord(record, builder);
                 } else if (record.type() == DnsRecordType.A || record.type() == DnsRecordType.AAAA) {
                     parseAddressRecord(record, hostnameToIp);
@@ -186,7 +213,11 @@ public class NettyMdnsScanner implements MdnsScanner {
                     builder.hostname,
                     builder.attributes
             );
-            results.add(info);
+            if (results.add(info)) {
+                if (listener != null) {
+                    listener.onServiceDiscovered(info);
+                }
+            }
             LOGGER.log(Level.FINE, "Discovered mDNS service: {0} at {1}:{2}", new Object[]{simpleName, ip, builder.port});
         }
     }
@@ -254,6 +285,14 @@ public class NettyMdnsScanner implements MdnsScanner {
             return serviceInstanceName.substring(0, firstDot);
         }
         return serviceInstanceName;
+    }
+
+    private String inferTypeFromName(String name) {
+        int firstDot = name.indexOf('.');
+        if (firstDot > 0 && firstDot < name.length() - 1) {
+            return name.substring(firstDot + 1);
+        }
+        return null;
     }
 
     private static class ServiceBuilder {
