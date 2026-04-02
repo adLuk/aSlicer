@@ -9,7 +9,10 @@ import io.netty.channel.socket.nio.NioDatagramChannel;
 import io.netty.handler.codec.dns.*;
 import io.netty.util.CharsetUtil;
 
-import java.net.*;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.NetworkInterface;
+import java.net.UnknownHostException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -99,6 +102,8 @@ public class NettyMdnsScanner implements MdnsScanner {
     @Override
     public CompletableFuture<Set<MdnsServiceInfo>> discoverDevices(long timeoutMillis, MdnsDiscoveryListener listener, NetworkInterface networkInterface) {
         CompletableFuture<Set<MdnsServiceInfo>> future = new CompletableFuture<>();
+        Map<String, ServiceBuilder> sessionBuilders = new HashMap<>();
+        Map<String, String> sessionHostnameToIp = new HashMap<>();
         Set<MdnsServiceInfo> discoveredServices = Collections.synchronizedSet(new HashSet<>());
 
         Bootstrap b = new Bootstrap();
@@ -116,7 +121,7 @@ public class NettyMdnsScanner implements MdnsScanner {
                             @Override
                             protected void channelRead0(ChannelHandlerContext ctx, DatagramDnsResponse msg) {
                                 try {
-                                    processResponse(msg, discoveredServices, listener);
+                                    processResponse(msg, sessionBuilders, sessionHostnameToIp, discoveredServices, listener);
                                 } catch (Exception e) {
                                     LOGGER.log(Level.WARNING, "Error processing mDNS response", e);
                                 }
@@ -160,65 +165,88 @@ public class NettyMdnsScanner implements MdnsScanner {
         return future;
     }
 
-    private void processResponse(DatagramDnsResponse msg, Set<MdnsServiceInfo> results, MdnsDiscoveryListener listener) {
+    private void processResponse(DatagramDnsResponse msg, Map<String, ServiceBuilder> builders, Map<String, String> hostnameToIp, Set<MdnsServiceInfo> results, MdnsDiscoveryListener listener) {
         String senderIp = msg.sender().getAddress().getHostAddress();
-        Map<String, ServiceBuilder> builders = new HashMap<>();
-        Map<String, String> hostnameToIp = new HashMap<>();
 
-        // Process all records in ANSWER and ADDITIONAL sections
-        for (DnsSection section : new DnsSection[]{DnsSection.ANSWER, DnsSection.ADDITIONAL}) {
-            for (int i = 0; i < msg.count(section); i++) {
-                DnsRecord record = msg.recordAt(section, i);
-                String name = record.name();
+        // Process all records in ANSWER, AUTHORITY and ADDITIONAL sections
+        synchronized (builders) {
+            for (DnsSection section : new DnsSection[]{DnsSection.ANSWER, DnsSection.AUTHORITY, DnsSection.ADDITIONAL}) {
+                for (int i = 0; i < msg.count(section); i++) {
+                    DnsRecord record = msg.recordAt(section, i);
+                    String name = record.name();
 
-                if (record.type() == DnsRecordType.PTR && record instanceof DnsPtrRecord) {
-                    String serviceInstanceName = ((DnsPtrRecord) record).hostname();
-                    ServiceBuilder builder = builders.computeIfAbsent(serviceInstanceName, k -> new ServiceBuilder());
-                    builder.type = name;
-                    builder.instanceName = serviceInstanceName;
-                } else if (record.type() == DnsRecordType.SRV) {
-                    ServiceBuilder builder = builders.computeIfAbsent(name, k -> new ServiceBuilder());
-                    if (builder.instanceName == null) builder.instanceName = name;
-                    if (builder.type == null) builder.type = inferTypeFromName(name);
-                    parseSrvRecord(record, builder);
-                } else if (record.type() == DnsRecordType.TXT) {
-                    ServiceBuilder builder = builders.computeIfAbsent(name, k -> new ServiceBuilder());
-                    if (builder.instanceName == null) builder.instanceName = name;
-                    if (builder.type == null) builder.type = inferTypeFromName(name);
-                    parseTxtRecord(record, builder);
-                } else if (record.type() == DnsRecordType.A || record.type() == DnsRecordType.AAAA) {
-                    parseAddressRecord(record, hostnameToIp);
+                    if (record.type() == DnsRecordType.PTR && record instanceof DnsPtrRecord) {
+                        String serviceInstanceName = ((DnsPtrRecord) record).hostname();
+                        ServiceBuilder builder = builders.computeIfAbsent(serviceInstanceName, k -> new ServiceBuilder());
+                        builder.type = name;
+                        builder.instanceName = serviceInstanceName;
+                    } else if (record.type() == DnsRecordType.SRV) {
+                        ServiceBuilder builder = builders.computeIfAbsent(name, k -> new ServiceBuilder());
+                        if (builder.instanceName == null) builder.instanceName = name;
+                        if (builder.type == null) builder.type = inferTypeFromName(name);
+                        parseSrvRecord(record, builder);
+                    } else if (record.type() == DnsRecordType.TXT) {
+                        ServiceBuilder builder = builders.computeIfAbsent(name, k -> new ServiceBuilder());
+                        if (builder.instanceName == null) builder.instanceName = name;
+                        if (builder.type == null) builder.type = inferTypeFromName(name);
+                        parseTxtRecord(record, builder);
+                    } else if (record.type() == DnsRecordType.A || record.type() == DnsRecordType.AAAA) {
+                        parseAddressRecord(record, hostnameToIp);
+                    }
                 }
             }
-        }
 
-        // Build results
-        for (ServiceBuilder builder : builders.values()) {
-            if (builder.instanceName == null) continue;
+            // Build/Update results
+            for (ServiceBuilder builder : builders.values()) {
+                if (builder.instanceName == null) continue;
 
-            String ip = builder.ipAddress;
-            if (ip == null && builder.hostname != null) {
-                ip = hostnameToIp.get(builder.hostname);
-            }
-            if (ip == null) {
-                ip = senderIp; // Fallback to sender IP
-            }
-
-            String simpleName = extractSimpleName(builder.instanceName);
-            MdnsServiceInfo info = new MdnsServiceInfo(
-                    simpleName,
-                    builder.type,
-                    ip,
-                    builder.port,
-                    builder.hostname,
-                    builder.attributes
-            );
-            if (results.add(info)) {
-                if (listener != null) {
-                    listener.onServiceDiscovered(info);
+                String ip = builder.ipAddress;
+                if (ip == null && builder.hostname != null) {
+                    ip = hostnameToIp.get(builder.hostname);
                 }
+                if (ip == null) {
+                    ip = senderIp; // Fallback to sender IP
+                }
+
+                String simpleName = extractSimpleName(builder.instanceName);
+                MdnsServiceInfo info = new MdnsServiceInfo(
+                        simpleName,
+                        builder.type,
+                        ip,
+                        builder.port,
+                        builder.hostname,
+                        builder.attributes
+                );
+
+                // Check if we already have this info and if it's an update
+                boolean isNewOrUpdated = true;
+                synchronized (results) {
+                    // Try to find if we already have a service with this name and type
+                    MdnsServiceInfo existing = results.stream()
+                            .filter(s -> s.getName().equals(info.getName()) && Objects.equals(s.getType(), info.getType()))
+                            .findFirst()
+                            .orElse(null);
+
+                    if (existing != null) {
+                        if (existing.equals(info)) {
+                            isNewOrUpdated = false;
+                        } else {
+                            results.remove(existing);
+                        }
+                    }
+
+                    if (isNewOrUpdated) {
+                        results.add(info);
+                    }
+                }
+
+                if (isNewOrUpdated) {
+                    if (listener != null) {
+                        listener.onServiceDiscovered(info);
+                    }
+                }
+                LOGGER.log(Level.FINE, "Discovered mDNS service: {0} at {1}:{2}", new Object[]{simpleName, ip, builder.port});
             }
-            LOGGER.log(Level.FINE, "Discovered mDNS service: {0} at {1}:{2}", new Object[]{simpleName, ip, builder.port});
         }
     }
 

@@ -28,11 +28,11 @@ import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.util.*;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Semaphore;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 /**
@@ -292,6 +292,10 @@ public class NettyNetworkScanner implements NetworkScanner {
                         @Override
                         public void onDeviceDiscovered(DiscoveredDevice device) {
                             if (listener != null) {
+                                List<MdnsServiceInfo> services = servicesByIp.get(device.getIpAddress());
+                                if (services != null) {
+                                    enrichDeviceWithMdns(device, services);
+                                }
                                 listener.onDeviceDiscovered(device);
                             }
                         }

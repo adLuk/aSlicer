@@ -27,6 +27,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
+import com.badlogic.gdx.utils.Align;
 import cz.ad.print3d.aslicer.logic.net.info.NetworkAddressInfo;
 import cz.ad.print3d.aslicer.logic.net.info.NetworkInformationCollector;
 import cz.ad.print3d.aslicer.logic.net.info.NetworkInterfaceInfo;
@@ -39,6 +40,7 @@ import cz.ad.print3d.aslicer.logic.net.util.IpUtils;
 
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -148,6 +150,7 @@ public class PrinterDiscoveryDialog extends Window {
         resultsTable = new Table();
         resultsTable.top().left();
         ScrollPane scrollPane = new ScrollPane(resultsTable, skin);
+        scrollPane.setScrollingDisabled(true, false);
         scrollPane.setFadeScrollBars(false);
         scrollPane.setOverscroll(false, false);
         content.add(scrollPane).expand().fill().padTop(10).row();
@@ -214,7 +217,7 @@ public class PrinterDiscoveryDialog extends Window {
         if (isScanning) return;
 
         resultsTable.clear();
-        resultsTable.add(new Label("Scanning...", skin)).row();
+        resultsTable.add(new Label("Scanning...", skin)).expandX().center().row();
         progressLabel.setText("Starting scan...");
 
         String startIp = startIpField.getText();
@@ -223,7 +226,7 @@ public class PrinterDiscoveryDialog extends Window {
 
         if (startIp.isEmpty() || endIp.isEmpty()) {
             resultsTable.clear();
-            resultsTable.add(new Label("Please enter a valid IP range.", skin));
+            resultsTable.add(new Label("Please enter a valid IP range.", skin)).expandX().center();
             progressLabel.setText("");
             return;
         }
@@ -294,7 +297,7 @@ public class PrinterDiscoveryDialog extends Window {
                     progressLabel.setText("Scan stopped.");
                 } else {
                     resultsTable.clear();
-                    resultsTable.add(new Label("Scan failed: " + ex.getMessage(), skin));
+                    resultsTable.add(new Label("Scan failed: " + ex.getMessage(), skin)).expandX().center();
                     progressLabel.setText("");
                 }
             });
@@ -318,13 +321,16 @@ public class PrinterDiscoveryDialog extends Window {
 
     /**
      * Updates the results table with discovered devices and their services.
+     * <p>This method clears the current results and populates the table with the provided list of devices.
+     * Each device is displayed with a checkbox to allow multi-selection, its IP address, identified name,
+     * vendor, model, and discovered services.</p>
      *
-     * @param devices list of discovered devices
+     * @param devices list of discovered devices to display
      */
-    private void updateResults(List<DiscoveredDevice> devices) {
+    public void updateResults(List<DiscoveredDevice> devices) {
         resultsTable.clear();
         if (devices.isEmpty()) {
-            resultsTable.add(new Label("No printers found.", skin));
+            resultsTable.add(new Label("No printers found.", skin)).expandX().center();
             return;
         }
 
@@ -420,22 +426,73 @@ public class PrinterDiscoveryDialog extends Window {
 
         Label deviceLabel = new Label(deviceLabelText.toString(), skin);
         deviceLabel.setColor(Color.WHITE);
-        deviceTable.add(deviceLabel).left().expandX();
+        deviceLabel.setAlignment(Align.center);
+
+        CheckBox selectionCheckBox = new CheckBox("", skin);
+        selectionCheckBox.setChecked(currentDevice.isSelected());
+        selectionCheckBox.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                currentDevice.setSelected(selectionCheckBox.isChecked());
+            }
+        });
 
         TextButton hintButton = new TextButton("?", skin);
-        hintButton.setDisabled(currentDevice.getMdnsServices().isEmpty());
+        // Button is always enabled to allow showing a hint if data is missing
+        hintButton.setDisabled(false);
         hintButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
                 showMdnsDetails(currentDevice);
             }
         });
-        deviceTable.add(hintButton).right().padRight(10);
+
+        // Expert UIX layout for each device row:
+        // Col 1: Selection (left) - fixed width to balance with hint button
+        // Col 2: Device Info (centered in middle) - expands to fill space
+        // Col 3: Details Button (right) - fixed width to balance with checkbox
+        deviceTable.add(selectionCheckBox).width(40).left();
+        deviceTable.add(deviceLabel).expandX().center();
+        deviceTable.add(hintButton).width(40).right();
         deviceTable.row();
 
         for (PortScanResult service : currentDevice.getServices()) {
             addPortToTable(deviceTable, service);
         }
+    }
+
+    /**
+     * Returns an unmodifiable list of all discovered devices currently displayed in the results table.
+     * <p>This method iterates through the children of the results table and extracts the
+     * {@link DiscoveredDevice} objects stored as user objects in the device-specific tables.</p>
+     *
+     * @return an unmodifiable list of discovered devices
+     */
+    public List<DiscoveredDevice> getDiscoveredDevices() {
+        List<DiscoveredDevice> devices = new ArrayList<>();
+        for (Actor actor : resultsTable.getChildren()) {
+            if (actor instanceof Table && actor.getUserObject() instanceof DiscoveredDevice) {
+                devices.add((DiscoveredDevice) actor.getUserObject());
+            }
+        }
+        return Collections.unmodifiableList(devices);
+    }
+
+    /**
+     * Returns a list of all discovered devices that have been selected by the user.
+     * <p>The selection state is maintained within each {@link DiscoveredDevice} object
+     * and can be toggled via the checkbox in the UI results table.</p>
+     *
+     * @return a list of selected discovered devices
+     */
+    public List<DiscoveredDevice> getSelectedDevices() {
+        List<DiscoveredDevice> selected = new ArrayList<>();
+        for (DiscoveredDevice device : getDiscoveredDevices()) {
+            if (device.isSelected()) {
+                selected.add(device);
+            }
+        }
+        return selected;
     }
 
     /**
@@ -455,19 +512,25 @@ public class PrinterDiscoveryDialog extends Window {
         content.pad(10);
         content.left();
 
-        for (MdnsServiceInfo service : device.getMdnsServices()) {
-            content.add(new Label("Service: " + service.getName(), skin, "default", Color.CYAN)).left().row();
-            content.add(new Label("Type: " + service.getType(), skin)).left().padLeft(10).row();
-            content.add(new Label("Hostname: " + service.getHostname(), skin)).left().padLeft(10).row();
-            content.add(new Label("Address: " + service.getIpAddress() + ":" + service.getPort(), skin)).left().padLeft(10).row();
+        if (device.getMdnsServices().isEmpty()) {
+            Label hintLabel = new Label("No mDNS data was received for this device.\nThis could be because the device does not support mDNS\nor it is blocked by the network firewall.", skin);
+            hintLabel.setColor(Color.LIGHT_GRAY);
+            content.add(hintLabel).left().pad(10).row();
+        } else {
+            for (MdnsServiceInfo service : device.getMdnsServices()) {
+                content.add(new Label("Service: " + service.getName(), skin, "default", Color.CYAN)).left().row();
+                content.add(new Label("Type: " + service.getType(), skin)).left().padLeft(10).row();
+                content.add(new Label("Hostname: " + service.getHostname(), skin)).left().padLeft(10).row();
+                content.add(new Label("Address: " + service.getIpAddress() + ":" + service.getPort(), skin)).left().padLeft(10).row();
 
-            if (!service.getAttributes().isEmpty()) {
-                content.add(new Label("Attributes:", skin)).left().padLeft(10).row();
-                for (Map.Entry<String, String> entry : service.getAttributes().entrySet()) {
-                    content.add(new Label("  " + entry.getKey() + " = " + entry.getValue(), skin)).left().padLeft(20).row();
+                if (!service.getAttributes().isEmpty()) {
+                    content.add(new Label("Attributes:", skin)).left().padLeft(10).row();
+                    for (Map.Entry<String, String> entry : service.getAttributes().entrySet()) {
+                        content.add(new Label("  " + entry.getKey() + " = " + entry.getValue(), skin)).left().padLeft(20).row();
+                    }
                 }
+                content.add(new Label("", skin)).row(); // Spacer
             }
-            content.add(new Label("", skin)).row(); // Spacer
         }
 
         ScrollPane scrollPane = new ScrollPane(content, skin);
@@ -502,7 +565,8 @@ public class PrinterDiscoveryDialog extends Window {
             serviceLabel.setColor(Color.GREEN);
         }
         
-        deviceTable.add(serviceLabel).left().padLeft(20).row();
+        // Ports are displayed on the left of the report, spanning across the row for better visibility
+        deviceTable.add(serviceLabel).colspan(3).left().padLeft(10).row();
     }
 
     /**

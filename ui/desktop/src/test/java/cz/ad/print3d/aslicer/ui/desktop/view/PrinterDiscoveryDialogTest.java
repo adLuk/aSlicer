@@ -803,7 +803,8 @@ public class PrinterDiscoveryDialogTest {
         assertNotNull(buttonWithoutMdns, "Button '?' should exist for non-mDNS device");
 
         assertFalse(buttonWithMdns.isDisabled(), "Button should be ENABLED for mDNS device");
-        assertTrue(buttonWithoutMdns.isDisabled(), "Button should be DISABLED for non-mDNS device");
+        // In the updated implementation, the button is ALWAYS enabled to show a hint when data is missing.
+        assertFalse(buttonWithoutMdns.isDisabled(), "Button should be ENABLED even for non-mDNS device to show hint");
 
         Gdx.app.exit();
     }

@@ -31,6 +31,7 @@ public class DiscoveredDevice {
     private final String ipAddress;
     private final List<PortScanResult> services;
     private final List<MdnsServiceInfo> mdnsServices = new ArrayList<>();
+    private boolean selected;
     private String name;
     private String vendor;
     private String model;
@@ -91,6 +92,24 @@ public class DiscoveredDevice {
         if (service != null && !mdnsServices.contains(service)) {
             mdnsServices.add(service);
         }
+    }
+
+    /**
+     * Returns whether the device is selected in the UI.
+     *
+     * @return true if selected, false otherwise
+     */
+    public boolean isSelected() {
+        return selected;
+    }
+
+    /**
+     * Sets whether the device is selected in the UI.
+     *
+     * @param selected true if selected, false otherwise
+     */
+    public void setSelected(boolean selected) {
+        this.selected = selected;
     }
 
     /**
@@ -163,7 +182,8 @@ public class DiscoveredDevice {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         DiscoveredDevice that = (DiscoveredDevice) o;
-        return Objects.equals(ipAddress, that.ipAddress) && 
+        return selected == that.selected &&
+                Objects.equals(ipAddress, that.ipAddress) && 
                 Objects.equals(services, that.services) &&
                 Objects.equals(mdnsServices, that.mdnsServices) &&
                 Objects.equals(name, that.name) &&
@@ -173,7 +193,7 @@ public class DiscoveredDevice {
 
     @Override
     public int hashCode() {
-        return Objects.hash(ipAddress, services, mdnsServices, name, vendor, model);
+        return Objects.hash(ipAddress, services, mdnsServices, selected, name, vendor, model);
     }
 
     @Override
@@ -183,6 +203,7 @@ public class DiscoveredDevice {
                 ", name='" + name + '\'' +
                 ", vendor='" + vendor + '\'' +
                 ", model='" + model + '\'' +
+                ", selected=" + selected +
                 ", services=" + services +
                 ", mdnsServices=" + mdnsServices +
                 '}';

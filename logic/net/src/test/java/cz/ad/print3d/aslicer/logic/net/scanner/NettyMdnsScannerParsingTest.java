@@ -73,9 +73,9 @@ class NettyMdnsScannerParsingTest {
         msg.addRecord(DnsSection.ADDITIONAL, aRecord);
 
         // Access private processResponse method via reflection
-        Method method = NettyMdnsScanner.class.getDeclaredMethod("processResponse", DatagramDnsResponse.class, Set.class, MdnsDiscoveryListener.class);
+        Method method = NettyMdnsScanner.class.getDeclaredMethod("processResponse", DatagramDnsResponse.class, Map.class, Map.class, Set.class, MdnsDiscoveryListener.class);
         method.setAccessible(true);
-        method.invoke(scanner, msg, results, null);
+        method.invoke(scanner, msg, new java.util.HashMap<>(), new java.util.HashMap<>(), results, null);
 
         assertFalse(results.isEmpty(), "Should have discovered one service");
         MdnsServiceInfo info = null;
@@ -125,9 +125,9 @@ class NettyMdnsScannerParsingTest {
         DnsRawRecord txtRecord = new DefaultDnsRawRecord("Bambu-A1._bambu-network._tcp.local.", DnsRecordType.TXT, 3600, txtContent);
         msg.addRecord(DnsSection.ANSWER, txtRecord);
 
-        Method method = NettyMdnsScanner.class.getDeclaredMethod("processResponse", DatagramDnsResponse.class, Set.class, MdnsDiscoveryListener.class);
+        Method method = NettyMdnsScanner.class.getDeclaredMethod("processResponse", DatagramDnsResponse.class, Map.class, Map.class, Set.class, MdnsDiscoveryListener.class);
         method.setAccessible(true);
-        method.invoke(scanner, msg, results, null);
+        method.invoke(scanner, msg, new java.util.HashMap<>(), new java.util.HashMap<>(), results, null);
 
         assertFalse(results.isEmpty(), "Should have discovered service even without PTR record");
         MdnsServiceInfo info = results.iterator().next();
@@ -161,9 +161,9 @@ class NettyMdnsScannerParsingTest {
 
         // NO A record for printer.local.
 
-        Method method = NettyMdnsScanner.class.getDeclaredMethod("processResponse", DatagramDnsResponse.class, Set.class, MdnsDiscoveryListener.class);
+        Method method = NettyMdnsScanner.class.getDeclaredMethod("processResponse", DatagramDnsResponse.class, Map.class, Map.class, Set.class, MdnsDiscoveryListener.class);
         method.setAccessible(true);
-        method.invoke(scanner, msg, results, null);
+        method.invoke(scanner, msg, new java.util.HashMap<>(), new java.util.HashMap<>(), results, null);
 
         assertFalse(results.isEmpty(), "Should have discovered service");
         MdnsServiceInfo info = results.iterator().next();
