@@ -226,7 +226,7 @@ public class PrinterDiscoveryDialog extends Window {
 
         if (startIp.isEmpty() || endIp.isEmpty()) {
             resultsTable.clear();
-            resultsTable.add(new Label("Please enter a valid IP range.", skin)).expandX().center();
+            resultsTable.add(new Label("Please enter a valid IP range.", skin)).expandX().center().row();
             progressLabel.setText("");
             return;
         }
@@ -297,7 +297,7 @@ public class PrinterDiscoveryDialog extends Window {
                     progressLabel.setText("Scan stopped.");
                 } else {
                     resultsTable.clear();
-                    resultsTable.add(new Label("Scan failed: " + ex.getMessage(), skin)).expandX().center();
+                    resultsTable.add(new Label("Scan failed: " + ex.getMessage(), skin)).expandX().center().row();
                     progressLabel.setText("");
                 }
             });
@@ -330,7 +330,7 @@ public class PrinterDiscoveryDialog extends Window {
     public void updateResults(List<DiscoveredDevice> devices) {
         resultsTable.clear();
         if (devices.isEmpty()) {
-            resultsTable.add(new Label("No printers found.", skin)).expandX().center();
+            resultsTable.add(new Label("No printers found.", skin)).expandX().center().row();
             return;
         }
 
@@ -370,7 +370,7 @@ public class PrinterDiscoveryDialog extends Window {
             deviceTable.left();
             currentDevice = new DiscoveredDevice(device.getIpAddress());
             deviceTable.setUserObject(currentDevice);
-            resultsTable.add(deviceTable).fillX().padBottom(10).row();
+            resultsTable.add(deviceTable).expandX().fillX().padBottom(10).row();
         } else {
             currentDevice = (DiscoveredDevice) deviceTable.getUserObject();
             deviceTable.clear();
