@@ -94,6 +94,18 @@ public class PrinterDiscoveryDialogTest {
                         public int getTimeout() { return 500; }
 
                         @Override
+                        public void setMdnsTimeout(int timeoutMillis) {}
+
+                        @Override
+                        public int getMdnsTimeout() { return 500; }
+
+                        @Override
+                        public void setSsdpTimeout(int timeoutMillis) {}
+
+                        @Override
+                        public int getSsdpTimeout() { return 500; }
+
+                        @Override
                         public void setIncludeSelfIp(boolean include) {}
 
                         @Override
@@ -226,6 +238,18 @@ public class PrinterDiscoveryDialogTest {
 
                         @Override
                         public int getTimeout() { return 500; }
+
+                        @Override
+                        public void setMdnsTimeout(int timeoutMillis) {}
+
+                        @Override
+                        public int getMdnsTimeout() { return 500; }
+
+                        @Override
+                        public void setSsdpTimeout(int timeoutMillis) {}
+
+                        @Override
+                        public int getSsdpTimeout() { return 500; }
 
                         @Override
                         public void setIncludeSelfIp(boolean include) {}
@@ -361,6 +385,18 @@ public class PrinterDiscoveryDialogTest {
                         public int getTimeout() { return 500; }
 
                         @Override
+                        public void setMdnsTimeout(int timeoutMillis) {}
+
+                        @Override
+                        public int getMdnsTimeout() { return 500; }
+
+                        @Override
+                        public void setSsdpTimeout(int timeoutMillis) {}
+
+                        @Override
+                        public int getSsdpTimeout() { return 500; }
+
+                        @Override
                         public void setIncludeSelfIp(boolean include) {}
 
                         @Override
@@ -490,6 +526,10 @@ public class PrinterDiscoveryDialogTest {
                         @Override public CompletableFuture<DiscoveredDevice> scanHost(String h, List<Integer> p, boolean u, ScanProgressListener l) { return null; }
                         @Override public void setTimeout(int timeoutMillis) {}
                         @Override public int getTimeout() { return 500; }
+                        @Override public void setMdnsTimeout(int timeoutMillis) {}
+                        @Override public int getMdnsTimeout() { return 500; }
+                        @Override public void setSsdpTimeout(int timeoutMillis) {}
+                        @Override public int getSsdpTimeout() { return 500; }
                         @Override public void setIncludeSelfIp(boolean include) {}
                         @Override public boolean isIncludeSelfIp() { return false; }
                         @Override public void stopScan() {}
@@ -628,6 +668,18 @@ public class PrinterDiscoveryDialogTest {
                         public int getTimeout() { return 500; }
 
                         @Override
+                        public void setMdnsTimeout(int timeoutMillis) {}
+
+                        @Override
+                        public int getMdnsTimeout() { return 500; }
+
+                        @Override
+                        public void setSsdpTimeout(int timeoutMillis) {}
+
+                        @Override
+                        public int getSsdpTimeout() { return 500; }
+
+                        @Override
                         public void setIncludeSelfIp(boolean include) {}
 
                         @Override
@@ -740,6 +792,10 @@ public class PrinterDiscoveryDialogTest {
                         @Override public CompletableFuture<DiscoveredDevice> scanHost(String h, List<Integer> p, boolean u, ScanProgressListener l) { return null; }
                         @Override public void setTimeout(int timeoutMillis) {}
                         @Override public int getTimeout() { return 500; }
+                        @Override public void setMdnsTimeout(int timeoutMillis) {}
+                        @Override public int getMdnsTimeout() { return 500; }
+                        @Override public void setSsdpTimeout(int timeoutMillis) {}
+                        @Override public int getSsdpTimeout() { return 500; }
                         @Override public void setIncludeSelfIp(boolean include) {}
                         @Override public boolean isIncludeSelfIp() { return false; }
                         @Override public void stopScan() {}
@@ -839,6 +895,10 @@ public class PrinterDiscoveryDialogTest {
                         @Override public CompletableFuture<DiscoveredDevice> scanHost(String h, List<Integer> p, boolean u, ScanProgressListener l) { return null; }
                         @Override public void setTimeout(int timeoutMillis) {}
                         @Override public int getTimeout() { return 500; }
+                        @Override public void setMdnsTimeout(int timeoutMillis) {}
+                        @Override public int getMdnsTimeout() { return 500; }
+                        @Override public void setSsdpTimeout(int timeoutMillis) {}
+                        @Override public int getSsdpTimeout() { return 500; }
                         @Override public void setIncludeSelfIp(boolean include) {}
                         @Override public boolean isIncludeSelfIp() { return false; }
                         @Override public void stopScan() {}
@@ -945,6 +1005,10 @@ public class PrinterDiscoveryDialogTest {
                         @Override public CompletableFuture<DiscoveredDevice> scanHost(String host, List<Integer> ports, boolean useBannerGrabbing, ScanProgressListener listener) { return null; }
                         @Override public void setTimeout(int timeoutMillis) {}
                         @Override public int getTimeout() { return 500; }
+                        @Override public void setMdnsTimeout(int timeoutMillis) {}
+                        @Override public int getMdnsTimeout() { return 500; }
+                        @Override public void setSsdpTimeout(int timeoutMillis) {}
+                        @Override public int getSsdpTimeout() { return 500; }
                         @Override public void setIncludeSelfIp(boolean include) {}
                         @Override public boolean isIncludeSelfIp() { return false; }
                         @Override public void stopScan() { scanFuture.cancel(true); }

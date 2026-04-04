@@ -82,6 +82,18 @@ public class PrinterDiscoveryDialogSelectionTest {
                         public int getTimeout() { return 500; }
 
                         @Override
+                        public void setMdnsTimeout(int timeoutMillis) {}
+
+                        @Override
+                        public int getMdnsTimeout() { return 500; }
+
+                        @Override
+                        public void setSsdpTimeout(int timeoutMillis) {}
+
+                        @Override
+                        public int getSsdpTimeout() { return 500; }
+
+                        @Override
                         public void setIncludeSelfIp(boolean include) {}
 
                         @Override

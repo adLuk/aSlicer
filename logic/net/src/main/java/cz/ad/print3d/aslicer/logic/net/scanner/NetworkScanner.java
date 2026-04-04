@@ -143,6 +143,34 @@ public interface NetworkScanner extends AutoCloseable {
     int getTimeout();
 
     /**
+     * Sets the timeout for mDNS discovery.
+     *
+     * @param timeoutMillis the timeout in milliseconds
+     */
+    void setMdnsTimeout(int timeoutMillis);
+
+    /**
+     * Gets the current timeout for mDNS discovery.
+     *
+     * @return the timeout in milliseconds
+     */
+    int getMdnsTimeout();
+
+    /**
+     * Sets the timeout for SSDP discovery.
+     *
+     * @param timeoutMillis the timeout in milliseconds
+     */
+    void setSsdpTimeout(int timeoutMillis);
+
+    /**
+     * Gets the current timeout for SSDP discovery.
+     *
+     * @return the timeout in milliseconds
+     */
+    int getSsdpTimeout();
+
+    /**
      * Sets whether to include the local IP address of the machine performing the scan.
      *
      * @param include true to include self IP, false to exclude it

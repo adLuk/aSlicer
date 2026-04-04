@@ -3,6 +3,7 @@ package cz.ad.print3d.aslicer.logic.net.scanner;
 import cz.ad.print3d.aslicer.logic.net.scanner.dto.DiscoveredDevice;
 import cz.ad.print3d.aslicer.logic.net.scanner.dto.MdnsServiceInfo;
 import cz.ad.print3d.aslicer.logic.net.scanner.dto.PortScanResult;
+import cz.ad.print3d.aslicer.logic.net.scanner.dto.SsdpServiceInfo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -12,7 +13,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -25,13 +25,29 @@ class NettyNetworkScannerProgressTest {
 
     private StubPortScanner portScanner;
     private StubMdnsScanner mdnsScanner;
+    private StubSsdpScanner ssdpScanner;
     private NettyNetworkScanner networkScanner;
 
     @BeforeEach
     void setUp() {
         portScanner = new StubPortScanner();
         mdnsScanner = new StubMdnsScanner();
-        networkScanner = new NettyNetworkScanner(portScanner, mdnsScanner);
+        ssdpScanner = new StubSsdpScanner();
+        networkScanner = new NettyNetworkScanner(portScanner, mdnsScanner, ssdpScanner);
+    }
+
+    private static class StubSsdpScanner implements SsdpScanner {
+        @Override
+        public CompletableFuture<Set<SsdpServiceInfo>> discoverDevices(long timeoutMillis, SsdpDiscoveryListener listener, java.net.NetworkInterface networkInterface) {
+            return CompletableFuture.completedFuture(Collections.emptySet());
+        }
+
+        @Override
+        public void stopScan() {
+        }
+
+        @Override
+        public void close() {}
     }
 
     private static class StubPortScanner implements PortScanner {
@@ -59,6 +75,10 @@ class NettyNetworkScannerProgressTest {
         }
 
         @Override
+        public void stopScan() {
+        }
+
+        @Override
         public void close() {}
     }
 
@@ -66,6 +86,10 @@ class NettyNetworkScannerProgressTest {
         @Override
         public CompletableFuture<Set<MdnsServiceInfo>> discoverDevices(long timeoutMillis, MdnsDiscoveryListener listener, java.net.NetworkInterface networkInterface) {
             return CompletableFuture.completedFuture(Collections.emptySet());
+        }
+
+        @Override
+        public void stopScan() {
         }
 
         @Override
@@ -121,9 +145,11 @@ class NettyNetworkScannerProgressTest {
         // Then scanRange finishes and calls onProgress(1.0, ...).
 
         double maxProgressBeforeFinish = 0;
-        for (Double p : progressUpdates) {
-            if (p < 1.0) {
-                maxProgressBeforeFinish = Math.max(maxProgressBeforeFinish, p);
+        synchronized (progressUpdates) {
+            for (Double p : progressUpdates) {
+                if (p < 1.0) {
+                    maxProgressBeforeFinish = Math.max(maxProgressBeforeFinish, p);
+                }
             }
         }
 

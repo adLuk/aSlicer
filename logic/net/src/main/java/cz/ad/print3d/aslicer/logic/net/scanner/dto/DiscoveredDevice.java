@@ -31,6 +31,7 @@ public class DiscoveredDevice {
     private final String ipAddress;
     private final List<PortScanResult> services;
     private final List<MdnsServiceInfo> mdnsServices = new ArrayList<>();
+    private final List<SsdpServiceInfo> ssdpServices = new ArrayList<>();
     private boolean selected;
     private String name;
     private String vendor;
@@ -61,7 +62,7 @@ public class DiscoveredDevice {
      *
      * @return the IP address
      */
-    public String getIpAddress() {
+    public synchronized String getIpAddress() {
         return ipAddress;
     }
 
@@ -70,7 +71,7 @@ public class DiscoveredDevice {
      *
      * @return the list of services
      */
-    public List<PortScanResult> getServices() {
+    public synchronized List<PortScanResult> getServices() {
         return Collections.unmodifiableList(services);
     }
 
@@ -79,8 +80,17 @@ public class DiscoveredDevice {
      *
      * @return the list of mDNS services
      */
-    public List<MdnsServiceInfo> getMdnsServices() {
+    public synchronized List<MdnsServiceInfo> getMdnsServices() {
         return Collections.unmodifiableList(mdnsServices);
+    }
+
+    /**
+     * Returns an unmodifiable list of SSDP services associated with this device.
+     *
+     * @return the list of SSDP services
+     */
+    public synchronized List<SsdpServiceInfo> getSsdpServices() {
+        return Collections.unmodifiableList(ssdpServices);
     }
 
     /**
@@ -88,9 +98,20 @@ public class DiscoveredDevice {
      *
      * @param service the mDNS service info to add
      */
-    public void addMdnsService(MdnsServiceInfo service) {
+    public synchronized void addMdnsService(MdnsServiceInfo service) {
         if (service != null && !mdnsServices.contains(service)) {
             mdnsServices.add(service);
+        }
+    }
+
+    /**
+     * Adds an SSDP service info to this device.
+     *
+     * @param service the SSDP service info to add
+     */
+    public synchronized void addSsdpService(SsdpServiceInfo service) {
+        if (service != null && !ssdpServices.contains(service)) {
+            ssdpServices.add(service);
         }
     }
 
@@ -99,7 +120,7 @@ public class DiscoveredDevice {
      *
      * @return true if selected, false otherwise
      */
-    public boolean isSelected() {
+    public synchronized boolean isSelected() {
         return selected;
     }
 
@@ -108,7 +129,7 @@ public class DiscoveredDevice {
      *
      * @param selected true if selected, false otherwise
      */
-    public void setSelected(boolean selected) {
+    public synchronized void setSelected(boolean selected) {
         this.selected = selected;
     }
 
@@ -117,7 +138,7 @@ public class DiscoveredDevice {
      *
      * @return the device name, or null if unknown
      */
-    public String getName() {
+    public synchronized String getName() {
         return name;
     }
 
@@ -126,7 +147,7 @@ public class DiscoveredDevice {
      *
      * @param name the device name
      */
-    public void setName(String name) {
+    public synchronized void setName(String name) {
         this.name = name;
     }
 
@@ -135,7 +156,7 @@ public class DiscoveredDevice {
      *
      * @return the device vendor, or null if unknown
      */
-    public String getVendor() {
+    public synchronized String getVendor() {
         return vendor;
     }
 
@@ -144,7 +165,7 @@ public class DiscoveredDevice {
      *
      * @param vendor the device vendor
      */
-    public void setVendor(String vendor) {
+    public synchronized void setVendor(String vendor) {
         this.vendor = vendor;
     }
 
@@ -153,7 +174,7 @@ public class DiscoveredDevice {
      *
      * @return the device model, or null if unknown
      */
-    public String getModel() {
+    public synchronized String getModel() {
         return model;
     }
 
@@ -162,19 +183,32 @@ public class DiscoveredDevice {
      *
      * @param model the device model
      */
-    public void setModel(String model) {
+    public synchronized void setModel(String model) {
         this.model = model;
     }
 
     /**
-     * Adds a service discovery result to this device.
+     * Adds a service discovery result to this device. If a service with the same port already exists,
+     * it will be updated if the new result provides more information (e.g., is open or has service name).
      *
      * @param result the port scan result to add
      */
-    public void addService(PortScanResult result) {
-        if (result != null) {
-            services.add(result);
+    public synchronized void addService(PortScanResult result) {
+        if (result == null) return;
+
+        for (int i = 0; i < services.size(); i++) {
+            PortScanResult existing = services.get(i);
+            if (existing.getPort() == result.getPort()) {
+                // If the new result is open and the existing one isn't, or if the new one has service info
+                // that the existing one lacks, we update it.
+                if ((result.isOpen() && !existing.isOpen()) ||
+                        (result.getService() != null && existing.getService() == null)) {
+                    services.set(i, result);
+                }
+                return;
+            }
         }
+        services.add(result);
     }
 
     @Override
@@ -186,6 +220,7 @@ public class DiscoveredDevice {
                 Objects.equals(ipAddress, that.ipAddress) && 
                 Objects.equals(services, that.services) &&
                 Objects.equals(mdnsServices, that.mdnsServices) &&
+                Objects.equals(ssdpServices, that.ssdpServices) &&
                 Objects.equals(name, that.name) &&
                 Objects.equals(vendor, that.vendor) &&
                 Objects.equals(model, that.model);
@@ -193,7 +228,7 @@ public class DiscoveredDevice {
 
     @Override
     public int hashCode() {
-        return Objects.hash(ipAddress, services, mdnsServices, selected, name, vendor, model);
+        return Objects.hash(ipAddress, services, mdnsServices, ssdpServices, selected, name, vendor, model);
     }
 
     @Override
@@ -206,6 +241,7 @@ public class DiscoveredDevice {
                 ", selected=" + selected +
                 ", services=" + services +
                 ", mdnsServices=" + mdnsServices +
+                ", ssdpServices=" + ssdpServices +
                 '}';
     }
 }

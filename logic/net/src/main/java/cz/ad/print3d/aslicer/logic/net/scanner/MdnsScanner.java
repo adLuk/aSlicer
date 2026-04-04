@@ -53,6 +53,11 @@ public interface MdnsScanner extends AutoCloseable {
      */
     CompletableFuture<Set<MdnsServiceInfo>> discoverDevices(long timeoutMillis, MdnsDiscoveryListener listener, NetworkInterface networkInterface);
 
+    /**
+     * Stops any currently ongoing mDNS discovery.
+     */
+    void stopScan();
+
     @Override
     void close();
 }

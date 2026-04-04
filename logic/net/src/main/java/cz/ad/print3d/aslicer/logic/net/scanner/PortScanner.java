@@ -58,6 +58,11 @@ public interface PortScanner extends AutoCloseable {
      */
     int getTimeout();
 
+    /**
+     * Stops any currently ongoing port scans.
+     */
+    void stopScan();
+
     @Override
     void close();
 }

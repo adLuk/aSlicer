@@ -62,6 +62,10 @@ class NettyNetworkScannerDeepScanTest {
         }
 
         @Override
+        public void stopScan() {
+        }
+
+        @Override
         public void close() {}
     }
 
@@ -69,6 +73,10 @@ class NettyNetworkScannerDeepScanTest {
         @Override
         public CompletableFuture<Set<MdnsServiceInfo>> discoverDevices(long timeoutMillis, MdnsDiscoveryListener listener, java.net.NetworkInterface networkInterface) {
             return CompletableFuture.completedFuture(Collections.emptySet());
+        }
+
+        @Override
+        public void stopScan() {
         }
 
         @Override

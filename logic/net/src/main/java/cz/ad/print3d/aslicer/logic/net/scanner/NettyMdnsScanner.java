@@ -15,6 +15,7 @@ import java.net.NetworkInterface;
 import java.net.UnknownHostException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -67,6 +68,7 @@ public class NettyMdnsScanner implements MdnsScanner {
 
     private final EventLoopGroup group;
     private final boolean ownGroup;
+    private final List<Channel> activeChannels = new CopyOnWriteArrayList<>();
 
     /**
      * Constructs a new NettyMdnsScanner with its own EventLoopGroup.
@@ -136,7 +138,8 @@ public class NettyMdnsScanner implements MdnsScanner {
                     }
                 });
 
-        b.bind(0).addListener(new ChannelFutureListener() {
+        ChannelFuture bindFuture = b.bind(0);
+        bindFuture.addListener(new ChannelFutureListener() {
             @Override
             public void operationComplete(ChannelFuture bindFuture) {
                 if (!bindFuture.isSuccess()) {
@@ -145,6 +148,7 @@ public class NettyMdnsScanner implements MdnsScanner {
                 }
 
                 Channel ch = bindFuture.channel();
+                activeChannels.add(ch);
                 InetSocketAddress mDnsAddr = new InetSocketAddress(MDNS_IP, MDNS_PORT);
 
                 for (String service : COMMON_SERVICES) {
@@ -153,13 +157,21 @@ public class NettyMdnsScanner implements MdnsScanner {
                     ch.writeAndFlush(query);
                 }
 
+                // Wait for responses. We wait slightly longer than timeoutMillis to ensure we catch late responses
+                // but we complete the future at timeoutMillis.
                 group.schedule(() -> {
+                    activeChannels.remove(ch);
                     ch.close();
                     synchronized (discoveredServices) {
                         future.complete(new HashSet<>(discoveredServices));
                     }
-                }, timeoutMillis, TimeUnit.MILLISECONDS);
+                }, timeoutMillis + 500, TimeUnit.MILLISECONDS);
             }
+        });
+
+        future.whenComplete((res, ex) -> {
+            activeChannels.remove(bindFuture.channel());
+            bindFuture.channel().close();
         });
 
         return future;
@@ -330,6 +342,14 @@ public class NettyMdnsScanner implements MdnsScanner {
         String ipAddress;
         int port;
         Map<String, String> attributes = new HashMap<>();
+    }
+
+    @Override
+    public void stopScan() {
+        for (Channel ch : activeChannels) {
+            ch.close();
+        }
+        activeChannels.clear();
     }
 
     @Override

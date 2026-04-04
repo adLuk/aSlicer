@@ -19,11 +19,7 @@ package cz.ad.print3d.aslicer.logic.net.scanner;
 
 import cz.ad.print3d.aslicer.logic.net.scanner.dto.PortScanResult;
 import io.netty.bootstrap.Bootstrap;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelFutureListener;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.EventLoopGroup;
+import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.timeout.ReadTimeoutHandler;
@@ -122,6 +118,12 @@ public class NettyPortScanner implements PortScanner {
     @Override
     public int getTimeout() {
         return timeoutMillis;
+    }
+
+    @Override
+    public void stopScan() {
+        // NettyPortScanner uses CompletableFuture for each port scan, which should be cancelled individually
+        // through NettyNetworkScanner.
     }
 
     @Override

@@ -64,6 +64,10 @@ class NettyNetworkScannerMdnsTest {
         public int getTimeout() { return 500; }
 
         @Override
+        public void stopScan() {
+        }
+
+        @Override
         public void close() {}
     }
 
@@ -78,6 +82,10 @@ class NettyNetworkScannerMdnsTest {
                 }
             }
             return CompletableFuture.completedFuture(discoveredServices);
+        }
+
+        @Override
+        public void stopScan() {
         }
 
         @Override

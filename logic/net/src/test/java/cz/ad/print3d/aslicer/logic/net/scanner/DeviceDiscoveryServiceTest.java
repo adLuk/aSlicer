@@ -104,6 +104,18 @@ class DeviceDiscoveryServiceTest {
         public boolean isIncludeSelfIp() { return false; }
 
         @Override
+        public void setMdnsTimeout(int timeoutMillis) {}
+
+        @Override
+        public int getMdnsTimeout() { return 1500; }
+
+        @Override
+        public void setSsdpTimeout(int timeoutMillis) {}
+
+        @Override
+        public int getSsdpTimeout() { return 1500; }
+
+        @Override
         public void stopScan() {
             // No-op for stub
         }
