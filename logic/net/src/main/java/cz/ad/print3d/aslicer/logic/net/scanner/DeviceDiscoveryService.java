@@ -18,8 +18,8 @@
 package cz.ad.print3d.aslicer.logic.net.scanner;
 
 import cz.ad.print3d.aslicer.logic.net.scanner.dto.DiscoveredDevice;
+import cz.ad.print3d.aslicer.logic.net.scanner.dto.ScanConfiguration;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -28,17 +28,7 @@ import java.util.concurrent.CompletableFuture;
  */
 public class DeviceDiscoveryService {
 
-    private static final List<Integer> COMMON_PRINTER_PORTS = Arrays.asList(
-            22,   // SSH
-            80,   // HTTP
-            443,  // HTTPS
-            3344, // Repetier-Server
-            5000, // OctoPrint
-            7080, // Alternative HTTP / others
-            7125, // Moonraker (Klipper)
-            8080, // MJPG-Streamer / Alternative HTTP
-            8883  // MQTT over SSL (Bambu Lab, PrusaLink)
-    );
+    private static final ScanConfiguration DEFAULT_SCAN_CONFIG = ScanConfigurationLoader.loadDefault();
 
     private final NetworkScanner networkScanner;
 
@@ -81,7 +71,7 @@ public class DeviceDiscoveryService {
      * @return a CompletableFuture that completes with a list of discovered devices
      */
     public CompletableFuture<List<DiscoveredDevice>> discoverPrinters(String baseIp, int startHost, int endHost, boolean useBannerGrabbing) {
-        return networkScanner.scanRange(baseIp, startHost, endHost, COMMON_PRINTER_PORTS, useBannerGrabbing);
+        return networkScanner.scanRange(baseIp, startHost, endHost, DEFAULT_SCAN_CONFIG, useBannerGrabbing);
     }
 
     /**

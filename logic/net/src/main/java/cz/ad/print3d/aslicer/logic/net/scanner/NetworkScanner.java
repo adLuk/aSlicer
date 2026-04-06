@@ -19,6 +19,7 @@ package cz.ad.print3d.aslicer.logic.net.scanner;
 
 import cz.ad.print3d.aslicer.logic.net.scanner.dto.DiscoveredDevice;
 import cz.ad.print3d.aslicer.logic.net.scanner.dto.PortScanResult;
+import cz.ad.print3d.aslicer.logic.net.scanner.dto.ScanConfiguration;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -60,6 +61,14 @@ public interface NetworkScanner extends AutoCloseable {
          * @param portResult the result of the port scan
          */
         default void onPortDiscovered(String host, PortScanResult portResult) {}
+
+        /**
+         * Called when an individual port has been scanned, regardless of whether it's open or not.
+         *
+         * @param host the host IP address
+         * @param port the port number
+         */
+        default void onPortScanned(String host, int port) {}
     }
 
     /**
@@ -74,6 +83,19 @@ public interface NetworkScanner extends AutoCloseable {
     CompletableFuture<List<DiscoveredDevice>> scanRange(String baseIp, int startHost, int endHost, List<Integer> ports);
 
     /**
+     * Scans a range of IP addresses for a set of ports.
+     *
+     * @param baseIp    the base IP address (e.g., "192.168.1.")
+     * @param startHost the starting host number (inclusive, 1-254)
+     * @param endHost   the ending host number (inclusive, 1-254)
+     * @param config    the scan configuration containing profiles and ports
+     * @return a CompletableFuture that completes with a list of discovered devices
+     */
+    default CompletableFuture<List<DiscoveredDevice>> scanRange(String baseIp, int startHost, int endHost, ScanConfiguration config) {
+        return scanRange(baseIp, startHost, endHost, new java.util.ArrayList<>(config.getAllPorts()));
+    }
+
+    /**
      * Scans a range of IP addresses for a set of ports with optional banner grabbing.
      *
      * @param baseIp            the base IP address (e.g., "192.168.1.")
@@ -84,6 +106,20 @@ public interface NetworkScanner extends AutoCloseable {
      * @return a CompletableFuture that completes with a list of discovered devices
      */
     CompletableFuture<List<DiscoveredDevice>> scanRange(String baseIp, int startHost, int endHost, List<Integer> ports, boolean useBannerGrabbing);
+
+    /**
+     * Scans a range of IP addresses for a set of ports with optional banner grabbing.
+     *
+     * @param baseIp            the base IP address (e.g., "192.168.1.")
+     * @param startHost         the starting host number (inclusive, 1-254)
+     * @param endHost           the ending host number (inclusive, 1-254)
+     * @param config            the scan configuration containing profiles and ports
+     * @param useBannerGrabbing true to attempt banner grabbing, false otherwise
+     * @return a CompletableFuture that completes with a list of discovered devices
+     */
+    default CompletableFuture<List<DiscoveredDevice>> scanRange(String baseIp, int startHost, int endHost, ScanConfiguration config, boolean useBannerGrabbing) {
+        return scanRange(baseIp, startHost, endHost, new java.util.ArrayList<>(config.getAllPorts()), useBannerGrabbing);
+    }
 
     /**
      * Scans a range of IP addresses for a set of ports with optional banner grabbing and progress monitoring.
@@ -99,6 +135,21 @@ public interface NetworkScanner extends AutoCloseable {
     CompletableFuture<List<DiscoveredDevice>> scanRange(String baseIp, int startHost, int endHost, List<Integer> ports, boolean useBannerGrabbing, ScanProgressListener listener);
 
     /**
+     * Scans a range of IP addresses for a set of ports with optional banner grabbing and progress monitoring.
+     *
+     * @param baseIp            the base IP address (e.g., "192.168.1.")
+     * @param startHost         the starting host number (inclusive, 1-254)
+     * @param endHost           the ending host number (inclusive, 1-254)
+     * @param config            the scan configuration containing profiles and ports
+     * @param useBannerGrabbing true to attempt banner grabbing, false otherwise
+     * @param listener          listener to receive progress updates
+     * @return a CompletableFuture that completes with a list of discovered devices
+     */
+    default CompletableFuture<List<DiscoveredDevice>> scanRange(String baseIp, int startHost, int endHost, ScanConfiguration config, boolean useBannerGrabbing, ScanProgressListener listener) {
+        return scanRange(baseIp, startHost, endHost, new java.util.ArrayList<>(config.getAllPorts()), useBannerGrabbing, listener);
+    }
+
+    /**
      * Scans a single host for a set of ports.
      *
      * @param host  the host IP address or name
@@ -106,6 +157,17 @@ public interface NetworkScanner extends AutoCloseable {
      * @return a CompletableFuture that completes with a DiscoveredDevice containing open ports
      */
     CompletableFuture<DiscoveredDevice> scanHost(String host, List<Integer> ports);
+
+    /**
+     * Scans a single host for a set of ports.
+     *
+     * @param host   the host IP address or name
+     * @param config the scan configuration containing profiles and ports
+     * @return a CompletableFuture that completes with a DiscoveredDevice containing open ports
+     */
+    default CompletableFuture<DiscoveredDevice> scanHost(String host, ScanConfiguration config) {
+        return scanHost(host, new java.util.ArrayList<>(config.getAllPorts()));
+    }
 
     /**
      * Scans a single host for a set of ports with optional banner grabbing.
@@ -118,6 +180,18 @@ public interface NetworkScanner extends AutoCloseable {
     CompletableFuture<DiscoveredDevice> scanHost(String host, List<Integer> ports, boolean useBannerGrabbing);
 
     /**
+     * Scans a single host for a set of ports with optional banner grabbing.
+     *
+     * @param host              the host IP address or name
+     * @param config            the scan configuration containing profiles and ports
+     * @param useBannerGrabbing true to attempt banner grabbing, false otherwise
+     * @return a CompletableFuture that completes with a DiscoveredDevice containing open ports
+     */
+    default CompletableFuture<DiscoveredDevice> scanHost(String host, ScanConfiguration config, boolean useBannerGrabbing) {
+        return scanHost(host, new java.util.ArrayList<>(config.getAllPorts()), useBannerGrabbing);
+    }
+
+    /**
      * Scans a single host for a set of ports with optional banner grabbing and progress monitoring.
      *
      * @param host              the host IP address or name
@@ -127,6 +201,19 @@ public interface NetworkScanner extends AutoCloseable {
      * @return a CompletableFuture that completes with a DiscoveredDevice containing open ports
      */
     CompletableFuture<DiscoveredDevice> scanHost(String host, List<Integer> ports, boolean useBannerGrabbing, ScanProgressListener listener);
+
+    /**
+     * Scans a single host for a set of ports with optional banner grabbing and progress monitoring.
+     *
+     * @param host              the host IP address or name
+     * @param config            the scan configuration containing profiles and ports
+     * @param useBannerGrabbing true to attempt banner grabbing, false otherwise
+     * @param listener          listener to receive progress updates (for individual ports)
+     * @return a CompletableFuture that completes with a DiscoveredDevice containing open ports
+     */
+    default CompletableFuture<DiscoveredDevice> scanHost(String host, ScanConfiguration config, boolean useBannerGrabbing, ScanProgressListener listener) {
+        return scanHost(host, new java.util.ArrayList<>(config.getAllPorts()), useBannerGrabbing, listener);
+    }
 
     /**
      * Sets the timeout for connection attempts during the scan.

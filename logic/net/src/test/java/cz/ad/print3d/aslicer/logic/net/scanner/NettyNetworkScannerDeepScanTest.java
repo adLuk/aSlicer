@@ -97,11 +97,10 @@ class NettyNetworkScannerDeepScanTest {
         DiscoveredDevice device = future.get(10, TimeUnit.SECONDS);
 
         // Common ports in isHostUp are 5 (80, 443, 22, 5000, 7125)
-        // Since the host is considered offline (StubPortScanner returns false for all AND isReachable fails),
-        // it should only call scanPort for the common ports.
+        // Since we decided not to skip (source of truth), it should call scanPort for all ports.
+        // It might also call for common ports during isHostUp, so callCount should be >= 1000.
         int calls = portScanner.callCount.get();
-        // calls should be exactly the number of common ports if isReachable fails
-        assertTrue(calls > 0 && calls < 100, "Should have skipped most ports for offline host. Calls: " + calls);
+        assertTrue(calls >= 1000, "Should have scanned all 1000 ports for host even if potentially offline. Calls: " + calls);
     }
 
     @Test

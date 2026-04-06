@@ -19,6 +19,7 @@ package cz.ad.print3d.aslicer.logic.net.scanner;
 
 import cz.ad.print3d.aslicer.logic.net.scanner.dto.DiscoveredDevice;
 import cz.ad.print3d.aslicer.logic.net.scanner.dto.PortScanResult;
+import cz.ad.print3d.aslicer.logic.net.scanner.dto.ScanConfiguration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -85,6 +86,45 @@ class DeviceDiscoveryServiceTest {
 
         @Override
         public CompletableFuture<DiscoveredDevice> scanHost(String host, List<Integer> ports, boolean useBannerGrabbing, ScanProgressListener listener) {
+            if (listener != null) {
+                listener.onProgress(1.0, host);
+            }
+            return CompletableFuture.completedFuture(new DiscoveredDevice(host));
+        }
+
+        @Override
+        public CompletableFuture<List<DiscoveredDevice>> scanRange(String baseIp, int startHost, int endHost, ScanConfiguration config) {
+            return scanRange(baseIp, startHost, endHost, config, false);
+        }
+
+        @Override
+        public CompletableFuture<List<DiscoveredDevice>> scanRange(String baseIp, int startHost, int endHost, ScanConfiguration config, boolean useBannerGrabbing) {
+            return scanRange(baseIp, startHost, endHost, config, useBannerGrabbing, null);
+        }
+
+        @Override
+        public CompletableFuture<List<DiscoveredDevice>> scanRange(String baseIp, int startHost, int endHost, ScanConfiguration config, boolean useBannerGrabbing, ScanProgressListener listener) {
+            this.lastBaseIp = baseIp;
+            this.lastPorts = new ArrayList<>(config.getAllPorts());
+            this.lastUseBannerGrabbing = useBannerGrabbing;
+            if (listener != null) {
+                listener.onProgress(1.0, baseIp + endHost);
+            }
+            return CompletableFuture.completedFuture(resultToReturn);
+        }
+
+        @Override
+        public CompletableFuture<DiscoveredDevice> scanHost(String host, ScanConfiguration config) {
+            return scanHost(host, config, false);
+        }
+
+        @Override
+        public CompletableFuture<DiscoveredDevice> scanHost(String host, ScanConfiguration config, boolean useBannerGrabbing) {
+            return scanHost(host, config, useBannerGrabbing, null);
+        }
+
+        @Override
+        public CompletableFuture<DiscoveredDevice> scanHost(String host, ScanConfiguration config, boolean useBannerGrabbing, ScanProgressListener listener) {
             if (listener != null) {
                 listener.onProgress(1.0, host);
             }
