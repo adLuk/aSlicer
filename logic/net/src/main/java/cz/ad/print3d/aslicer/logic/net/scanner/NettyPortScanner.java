@@ -22,20 +22,34 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.handler.codec.http.HttpClientCodec;
+import io.netty.handler.codec.http.HttpObjectAggregator;
+import io.netty.handler.ssl.SslContext;
+import io.netty.handler.ssl.SslContextBuilder;
+import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.netty.util.concurrent.DefaultThreadFactory;
 
+import javax.net.ssl.SSLException;
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 
 /**
  * NettyPortScanner uses Netty to check if a specific port on a given IP address is open.
  */
 public class NettyPortScanner implements PortScanner {
 
+    private static final Logger LOGGER = Logger.getLogger(NettyPortScanner.class.getName());
+    private static final List<Integer> HTTP_PORTS = Arrays.asList(80, 443, 8080, 5000, 7125, 8000);
+    private static final List<Integer> SSL_PORTS = Arrays.asList(443, 990, 8883);
+
     private final EventLoopGroup group;
     private int timeoutMillis;
     private int bannerTimeoutMillis;
+    private SslContext sslContext;
 
     /**
      * Constructs a new NettyPortScanner with default timeout (500ms) and a shared event loop group.
@@ -63,6 +77,21 @@ public class NettyPortScanner implements PortScanner {
         this.group = new NioEventLoopGroup(0, new DefaultThreadFactory("netty-port-scanner", true));
         this.timeoutMillis = timeoutMillis;
         this.bannerTimeoutMillis = bannerTimeoutMillis;
+        try {
+            this.sslContext = SslContextBuilder.forClient()
+                    .trustManager(InsecureTrustManagerFactory.INSTANCE)
+                    .build();
+        } catch (SSLException e) {
+            LOGGER.warning("Failed to create SSL context: " + e.getMessage());
+        }
+    }
+
+    private boolean isHttpPort(int port) {
+        return HTTP_PORTS.contains(port);
+    }
+
+    private boolean isSslPort(int port) {
+        return SSL_PORTS.contains(port);
     }
 
     @Override
@@ -83,7 +112,18 @@ public class NettyPortScanner implements PortScanner {
                     protected void initChannel(NioSocketChannel ch) {
                         if (useBannerGrabbing) {
                             ch.pipeline().addLast(new ReadTimeoutHandler(bannerTimeoutMillis, TimeUnit.MILLISECONDS));
-                            ch.pipeline().addLast(new BannerHandler(future, port));
+                            
+                            if (isSslPort(port) && sslContext != null) {
+                                ch.pipeline().addLast(sslContext.newHandler(ch.alloc(), host, port));
+                            }
+                            
+                            if (isHttpPort(port)) {
+                                ch.pipeline().addLast(new HttpClientCodec());
+                                ch.pipeline().addLast(new HttpObjectAggregator(65536));
+                                ch.pipeline().addLast(new HttpBannerHandler(future, port, host));
+                            } else {
+                                ch.pipeline().addLast(new BannerHandler(future, port));
+                            }
                         }
                     }
                 });

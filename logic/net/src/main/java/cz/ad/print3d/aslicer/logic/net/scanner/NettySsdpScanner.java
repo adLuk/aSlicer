@@ -33,10 +33,7 @@ import org.w3c.dom.NodeList;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.InputStream;
-import java.net.InetSocketAddress;
-import java.net.NetworkInterface;
-import java.net.URL;
-import java.net.URLConnection;
+import java.net.*;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -174,7 +171,7 @@ public class NettySsdpScanner implements SsdpScanner {
                 int port = 80;
                 if (location != null) {
                     try {
-                        URL url = new URL(location);
+                        URL url = URI.create(location).toURL();
                         port = url.getPort() != -1 ? url.getPort() : url.getDefaultPort();
                     } catch (Exception ignored) {}
                 }
@@ -204,7 +201,7 @@ public class NettySsdpScanner implements SsdpScanner {
 
     private SsdpServiceInfo parseXmlDescription(String location, String usn, String st, String senderIp, Map<String, String> headers) {
         try {
-            URL url = new URL(location);
+            URL url = URI.create(location).toURL();
             URLConnection connection = url.openConnection();
             connection.setConnectTimeout(XML_FETCH_TIMEOUT_MS);
             connection.setReadTimeout(XML_FETCH_TIMEOUT_MS);

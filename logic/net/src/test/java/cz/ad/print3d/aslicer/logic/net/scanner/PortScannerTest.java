@@ -26,6 +26,7 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.util.concurrent.DefaultThreadFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,9 +38,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 class PortScannerTest {
 
@@ -51,8 +50,8 @@ class PortScannerTest {
     @BeforeEach
     void setUp() throws IOException {
         portScanner = new NettyPortScanner(200);
-        bossGroup = new NioEventLoopGroup(1);
-        workerGroup = new NioEventLoopGroup();
+        bossGroup = new NioEventLoopGroup(1, new DefaultThreadFactory("netty-test-boss", true));
+        workerGroup = new NioEventLoopGroup(0, new DefaultThreadFactory("netty-test-worker", true));
         testPort = findFreePort();
     }
 

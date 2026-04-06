@@ -53,14 +53,17 @@ public class DefaultServiceValidator implements ServiceValidator {
             }
         }
 
-        // 2. Fallback to configured service name for this port if it's not ambiguous among profiles
+        // 2. Fallback to configured service name for this port if it's not ambiguous among profiles,
+        // it doesn't have a specific validation pattern (which would have matched in step 1),
+        // and it's not a common port that could belong to any device.
         if (config != null) {
             List<PortDiscoveryConfig> matchingConfigs = config.getProfiles().stream()
                     .flatMap(p -> p.getPorts().stream())
                     .filter(pc -> pc.getPort() == port && pc.getServiceName() != null)
+                    .filter(pc -> pc.getValidationPattern() == null)
                     .collect(Collectors.toList());
 
-            if (matchingConfigs.size() == 1) {
+            if (matchingConfigs.size() == 1 && !config.getCommonPorts().contains(port)) {
                 return new PortScanResult(port, true, matchingConfigs.get(0).getServiceName(), (banner != null && !banner.isEmpty()) ? banner : "No banner received");
             }
         }
@@ -111,14 +114,16 @@ public class DefaultServiceValidator implements ServiceValidator {
             }
         }
 
-        // 3. Fallback to configured service name for this port if it's not ambiguous
+        // 3. Fallback to configured service name for this port if it's not ambiguous,
+        // it doesn't have a specific validation pattern, and it's not a common port.
         if (config != null) {
             List<PortDiscoveryConfig> matchingConfigs = config.getProfiles().stream()
                     .flatMap(p -> p.getPorts().stream())
                     .filter(pc -> pc.getPort() == port && pc.getServiceName() != null)
+                    .filter(pc -> pc.getValidationPattern() == null)
                     .collect(Collectors.toList());
 
-            if (matchingConfigs.size() == 1) {
+            if (matchingConfigs.size() == 1 && !config.getCommonPorts().contains(port)) {
                 return new PortScanResult(port, true, matchingConfigs.get(0).getServiceName(), info.getDetails());
             }
         }

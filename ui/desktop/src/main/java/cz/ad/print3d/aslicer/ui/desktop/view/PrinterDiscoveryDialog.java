@@ -23,22 +23,10 @@ import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.scenes.scene2d.Actor;
-import com.badlogic.gdx.scenes.scene2d.Stage;
-import com.badlogic.gdx.scenes.scene2d.ui.CheckBox;
-import com.badlogic.gdx.scenes.scene2d.ui.Dialog;
-import com.badlogic.gdx.scenes.scene2d.ui.ImageButton;
-import com.badlogic.gdx.scenes.scene2d.ui.ImageButton.ImageButtonStyle;
-import com.badlogic.gdx.scenes.scene2d.ui.Label;
-import com.badlogic.gdx.scenes.scene2d.ui.ScrollPane;
-import com.badlogic.gdx.scenes.scene2d.ui.Skin;
-import com.badlogic.gdx.scenes.scene2d.ui.Table;
-import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
-import com.badlogic.gdx.scenes.scene2d.ui.TextField;
-import com.badlogic.gdx.scenes.scene2d.ui.Window;
+import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
-import com.badlogic.gdx.utils.Align;
 import cz.ad.print3d.aslicer.logic.net.info.NetworkAddressInfo;
 import cz.ad.print3d.aslicer.logic.net.info.NetworkInformationCollector;
 import cz.ad.print3d.aslicer.logic.net.info.NetworkInterfaceInfo;
@@ -52,7 +40,10 @@ import cz.ad.print3d.aslicer.logic.net.scanner.dto.ScanConfiguration;
 import cz.ad.print3d.aslicer.logic.net.util.IpUtils;
 
 import java.net.UnknownHostException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Dialog window for discovering 3D printers on the network.
@@ -383,7 +374,7 @@ public class PrinterDiscoveryDialog extends Window {
         }
 
         if (row == null) {
-            row = new DeviceRow(device, skin, this::showMdnsDetails);
+            row = new DeviceRow(device, skin, this::showDeviceDetails);
             resultsTable.add(row).expandX().fillX().padBottom(10).row();
         } else {
             row.update(device);
@@ -425,12 +416,12 @@ public class PrinterDiscoveryDialog extends Window {
     }
 
     /**
-     * Displays a dialog with all mDNS data received for a device.
+     * Displays a dialog with all discovered data for a device, including mDNS and services.
      *
-     * @param device the device to show mDNS details for
+     * @param device the device to show details for
      */
-    private void showMdnsDetails(DiscoveredDevice device) {
-        Dialog dialog = new Dialog("mDNS Details", skin) {
+    private void showDeviceDetails(DiscoveredDevice device) {
+        Dialog dialog = new Dialog("Device Details - " + device.getIpAddress(), skin) {
             @Override
             protected void result(Object object) {
                 hide();
@@ -441,24 +432,47 @@ public class PrinterDiscoveryDialog extends Window {
         content.pad(10);
         content.left();
 
+        // Device Header
+        content.add(new Label("Device Information", skin, "default", Color.YELLOW)).left().padBottom(5).row();
+        content.add(new Label("IP Address: " + device.getIpAddress(), skin)).left().padLeft(10).row();
+        if (device.getVendor() != null) content.add(new Label("Vendor: " + device.getVendor(), skin)).left().padLeft(10).row();
+        if (device.getModel() != null) content.add(new Label("Model: " + device.getModel(), skin)).left().padLeft(10).row();
+        if (device.getName() != null) content.add(new Label("Name: " + device.getName(), skin)).left().padLeft(10).row();
+        content.add(new Label("", skin)).row(); // Spacer
+
+        // Port Scan Results
+        content.add(new Label("Open Ports & Services", skin, "default", Color.GREEN)).left().padBottom(5).row();
+        if (device.getServices().isEmpty()) {
+            content.add(new Label("No open ports discovered.", skin)).left().padLeft(10).row();
+        } else {
+            for (PortScanResult service : device.getServices()) {
+                String serviceName = service.getService() != null ? service.getService() : "Unknown";
+                content.add(new Label("Port " + service.getPort() + ": " + serviceName, skin, "default", Color.WHITE)).left().padLeft(10).row();
+                if (service.getServiceDetails() != null && !service.getServiceDetails().isEmpty()) {
+                    Label detailsLabel = new Label(service.getServiceDetails(), skin);
+                    detailsLabel.setWrap(true);
+                    detailsLabel.setColor(Color.LIGHT_GRAY);
+                    content.add(detailsLabel).left().padLeft(20).expandX().fillX().row();
+                }
+            }
+        }
+        content.add(new Label("", skin)).row(); // Spacer
+
+        // mDNS Data
+        content.add(new Label("mDNS Services", skin, "default", Color.CYAN)).left().padBottom(5).row();
         if (device.getMdnsServices().isEmpty()) {
-            Label hintLabel = new Label("No mDNS data was received for this device.\nThis could be because the device does not support mDNS\nor it is blocked by the network firewall.", skin);
-            hintLabel.setColor(Color.LIGHT_GRAY);
-            content.add(hintLabel).left().pad(10).row();
+            content.add(new Label("No mDNS data received.", skin)).left().padLeft(10).row();
         } else {
             for (MdnsServiceInfo service : device.getMdnsServices()) {
-                content.add(new Label("Service: " + service.getName(), skin, "default", Color.CYAN)).left().row();
-                content.add(new Label("Type: " + service.getType(), skin)).left().padLeft(10).row();
-                content.add(new Label("Hostname: " + service.getHostname(), skin)).left().padLeft(10).row();
-                content.add(new Label("Address: " + service.getIpAddress() + ":" + service.getPort(), skin)).left().padLeft(10).row();
-
+                content.add(new Label("Service: " + service.getName(), skin, "default", Color.WHITE)).left().padLeft(10).row();
+                content.add(new Label("Type: " + service.getType(), skin)).left().padLeft(20).row();
+                content.add(new Label("Hostname: " + service.getHostname(), skin)).left().padLeft(20).row();
+                
                 if (!service.getAttributes().isEmpty()) {
-                    content.add(new Label("Attributes:", skin)).left().padLeft(10).row();
                     for (Map.Entry<String, String> entry : service.getAttributes().entrySet()) {
-                        content.add(new Label("  " + entry.getKey() + " = " + entry.getValue(), skin)).left().padLeft(20).row();
+                        content.add(new Label("  " + entry.getKey() + " = " + entry.getValue(), skin)).left().padLeft(30).row();
                     }
                 }
-                content.add(new Label("", skin)).row(); // Spacer
             }
         }
 

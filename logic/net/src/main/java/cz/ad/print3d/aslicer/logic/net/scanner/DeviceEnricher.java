@@ -157,13 +157,29 @@ public class DeviceEnricher {
                     for (PortDiscoveryConfig portConfig : profile.getPorts()) {
                         int port = portConfig.getPort();
                         if (openPorts.contains(port) && portConfig.getServiceName() != null) {
-                            for (PortScanResult res : device.getServices()) {
-                                if (res.getPort() == port && (res.getService() == null || res.getService().equals("Unknown Service"))) {
+                            for (int i = 0; i < device.getServices().size(); i++) {
+                                PortScanResult res = device.getServices().get(i);
+                                if (res.getPort() == port && (res.getService() == null || res.getService().equals("Unknown Service") || res.getService().equals("Text Banner"))) {
                                     device.addService(new PortScanResult(port, true, portConfig.getServiceName(), res.getServiceDetails()));
                                 }
                             }
                         }
                     }
+                }
+            }
+
+            // Secondary pass: Identify by service name if any port was positively identified by pattern
+            if (device.getVendor() == null || device.getVendor().isEmpty()) {
+                for (PortScanResult res : device.getServices()) {
+                    if (res.getService() != null && !res.getService().equals("Unknown Service") && !res.getService().equals("Text Banner")) {
+                        for (PrinterDiscoveryProfile profile : config.getProfiles()) {
+                            if (res.getService().contains(profile.getPrinterType())) {
+                                device.setVendor(profile.getPrinterType());
+                                break;
+                            }
+                        }
+                    }
+                    if (device.getVendor() != null && !device.getVendor().isEmpty()) break;
                 }
             }
         }

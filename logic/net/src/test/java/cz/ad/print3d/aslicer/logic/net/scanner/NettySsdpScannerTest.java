@@ -23,6 +23,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
+import java.net.URI;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
@@ -71,7 +72,7 @@ class NettySsdpScannerTest {
                 "</root>";
 
         ByteArrayInputStream is = new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8));
-        URL url = new URL("http://192.168.1.100:8080/description.xml");
+        URL url = URI.create("http://192.168.1.100:8080/description.xml").toURL();
         Map<String, String> headers = Collections.singletonMap("USN", "uuid:1234");
 
         SsdpServiceInfo info = scanner.parseXmlDescription(is, url, "uuid:1234", "upnp:rootdevice", "192.168.1.100", headers);

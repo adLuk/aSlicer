@@ -2,11 +2,7 @@ package cz.ad.print3d.aslicer.ui.desktop.view;
 
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.scenes.scene2d.Actor;
-import com.badlogic.gdx.scenes.scene2d.ui.CheckBox;
-import com.badlogic.gdx.scenes.scene2d.ui.Label;
-import com.badlogic.gdx.scenes.scene2d.ui.Skin;
-import com.badlogic.gdx.scenes.scene2d.ui.Table;
-import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
+import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.utils.Align;
 import cz.ad.print3d.aslicer.logic.net.scanner.dto.DiscoveredDevice;
@@ -90,22 +86,33 @@ public class DeviceRow extends Table {
     }
 
     private void buildLayout() {
-        StringBuilder deviceLabelText = new StringBuilder(currentDevice.getIpAddress());
-        if (currentDevice.getName() != null && !currentDevice.getName().isEmpty()) {
-            deviceLabelText.append(" - ").append(currentDevice.getName());
+        String ip = currentDevice.getIpAddress();
+        String name = currentDevice.getName();
+        String vendor = currentDevice.getVendor();
+        String model = currentDevice.getModel();
+
+        StringBuilder deviceLabelText = new StringBuilder();
+        boolean positivelyIdentified = vendor != null && !vendor.isEmpty();
+
+        if (positivelyIdentified) {
+            deviceLabelText.append(vendor).append(" Printer @ ");
         }
-        if ((currentDevice.getVendor() != null && !currentDevice.getVendor().isEmpty()) || (currentDevice.getModel() != null && !currentDevice.getModel().isEmpty())) {
-            deviceLabelText.append(" [");
-            if (currentDevice.getVendor() != null) deviceLabelText.append(currentDevice.getVendor());
-            if (currentDevice.getVendor() != null && !currentDevice.getVendor().isEmpty() && currentDevice.getModel() != null && !currentDevice.getModel().isEmpty()) {
-                deviceLabelText.append(" ");
-            }
-            if (currentDevice.getModel() != null) deviceLabelText.append(currentDevice.getModel());
-            deviceLabelText.append("]");
+        deviceLabelText.append(ip);
+
+        if (name != null && !name.isEmpty() && !name.equals(vendor)) {
+            deviceLabelText.append(" - ").append(name);
+        }
+
+        if (model != null && !model.isEmpty()) {
+            deviceLabelText.append(" [").append(model).append("]");
         }
 
         Label deviceLabel = new Label(deviceLabelText.toString(), skin);
-        deviceLabel.setColor(Color.WHITE);
+        if (positivelyIdentified) {
+            deviceLabel.setColor(Color.YELLOW);
+        } else {
+            deviceLabel.setColor(Color.WHITE);
+        }
         deviceLabel.setAlignment(Align.center);
 
         CheckBox selectionCheckBox = new CheckBox("", skin);
@@ -141,9 +148,8 @@ public class DeviceRow extends Table {
 
     private void addPortInfo(Table portsTable, PortScanResult result) {
         String serviceName = result.getService() != null ? result.getService() : "Open";
-        String details = result.getServiceDetails() != null ? " (" + result.getServiceDetails() + ")" : "";
         String status = result.isVerificationInProgress() ? " [Verification in progress]" : "";
-        String serviceInfo = "Port " + result.getPort() + ": " + serviceName + details + status;
+        String serviceInfo = "Port " + result.getPort() + ": " + serviceName + status;
         
         Label serviceLabel = new Label("  " + serviceInfo, skin);
         serviceLabel.setName("port-" + result.getPort());

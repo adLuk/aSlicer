@@ -153,6 +153,65 @@ public class PrinterDetectionTest {
         assertTrue(device.getServices().stream().anyMatch(s -> s.getService().equals("GCode API")));
     }
 
+    /**
+     * Verifies that a generic device (like a router) with port 80 and 443 open
+     * is NOT incorrectly identified as a Prusa printer when the banner doesn't match.
+     */
+    @Test
+    void testPrusaFalsePositiveRouter() throws Exception {
+        StubPortScanner stubPortScanner = new StubPortScanner();
+        StubMdnsScanner stubMdnsScanner = new StubMdnsScanner();
+        StubSsdpScanner stubSsdpScanner = new StubSsdpScanner();
+
+        // Router with port 80 and 443 open, but NO Prusa banner
+        stubPortScanner.addHostResult("192.168.1.1", 80, new PortScanResult(80, true, "HTTP", "TP-Link Router"));
+        stubPortScanner.addHostResult("192.168.1.1", 443, new PortScanResult(443, true, "HTTPS", "TP-Link Router (Secure)"));
+
+        ScanConfiguration config = ScanConfigurationLoader.loadDefault();
+        NettyNetworkScanner scanner = new NettyNetworkScanner(stubPortScanner, stubMdnsScanner, stubSsdpScanner);
+
+        DiscoveredDevice routerDevice = scanner.scanHost("192.168.1.1", config, true).get();
+
+        // Should NOT be identified as Prusa
+        assertTrue(routerDevice.getVendor() == null || !routerDevice.getVendor().equals("Prusa"),
+                "Router should not be identified as Prusa printer. Vendor was: " + routerDevice.getVendor());
+
+        // Port 80 and 443 should NOT have Prusa specific service names
+        for (PortScanResult service : routerDevice.getServices()) {
+            if (service.getPort() == 80 || service.getPort() == 443) {
+                assertTrue(service.getService() == null || !service.getService().contains("Prusa"),
+                        "Port " + service.getPort() + " should not have Prusa service name. Service was: " + service.getService());
+            }
+        }
+    }
+
+    /**
+     * Verifies that a real Prusa device is correctly identified when its banner matches the pattern.
+     */
+    @Test
+    void testPrusaPositiveIdentification() throws Exception {
+        StubPortScanner stubPortScanner = new StubPortScanner();
+        StubMdnsScanner stubMdnsScanner = new StubMdnsScanner();
+        StubSsdpScanner stubSsdpScanner = new StubSsdpScanner();
+
+        // Real Prusa with pattern in banner
+        stubPortScanner.addHostResult("192.168.1.100", 80, new PortScanResult(80, true, "HTTP", "Welcome to PrusaLink"));
+
+        ScanConfiguration config = ScanConfigurationLoader.loadDefault();
+        NettyNetworkScanner scanner = new NettyNetworkScanner(stubPortScanner, stubMdnsScanner, stubSsdpScanner);
+
+        DiscoveredDevice prusaDevice = scanner.scanHost("192.168.1.100", config, true).get();
+
+        // Should be identified as Prusa
+        assertEquals("Prusa", prusaDevice.getVendor());
+        assertTrue(prusaDevice.getServices().stream().anyMatch(s -> s.getService().equals("PrusaLink (HTTP)")),
+                "PrusaLink (HTTP) should be identified by pattern match.");
+    }
+
+    /**
+     * Comprehensive test verifying detection of various printer types (Bambu, Klipper, OctoPrint)
+     * using the real default discovery configuration.
+     */
     @Test
     void testDetectPrintersWithDefaultConfig() throws Exception {
         StubPortScanner stubPortScanner = new StubPortScanner();
