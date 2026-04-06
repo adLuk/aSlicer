@@ -160,11 +160,12 @@ public class PrinterDetectionTest {
         StubSsdpScanner stubSsdpScanner = new StubSsdpScanner();
 
         // Mock various printers on DIFFERENT IPs
-        // 1. Bambu Lab on port 8883
-        stubPortScanner.addHostResult("192.168.1.101", 8883, new PortScanResult(8883, true, "MQTT", "Bambu Lab X1 Carbon"));
+        // 1. Bambu Lab on port 8883 and 990 (required ports)
+        stubPortScanner.addHostResult("192.168.1.101", 990, new PortScanResult(990, true));
+        stubPortScanner.addHostResult("192.168.1.101", 8883, new PortScanResult(8883, true));
         
-        // 2. Klipper on port 7125
-        stubPortScanner.addHostResult("192.168.1.102", 7125, new PortScanResult(7125, true, "Moonraker", "Moonraker v0.8.0"));
+        // 2. Klipper on port 7125 (required port)
+        stubPortScanner.addHostResult("192.168.1.102", 7125, new PortScanResult(7125, true));
 
         // 3. OctoPrint on port 5000
         stubPortScanner.addHostResult("192.168.1.103", 5000, new PortScanResult(5000, true, "OctoPrint", "OctoPrint 1.9.3"));
@@ -174,13 +175,14 @@ public class PrinterDetectionTest {
 
         // Scan Bambu host
         DiscoveredDevice bambuDevice = scanner.scanHost("192.168.1.101", config, true).get();
-        assertEquals(1, bambuDevice.getServices().size());
-        assertEquals("MQTT", bambuDevice.getServices().get(0).getService());
+        assertEquals("Bambu Lab", bambuDevice.getVendor());
+        assertTrue(bambuDevice.getServices().stream().anyMatch(s -> s.getService().equals("MQTT (Secure)")));
+        assertTrue(bambuDevice.getServices().stream().anyMatch(s -> s.getService().equals("FTPS (Secure FTP)")));
         
         // Scan Klipper host
         DiscoveredDevice klipperDevice = scanner.scanHost("192.168.1.102", config, true).get();
-        assertEquals(1, klipperDevice.getServices().size());
-        assertEquals("Moonraker API", klipperDevice.getServices().get(0).getService());
+        assertEquals("Klipper", klipperDevice.getVendor());
+        assertEquals("Moonraker API", klipperDevice.getServices().stream().filter(s -> s.getPort() == 7125).findFirst().orElseThrow().getService());
 
         // Scan OctoPrint host
         DiscoveredDevice octoDevice = scanner.scanHost("192.168.1.103", config, true).get();

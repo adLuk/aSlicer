@@ -29,6 +29,7 @@ public class PrinterDiscoveryProfile {
 
     private final String printerType;
     private final Set<PortDiscoveryConfig> ports;
+    private final Set<Integer> requiredPorts;
 
     /**
      * Constructs a new PrinterDiscoveryProfile.
@@ -37,8 +38,20 @@ public class PrinterDiscoveryProfile {
      * @param ports       a set of ports commonly used by this printer type
      */
     public PrinterDiscoveryProfile(String printerType, Set<PortDiscoveryConfig> ports) {
+        this(printerType, ports, Collections.emptySet());
+    }
+
+    /**
+     * Constructs a new PrinterDiscoveryProfile with required ports.
+     *
+     * @param printerType   the name or type of the printer
+     * @param ports         a set of ports commonly used by this printer type
+     * @param requiredPorts a set of ports that must be open to identify this printer type
+     */
+    public PrinterDiscoveryProfile(String printerType, Set<PortDiscoveryConfig> ports, Set<Integer> requiredPorts) {
         this.printerType = printerType;
         this.ports = ports != null ? Collections.unmodifiableSet(ports) : Collections.emptySet();
+        this.requiredPorts = requiredPorts != null ? Collections.unmodifiableSet(requiredPorts) : Collections.emptySet();
     }
 
     /**
@@ -59,17 +72,39 @@ public class PrinterDiscoveryProfile {
         return ports;
     }
 
+    /**
+     * Returns the set of required ports for identification.
+     *
+     * @return the set of required ports
+     */
+    public Set<Integer> getRequiredPorts() {
+        return requiredPorts;
+    }
+
+    /**
+     * Checks if the given set of open ports matches the required ports for this profile.
+     *
+     * @param openPorts the set of currently open ports
+     * @return true if all required ports are open, false otherwise
+     */
+    public boolean matches(Set<Integer> openPorts) {
+        if (requiredPorts.isEmpty()) {
+            return false;
+        }
+        return openPorts.containsAll(requiredPorts);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         PrinterDiscoveryProfile that = (PrinterDiscoveryProfile) o;
-        return Objects.equals(printerType, that.printerType) && Objects.equals(ports, that.ports);
+        return Objects.equals(printerType, that.printerType) && Objects.equals(ports, that.ports) && Objects.equals(requiredPorts, that.requiredPorts);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(printerType, ports);
+        return Objects.hash(printerType, ports, requiredPorts);
     }
 
     @Override
@@ -77,6 +112,7 @@ public class PrinterDiscoveryProfile {
         return "PrinterDiscoveryProfile{" +
                 "printerType='" + printerType + '\'' +
                 ", ports=" + ports +
+                ", requiredPorts=" + requiredPorts +
                 '}';
     }
 }

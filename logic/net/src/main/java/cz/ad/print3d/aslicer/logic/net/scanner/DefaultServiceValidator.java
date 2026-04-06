@@ -25,7 +25,9 @@ import io.netty.buffer.ByteBuf;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
+import java.util.List;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * Default implementation of {@link ServiceValidator}.
@@ -36,12 +38,8 @@ public class DefaultServiceValidator implements ServiceValidator {
 
     @Override
     public PortScanResult validate(int port, String banner, ScanConfiguration config) {
-        if (banner == null || banner.isEmpty()) {
-            return new PortScanResult(port, true, "Unknown Service", "No banner received");
-        }
-
         // 1. Identify printer type from banner if profiles are provided
-        if (config != null) {
+        if (config != null && banner != null && !banner.isEmpty()) {
             for (PrinterDiscoveryProfile profile : config.getProfiles()) {
                 for (PortDiscoveryConfig portConfig : profile.getPorts()) {
                     if (portConfig.getPort() == port) {
@@ -55,15 +53,38 @@ public class DefaultServiceValidator implements ServiceValidator {
             }
         }
 
-        // 2. Fallback to generic identifier
-        // Since we don't have a direct string-based identify in ServiceIdentifier,
-        // we might just return what we have if we can't match it to a printer.
+        // 2. Fallback to configured service name for this port if it's not ambiguous among profiles
+        if (config != null) {
+            List<PortDiscoveryConfig> matchingConfigs = config.getProfiles().stream()
+                    .flatMap(p -> p.getPorts().stream())
+                    .filter(pc -> pc.getPort() == port && pc.getServiceName() != null)
+                    .collect(Collectors.toList());
+
+            if (matchingConfigs.size() == 1) {
+                return new PortScanResult(port, true, matchingConfigs.get(0).getServiceName(), (banner != null && !banner.isEmpty()) ? banner : "No banner received");
+            }
+        }
+
+        if (banner == null || banner.isEmpty()) {
+            return new PortScanResult(port, true, "Unknown Service", "No banner received");
+        }
+
+        // 3. Fallback to generic identifier
         return new PortScanResult(port, true, "Text Banner", banner);
     }
 
     @Override
     public PortScanResult validate(int port, ByteBuf msg, ScanConfiguration config) {
         if (msg == null || msg.readableBytes() == 0) {
+            // Check for configured service name even without data
+            if (config != null) {
+                Collection<PortDiscoveryConfig> configs = config.getPortConfigs(port);
+                for (PortDiscoveryConfig portConfig : configs) {
+                    if (portConfig.getServiceName() != null) {
+                        return new PortScanResult(port, true, portConfig.getServiceName(), "No data received");
+                    }
+                }
+            }
             return new PortScanResult(port, true, "Unknown Service", "No data received");
         }
 
@@ -71,12 +92,12 @@ public class DefaultServiceValidator implements ServiceValidator {
         ServiceIdentifier.ServiceInfo info = ServiceIdentifier.identify(msg);
         String banner = msg.toString(StandardCharsets.UTF_8).trim();
 
-        // 2. Printer type matching
+        // 2. Printer type matching via pattern
         if (config != null) {
             Collection<PortDiscoveryConfig> configs = config.getPortConfigs(port);
             for (PortDiscoveryConfig portConfig : configs) {
                 Pattern pattern = portConfig.getValidationPattern();
-                if (pattern != null && banner != null && pattern.matcher(banner).find()) {
+                if (pattern != null && banner != null && !banner.isEmpty() && pattern.matcher(banner).find()) {
                     // Find the printer type for this portConfig
                     String printerType = config.getProfiles().stream()
                             .filter(p -> p.getPorts().contains(portConfig))
@@ -87,6 +108,18 @@ public class DefaultServiceValidator implements ServiceValidator {
                     String serviceName = portConfig.getServiceName() != null ? portConfig.getServiceName() : printerType;
                     return new PortScanResult(port, true, serviceName, banner);
                 }
+            }
+        }
+
+        // 3. Fallback to configured service name for this port if it's not ambiguous
+        if (config != null) {
+            List<PortDiscoveryConfig> matchingConfigs = config.getProfiles().stream()
+                    .flatMap(p -> p.getPorts().stream())
+                    .filter(pc -> pc.getPort() == port && pc.getServiceName() != null)
+                    .collect(Collectors.toList());
+
+            if (matchingConfigs.size() == 1) {
+                return new PortScanResult(port, true, matchingConfigs.get(0).getServiceName(), info.getDetails());
             }
         }
 

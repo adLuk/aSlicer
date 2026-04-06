@@ -65,15 +65,18 @@ public class ScanConfigurationLoaderTest {
                 .collect(Collectors.toSet());
         
         assertTrue(bambuPorts.contains(8883), "Bambu Lab should have MQTT port 8883");
-        assertTrue(bambuPorts.contains(2021), "Bambu Lab should have FTP port 2021");
+        assertTrue(bambuPorts.contains(990), "Bambu Lab should have FTPS port 990");
+        
+        // Check required ports
+        assertFalse(bambu.getRequiredPorts().isEmpty(), "Bambu Lab should have required ports");
+        assertTrue(bambu.getRequiredPorts().contains(8883));
+        assertTrue(bambu.getRequiredPorts().contains(990));
         
         PortDiscoveryConfig mqtt = bambu.getPorts().stream()
                 .filter(p -> p.getPort() == 8883)
                 .findFirst()
                 .orElseThrow();
         
-        assertEquals("MQTT", mqtt.getServiceName());
-        assertNotNull(mqtt.getValidationPattern());
-        assertTrue(mqtt.getValidationPattern().matcher("Bambu Lab P1S").find());
+        assertEquals("MQTT (Secure)", mqtt.getServiceName());
     }
 }

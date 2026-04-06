@@ -8,6 +8,7 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioDatagramChannel;
 import io.netty.handler.codec.dns.*;
 import io.netty.util.CharsetUtil;
+import io.netty.util.concurrent.DefaultThreadFactory;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -74,7 +75,7 @@ public class NettyMdnsScanner implements MdnsScanner {
      * Constructs a new NettyMdnsScanner with its own EventLoopGroup.
      */
     public NettyMdnsScanner() {
-        this(new NioEventLoopGroup(1), true);
+        this(new NioEventLoopGroup(0, new DefaultThreadFactory("netty-mdns-scanner", true)), true);
     }
 
     /**

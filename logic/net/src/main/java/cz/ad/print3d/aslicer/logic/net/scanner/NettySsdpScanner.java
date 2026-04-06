@@ -25,6 +25,7 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.DatagramPacket;
 import io.netty.channel.socket.nio.NioDatagramChannel;
 import io.netty.util.CharsetUtil;
+import io.netty.util.concurrent.DefaultThreadFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -62,7 +63,7 @@ public class NettySsdpScanner implements SsdpScanner {
      * Constructs a new NettySsdpScanner with its own EventLoopGroup.
      */
     public NettySsdpScanner() {
-        this(new NioEventLoopGroup(1), true);
+        this(new NioEventLoopGroup(0, new DefaultThreadFactory("netty-ssdp-scanner", true)), true);
     }
 
     /**

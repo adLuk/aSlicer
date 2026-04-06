@@ -89,6 +89,13 @@ public class ScanConfigurationLoader {
                     .map(Integer::parseInt)
                     .collect(Collectors.toSet());
 
+            String requiredPortsStr = props.getProperty("profile." + id + ".requiredPorts", "");
+            Set<Integer> requiredPortNumbers = Arrays.stream(requiredPortsStr.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .map(Integer::parseInt)
+                    .collect(Collectors.toSet());
+
             Set<PortDiscoveryConfig> portConfigs = new HashSet<>();
             for (Integer port : portNumbers) {
                 String service = props.getProperty("profile." + id + ".port." + port + ".service");
@@ -96,7 +103,7 @@ public class ScanConfigurationLoader {
                 Pattern pattern = (patternStr != null && !patternStr.isEmpty()) ? Pattern.compile(patternStr) : null;
                 portConfigs.add(new PortDiscoveryConfig(port, service, pattern));
             }
-            profiles.add(new PrinterDiscoveryProfile(name, portConfigs));
+            profiles.add(new PrinterDiscoveryProfile(name, portConfigs, requiredPortNumbers));
         }
 
         return new ScanConfiguration(profiles, commonPorts);

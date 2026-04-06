@@ -334,7 +334,7 @@ public class RangeScanTask {
                             listener.onProgress((double) completed / totalPorts, "Pre-scanning: " + host);
                         }
                     }
-                }, mdnsByIpMap, ssdpByIpMap).thenApply(device -> !device.getServices().isEmpty());
+                }, mdnsByIpMap, ssdpByIpMap).thenApply(device -> device.isReachable() || !device.getServices().isEmpty());
             }
 
             CompletableFuture<DiscoveredDevice> fullScanFuture = isUpFuture.thenCompose(isUp -> {
@@ -390,6 +390,9 @@ public class RangeScanTask {
                                                                  Map<String, List<MdnsServiceInfo>> mdnsByIpMap,
                                                                  Map<String, List<SsdpServiceInfo>> ssdpByIpMap) {
         HostScanTask task = new HostScanTask(host, currentConfig, useBannerGrabbing, listener, portScanner, serviceValidator, scanTracker, portScanSemaphore, scanExecutor);
+        if (mdnsByIpMap.containsKey(host) || ssdpByIpMap.containsKey(host)) {
+            task.setInitialReachable(true);
+        }
         CompletableFuture<DiscoveredDevice> taskFuture = task.execute();
         scanTracker.track(taskFuture);
 
@@ -413,7 +416,7 @@ public class RangeScanTask {
             if (ssdpServices != null) {
                 deviceEnricher.enrichWithSsdp(device, ssdpServices, false);
             }
-
+            deviceEnricher.enrichFromPortScan(device, currentConfig);
             return device;
         });
     }

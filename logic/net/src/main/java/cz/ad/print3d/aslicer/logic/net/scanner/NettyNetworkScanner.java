@@ -23,7 +23,6 @@ import cz.ad.print3d.aslicer.logic.net.scanner.dto.MdnsServiceInfo;
 import cz.ad.print3d.aslicer.logic.net.scanner.dto.ScanConfiguration;
 import cz.ad.print3d.aslicer.logic.net.scanner.dto.SsdpServiceInfo;
 
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -244,8 +243,12 @@ public class NettyNetworkScanner implements NetworkScanner {
             }
         }, null);
         scanTracker.track(ssdpFuture);
-
+        
         HostScanTask task = new HostScanTask(host, config, useBannerGrabbing, listener, portScanner, serviceValidator, scanTracker, portScanSemaphore, scanExecutor);
+        // Hint that we might already know it's reachable via mDNS/SSDP
+        // (Wait, discovery is still in progress, so we might not know yet).
+        // For scanHost, we wait for discovery anyway.
+        
         CompletableFuture<DiscoveredDevice> portScanFuture = task.execute();
         scanTracker.track(portScanFuture);
 
@@ -260,6 +263,7 @@ public class NettyNetworkScanner implements NetworkScanner {
                     if (ssdpServices != null) {
                         deviceEnricher.enrichWithSsdp(device, ssdpServices, false);
                     }
+                    deviceEnricher.enrichFromPortScan(device, config);
                     return device;
                 });
     }

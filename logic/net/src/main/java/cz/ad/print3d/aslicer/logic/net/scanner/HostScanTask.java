@@ -45,6 +45,8 @@ public class HostScanTask {
     private final java.util.concurrent.Executor scanExecutor;
     private int deepScanThreshold = 100;
     private final java.util.concurrent.atomic.AtomicInteger completedPorts = new java.util.concurrent.atomic.AtomicInteger(0);
+    private final java.util.concurrent.atomic.AtomicBoolean notifiedDiscovery = new java.util.concurrent.atomic.AtomicBoolean(false);
+    private boolean initialReachable = false;
 
     /**
      * Constructs a new HostScanTask.
@@ -85,34 +87,34 @@ public class HostScanTask {
     }
 
     /**
-     * Executes the host scan asynchronously.
+     * Sets whether the host is already known to be reachable (e.g. from mDNS).
      *
-     * @return a CompletableFuture that completes with the discovered device information
+     * @param reachable true if reachable
      */
+    public void setInitialReachable(boolean reachable) {
+        this.initialReachable = reachable;
+    }
+
     public CompletableFuture<DiscoveredDevice> execute() {
         Set<Integer> ports = config.getAllPorts();
-        if (ports.isEmpty()) {
-            return CompletableFuture.completedFuture(new DiscoveredDevice(host));
-        }
-
         DiscoveredDevice device = new DiscoveredDevice(host);
+        device.setReachable(initialReachable);
 
+        // Perform an "up check" to identify if the host is alive.
+        // This acts as an accelerator for the discovery process.
         CompletableFuture<Boolean> upCheckFuture;
-        if (ports.size() > deepScanThreshold) {
-            upCheckFuture = isHostUp().thenApply(isUp -> {
-                if (isUp && listener != null) {
-                    // Accelerator: notify that device is found even before all ports are scanned
-                    listener.onDeviceDiscovered(device);
-                }
-                return isUp;
-            });
-        } else {
+        if (initialReachable) {
             upCheckFuture = CompletableFuture.completedFuture(true);
+            notifyDiscovery(device);
+        } else {
+            upCheckFuture = isHostUp(device);
         }
         scanTracker.track(upCheckFuture);
 
         return upCheckFuture.handle((isUp, ex) -> {
-            // Proceed regardless of upCheck result to ensure source of truth
+            // We always proceed with the port scan to ensure we have a "source of truth"
+            // for the requested ports, but the upCheck result can be used by callers
+            // (like RangeScanTask) to optimize or prioritize.
             return true;
         }).thenCompose(ignored -> {
             if (ports.isEmpty()) {
@@ -133,8 +135,8 @@ public class HostScanTask {
     private void scanPortsRecursively(List<Integer> portList, int index, DiscoveredDevice device, CompletableFuture<DiscoveredDevice> finalFuture) {
         if (index >= portList.size() || finalFuture.isDone()) {
             if (!finalFuture.isDone()) {
-                if (listener != null && !device.getServices().isEmpty()) {
-                    listener.onDeviceDiscovered(device);
+                if (!device.getServices().isEmpty()) {
+                    notifyDiscovery(device);
                 }
                 finalFuture.complete(device);
             }
@@ -164,6 +166,7 @@ public class HostScanTask {
                             device.addService(result);
                             if (listener != null) {
                                 listener.onPortDiscovered(host, result);
+                                notifyDiscovery(device);
                             }
                         }
                         return result;
@@ -232,29 +235,48 @@ public class HostScanTask {
         });
     }
 
-    private CompletableFuture<Boolean> isHostUp() {
+    private void notifyDiscovery(DiscoveredDevice device) {
+        if (listener != null && notifiedDiscovery.compareAndSet(false, true)) {
+            listener.onDeviceDiscovered(device);
+        }
+    }
+
+    protected boolean checkReachable(String host, int timeout) {
+        try {
+            InetAddress addr = InetAddress.getByName(host);
+            return addr.isReachable(timeout);
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private CompletableFuture<Boolean> isHostUp(DiscoveredDevice device) {
         return CompletableFuture.supplyAsync(() -> {
-            try {
-                InetAddress addr = InetAddress.getByName(host);
-                if (addr.isReachable(portScanner.getTimeout())) {
-                    return true;
-                }
-            } catch (Exception ignored) {
+            if (checkReachable(host, portScanner.getTimeout())) {
+                device.setReachable(true);
+                return true;
             }
             return false;
         }, scanExecutor).thenCompose(reachable -> {
             if (reachable) return CompletableFuture.completedFuture(true);
 
-            List<Integer> checkPorts = List.of(80, 443, 22, 5000, 7125);
+            // Fallback: check a few common ports and required ports from profiles
+            Set<Integer> checkPorts = new java.util.HashSet<>(List.of(80, 443, 22, 5000, 7125, 8883, 990));
+            for (cz.ad.print3d.aslicer.logic.net.scanner.dto.PrinterDiscoveryProfile profile : config.getProfiles()) {
+                checkPorts.addAll(profile.getRequiredPorts());
+            }
+            
             List<CompletableFuture<PortScanResult>> checks = new ArrayList<>();
             for (int p : checkPorts) {
-                // For "isHostUp" we use throttling too to be fair
-                CompletableFuture<PortScanResult> check = scanPortWithThrottling(p);
-                checks.add(check);
+                checks.add(scanPortWithThrottling(p));
             }
 
             return CompletableFuture.allOf(checks.toArray(new CompletableFuture<?>[0]))
-                    .thenApply(v -> checks.stream().anyMatch(f -> f.join().isOpen()));
+                    .thenApply(v -> {
+                        boolean anyOpen = checks.stream().anyMatch(f -> f.join().isOpen());
+                        if (anyOpen) device.setReachable(true);
+                        return anyOpen;
+                    });
         });
     }
 }

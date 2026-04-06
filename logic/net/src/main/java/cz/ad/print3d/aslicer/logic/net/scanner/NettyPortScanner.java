@@ -23,6 +23,7 @@ import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.timeout.ReadTimeoutHandler;
+import io.netty.util.concurrent.DefaultThreadFactory;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -59,7 +60,7 @@ public class NettyPortScanner implements PortScanner {
      * @param bannerTimeoutMillis the timeout for banner grabbing in milliseconds
      */
     public NettyPortScanner(int timeoutMillis, int bannerTimeoutMillis) {
-        this.group = new NioEventLoopGroup();
+        this.group = new NioEventLoopGroup(0, new DefaultThreadFactory("netty-port-scanner", true));
         this.timeoutMillis = timeoutMillis;
         this.bannerTimeoutMillis = bannerTimeoutMillis;
     }

@@ -17,13 +17,12 @@
  */
 package cz.ad.print3d.aslicer.logic.net.scanner;
 
-import cz.ad.print3d.aslicer.logic.net.scanner.dto.DiscoveredDevice;
-import cz.ad.print3d.aslicer.logic.net.scanner.dto.MdnsServiceInfo;
-import cz.ad.print3d.aslicer.logic.net.scanner.dto.PortScanResult;
-import cz.ad.print3d.aslicer.logic.net.scanner.dto.SsdpServiceInfo;
+import cz.ad.print3d.aslicer.logic.net.scanner.dto.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Handles enriching {@link DiscoveredDevice} with information from various discovery sources.
@@ -125,6 +124,46 @@ public class DeviceEnricher {
                 boolean portFound = device.getServices().stream().anyMatch(s -> s.getPort() == service.getPort());
                 if (!portFound && service.getPort() > 0) {
                     device.addService(new PortScanResult(service.getPort(), !markAsInProgress, "HTTP", "Discovered via SSDP", true));
+                }
+            }
+        }
+    }
+
+    /**
+     * Enriches a DiscoveredDevice based on the aggregated port scan results and configuration.
+     * Identifies the printer vendor/model if a minimal set of required ports is open.
+     *
+     * @param device the device to enrich
+     * @param config the scan configuration containing printer profiles
+     */
+    public void enrichFromPortScan(DiscoveredDevice device, ScanConfiguration config) {
+        if (device == null || config == null) return;
+
+        synchronized (device) {
+            Set<Integer> openPorts = device.getServices().stream()
+                    .filter(PortScanResult::isOpen)
+                    .map(PortScanResult::getPort)
+                    .collect(Collectors.toSet());
+
+            for (PrinterDiscoveryProfile profile : config.getProfiles()) {
+                if (profile.matches(openPorts)) {
+                    // Set vendor if not already set by mDNS or SSDP
+                    if (device.getVendor() == null || device.getVendor().isEmpty()) {
+                        device.setVendor(profile.getPrinterType());
+                    }
+                    
+                    // If we found a match by required ports, we can also ensure all those ports
+                    // have the correct service name if they don't have one yet
+                    for (PortDiscoveryConfig portConfig : profile.getPorts()) {
+                        int port = portConfig.getPort();
+                        if (openPorts.contains(port) && portConfig.getServiceName() != null) {
+                            for (PortScanResult res : device.getServices()) {
+                                if (res.getPort() == port && (res.getService() == null || res.getService().equals("Unknown Service"))) {
+                                    device.addService(new PortScanResult(port, true, portConfig.getServiceName(), res.getServiceDetails()));
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

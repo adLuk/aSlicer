@@ -32,10 +32,29 @@ public class DiscoveredDevice {
     private final List<PortScanResult> services;
     private final List<MdnsServiceInfo> mdnsServices = new ArrayList<>();
     private final List<SsdpServiceInfo> ssdpServices = new ArrayList<>();
+    private boolean reachable;
     private boolean selected;
     private String name;
     private String vendor;
     private String model;
+
+    /**
+     * Sets the reachable status of the device.
+     *
+     * @param reachable true if reachable via ICMP/TCP echo
+     */
+    public synchronized void setReachable(boolean reachable) {
+        this.reachable = reachable;
+    }
+
+    /**
+     * Returns whether the device was reachable via ICMP/TCP echo.
+     *
+     * @return true if reachable
+     */
+    public synchronized boolean isReachable() {
+        return reachable;
+    }
 
     /**
      * Constructs a new DiscoveredDevice.
@@ -202,7 +221,7 @@ public class DiscoveredDevice {
                 // If the new result is open and the existing one isn't, or if the new one has service info
                 // that the existing one lacks, we update it.
                 if ((result.isOpen() && !existing.isOpen()) ||
-                        (result.getService() != null && existing.getService() == null)) {
+                        (result.getService() != null && (existing.getService() == null || existing.getService().equals("Unknown Service") || existing.getService().equals("Text Banner")))) {
                     services.set(i, result);
                 }
                 return;
