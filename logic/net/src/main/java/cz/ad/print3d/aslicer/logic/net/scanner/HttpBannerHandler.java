@@ -59,15 +59,25 @@ public class HttpBannerHandler extends SimpleChannelInboundHandler<FullHttpRespo
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, FullHttpResponse msg) {
         String content = msg.content().toString(CharsetUtil.UTF_8);
+        String sslInfo = ctx.channel().attr(SslHandshakeHandler.SSL_INFO).get();
+        String details = content.trim();
+        if (sslInfo != null) {
+            details += "\n[SSL: " + sslInfo + "]";
+        }
         // We provide the content as details so it can be matched by patterns in ServiceValidator
-        future.complete(new PortScanResult(port, true, "HTTP", content.trim()));
+        future.complete(new PortScanResult(port, true, "HTTP", details));
         ctx.close();
     }
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         if (!future.isDone()) {
-            future.complete(new PortScanResult(port, true, "HTTP", "Error: " + cause.getMessage()));
+            String sslInfo = ctx.channel().attr(SslHandshakeHandler.SSL_INFO).get();
+            String details = "Error: " + cause.getMessage();
+            if (sslInfo != null) {
+                details += "\n[SSL: " + sslInfo + "]";
+            }
+            future.complete(new PortScanResult(port, true, "HTTP", details));
         }
         ctx.close();
     }
@@ -75,7 +85,12 @@ public class HttpBannerHandler extends SimpleChannelInboundHandler<FullHttpRespo
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         if (!future.isDone()) {
-            future.complete(new PortScanResult(port, true, "HTTP", "Channel closed before response"));
+            String sslInfo = ctx.channel().attr(SslHandshakeHandler.SSL_INFO).get();
+            String details = "Channel closed before response";
+            if (sslInfo != null) {
+                details += "\n[SSL: " + sslInfo + "]";
+            }
+            future.complete(new PortScanResult(port, true, "HTTP", details));
         }
         super.channelInactive(ctx);
     }

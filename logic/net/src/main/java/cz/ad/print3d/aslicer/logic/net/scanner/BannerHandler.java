@@ -46,25 +46,35 @@ public class BannerHandler extends SimpleChannelInboundHandler<ByteBuf> {
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, ByteBuf msg) {
         ServiceIdentifier.ServiceInfo info = ServiceIdentifier.identify(msg);
-        future.complete(new PortScanResult(port, true, info.getName(), info.getDetails()));
+        String sslInfo = ctx.channel().attr(SslHandshakeHandler.SSL_INFO).get();
+        String details = info.getDetails();
+        if (sslInfo != null) {
+            details += "\n[SSL: " + sslInfo + "]";
+        }
+        future.complete(new PortScanResult(port, true, info.getName(), details));
         ctx.close();
     }
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        completeWithDefault();
+        completeWithDefault(ctx);
         ctx.close();
     }
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        completeWithDefault();
+        completeWithDefault(ctx);
         super.channelInactive(ctx);
     }
 
-    private void completeWithDefault() {
+    private void completeWithDefault(ChannelHandlerContext ctx) {
         if (!future.isDone()) {
-            future.complete(new PortScanResult(port, true));
+            String sslInfo = ctx.channel().attr(SslHandshakeHandler.SSL_INFO).get();
+            if (sslInfo != null) {
+                future.complete(new PortScanResult(port, true, null, "[SSL: " + sslInfo + "]"));
+            } else {
+                future.complete(new PortScanResult(port, true));
+            }
         }
     }
 }

@@ -24,6 +24,8 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.http.HttpClientCodec;
 import io.netty.handler.codec.http.HttpObjectAggregator;
+import io.netty.handler.codec.mqtt.MqttDecoder;
+import io.netty.handler.codec.mqtt.MqttEncoder;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
@@ -45,6 +47,7 @@ public class NettyPortScanner implements PortScanner {
     private static final Logger LOGGER = Logger.getLogger(NettyPortScanner.class.getName());
     private static final List<Integer> HTTP_PORTS = Arrays.asList(80, 443, 8080, 5000, 7125, 8000);
     private static final List<Integer> SSL_PORTS = Arrays.asList(443, 990, 8883);
+    private static final List<Integer> MQTT_PORTS = Arrays.asList(1883, 8883);
 
     private final EventLoopGroup group;
     private int timeoutMillis;
@@ -90,6 +93,10 @@ public class NettyPortScanner implements PortScanner {
         return HTTP_PORTS.contains(port);
     }
 
+    private boolean isMqttPort(int port) {
+        return MQTT_PORTS.contains(port);
+    }
+
     private boolean isSslPort(int port) {
         return SSL_PORTS.contains(port);
     }
@@ -115,12 +122,17 @@ public class NettyPortScanner implements PortScanner {
                             
                             if (isSslPort(port) && sslContext != null) {
                                 ch.pipeline().addLast(sslContext.newHandler(ch.alloc(), host, port));
+                                ch.pipeline().addLast(new SslHandshakeHandler());
                             }
                             
                             if (isHttpPort(port)) {
                                 ch.pipeline().addLast(new HttpClientCodec());
                                 ch.pipeline().addLast(new HttpObjectAggregator(65536));
                                 ch.pipeline().addLast(new HttpBannerHandler(future, port, host));
+                            } else if (isMqttPort(port)) {
+                                ch.pipeline().addLast(new MqttDecoder());
+                                ch.pipeline().addLast(MqttEncoder.INSTANCE);
+                                ch.pipeline().addLast(new MqttBannerHandler(future, port, host));
                             } else {
                                 ch.pipeline().addLast(new BannerHandler(future, port));
                             }
