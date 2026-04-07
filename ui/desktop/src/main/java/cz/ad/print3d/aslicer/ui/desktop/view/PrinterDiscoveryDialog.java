@@ -345,8 +345,9 @@ public class PrinterDiscoveryDialog extends Window {
         }
 
         for (DiscoveredDevice device : devices) {
-            addDiscoveredDevice(device);
+            addDiscoveredDevice(device, false);
         }
+        sortAndRefreshResults();
     }
 
     /**
@@ -355,6 +356,17 @@ public class PrinterDiscoveryDialog extends Window {
      * @param device the discovered device to add or update
      */
     private void addDiscoveredDevice(DiscoveredDevice device) {
+        addDiscoveredDevice(device, true);
+    }
+
+    /**
+     * Adds a single discovered device to the results table or updates an existing one,
+     * optionally triggering a refresh and sort.
+     *
+     * @param device the discovered device to add or update
+     * @param shouldSort if true, will refresh and sort results immediately
+     */
+    void addDiscoveredDevice(DiscoveredDevice device, boolean shouldSort) {
         // Remove initial labels if present
         if (resultsTable.getChildren().size == 1 && resultsTable.getChildren().get(0) instanceof Label) {
             Label l = (Label) resultsTable.getChildren().get(0);
@@ -376,9 +388,58 @@ public class PrinterDiscoveryDialog extends Window {
         if (row == null) {
             row = new DeviceRow(device, skin, this::showDeviceDetails);
             resultsTable.add(row).expandX().fillX().padBottom(10).row();
+            if (shouldSort) {
+                sortAndRefreshResults();
+            }
         } else {
+            boolean wasIdentified = row.getDevice().getVendor() != null && !row.getDevice().getVendor().isEmpty();
             row.update(device);
+            boolean isIdentified = row.getDevice().getVendor() != null && !row.getDevice().getVendor().isEmpty();
+            
+            if (!wasIdentified && isIdentified && shouldSort) {
+                sortAndRefreshResults();
+            }
         }
+    }
+
+    void sortAndRefreshResults() {
+        List<DeviceRow> rows = new ArrayList<>();
+        for (Actor actor : resultsTable.getChildren()) {
+            if (actor instanceof DeviceRow) {
+                rows.add((DeviceRow) actor);
+            }
+        }
+        
+        rows.sort((r1, r2) -> {
+            boolean p1 = r1.getDevice().getVendor() != null && !r1.getDevice().getVendor().isEmpty();
+            boolean p2 = r2.getDevice().getVendor() != null && !r2.getDevice().getVendor().isEmpty();
+            if (p1 && !p2) return -1;
+            if (!p1 && p2) return 1;
+            
+            return compareIps(r1.getDevice().getIpAddress(), r2.getDevice().getIpAddress());
+        });
+        
+        resultsTable.clear();
+        for (DeviceRow row : rows) {
+            resultsTable.add(row).expandX().fillX().padBottom(10).row();
+        }
+    }
+
+    private int compareIps(String ip1, String ip2) {
+        try {
+            String[] parts1 = ip1.split("\\.");
+            String[] parts2 = ip2.split("\\.");
+            if (parts1.length == 4 && parts2.length == 4) {
+                for (int i = 0; i < 4; i++) {
+                    int n1 = Integer.parseInt(parts1[i]);
+                    int n2 = Integer.parseInt(parts2[i]);
+                    if (n1 != n2) return n1 - n2;
+                }
+            }
+        } catch (Exception e) {
+            // Fallback to string comparison
+        }
+        return ip1.compareTo(ip2);
     }
 
     /**

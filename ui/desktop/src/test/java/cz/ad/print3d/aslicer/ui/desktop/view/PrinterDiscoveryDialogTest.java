@@ -18,6 +18,7 @@ import cz.ad.print3d.aslicer.logic.net.scanner.dto.PortScanResult;
 import cz.ad.print3d.aslicer.ui.desktop.GdxTestUtils;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -947,15 +949,16 @@ public class PrinterDiscoveryDialogTest {
                 assertNotNull(hintButton, "Hint button should be present");
                 hintButton.fire(new ChangeListener.ChangeEvent());
                 
-                // Look for mDNS details dialog and ScrollPane within it
+                // Look for details dialog and ScrollPane within it
                 Dialog mdnsDialog = null;
                 for (Actor actor : stageRef.get().getActors()) {
-                    if (actor instanceof Dialog && "mDNS Details".equals(((Dialog) actor).getTitleLabel().getText().toString())) {
+                    if (actor instanceof Dialog && ("Device Details - 192.168.1.50".equals(((Dialog) actor).getTitleLabel().getText().toString()) 
+                            || "mDNS Details".equals(((Dialog) actor).getTitleLabel().getText().toString()))) {
                         mdnsDialog = (Dialog) actor;
                         break;
                     }
                 }
-                assertNotNull(mdnsDialog, "mDNS Details dialog should be open");
+                assertNotNull(mdnsDialog, "Details dialog should be open");
                 
                 boolean foundScrollPane = false;
                 for (Actor actor : mdnsDialog.getContentTable().getChildren()) {
@@ -971,6 +974,116 @@ public class PrinterDiscoveryDialogTest {
         });
 
         Thread.sleep(500);
+        Gdx.app.exit();
+    }
+
+    @Test
+    void testPrinterSortingAndAutoCollapse() throws InterruptedException {
+        HeadlessApplicationConfiguration config = new HeadlessApplicationConfiguration();
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<PrinterDiscoveryDialog> dialogRef = new AtomicReference<>();
+        AtomicReference<NetworkScanner.ScanProgressListener> capturedListener = new AtomicReference<>();
+
+        new HeadlessApplication(new ApplicationAdapter() {
+            @Override
+            public void create() {
+                try {
+                    GdxTestUtils.mockGdxGL();
+                    Skin skin = GdxTestUtils.createTestSkin();
+                    PrinterDiscoveryDialog dialog = new PrinterDiscoveryDialog(skin, new NetworkScanner() {
+                        @Override public CompletableFuture<List<DiscoveredDevice>> scanRange(String b, int s, int e, List<Integer> p, boolean u, ScanProgressListener listener) {
+                            capturedListener.set(listener);
+                            return new CompletableFuture<>();
+                        }
+                        @Override public CompletableFuture<List<DiscoveredDevice>> scanRange(String b, int s, int e, List<Integer> p) { return null; }
+                        @Override public CompletableFuture<List<DiscoveredDevice>> scanRange(String b, int s, int e, List<Integer> p, boolean u) { return null; }
+                        @Override public CompletableFuture<DiscoveredDevice> scanHost(String h, List<Integer> p) { return null; }
+                        @Override public CompletableFuture<DiscoveredDevice> scanHost(String h, List<Integer> p, boolean u) { return null; }
+                        @Override public CompletableFuture<DiscoveredDevice> scanHost(String h, List<Integer> p, boolean u, ScanProgressListener l) { return null; }
+                        @Override public void setTimeout(int t) {}
+                        @Override public int getTimeout() { return 500; }
+                        @Override public void setMdnsTimeout(int t) {}
+                        @Override public int getMdnsTimeout() { return 500; }
+                        @Override public void setSsdpTimeout(int t) {}
+                        @Override public int getSsdpTimeout() { return 500; }
+                        @Override public void setIncludeSelfIp(boolean i) {}
+                        @Override public boolean isIncludeSelfIp() { return false; }
+                        @Override public void stopScan() {}
+                        @Override public void close() {}
+                    }, new NetworkInformationCollector());
+                    dialog.startIpField.setText("192.168.1.1");
+                    dialog.endIpField.setText("192.168.1.10");
+                    dialogRef.set(dialog);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                } finally {
+                    latch.countDown();
+                }
+            }
+        }, config);
+
+        assertTrue(latch.await(5, TimeUnit.SECONDS));
+        PrinterDiscoveryDialog dialog = dialogRef.get();
+        Gdx.app.postRunnable(() -> dialog.startScan());
+        Thread.sleep(200);
+
+        // Discovery 1: Generic device 1.10
+        DiscoveredDevice dev1 = new DiscoveredDevice("192.168.1.10");
+        Gdx.app.postRunnable(() -> {
+            if (capturedListener.get() != null) capturedListener.get().onDeviceDiscovered(dev1);
+        });
+        Thread.sleep(100);
+
+        // Discovery 2: Generic device 1.5
+        DiscoveredDevice dev2 = new DiscoveredDevice("192.168.1.5");
+        Gdx.app.postRunnable(() -> {
+            if (capturedListener.get() != null) capturedListener.get().onDeviceDiscovered(dev2);
+        });
+        Thread.sleep(100);
+
+        AtomicReference<Boolean> initialOrderCorrect = new AtomicReference<>(false);
+        Gdx.app.postRunnable(() -> {
+            List<String> ips = new ArrayList<>();
+            for (Actor actor : dialog.resultsTable.getChildren()) {
+                if (actor instanceof DeviceRow) ips.add(actor.getName());
+            }
+            if (ips.size() == 2 && "192.168.1.5".equals(ips.get(0)) && "192.168.1.10".equals(ips.get(1))) {
+                initialOrderCorrect.set(true);
+            }
+        });
+        Thread.sleep(100);
+        assertTrue(initialOrderCorrect.get(), "Initial order should be IP-based");
+
+        // Discovery 3: Update 1.10 to be a printer
+        DiscoveredDevice dev1Update = new DiscoveredDevice("192.168.1.10");
+        dev1Update.setVendor("BambuLab");
+        Gdx.app.postRunnable(() -> {
+            if (capturedListener.get() != null) capturedListener.get().onDeviceDiscovered(dev1Update);
+        });
+        Thread.sleep(200);
+
+        AtomicReference<Boolean> finalOrderCorrect = new AtomicReference<>(false);
+        AtomicReference<Boolean> autoCollapseCorrect = new AtomicReference<>(false);
+        Gdx.app.postRunnable(() -> {
+            List<String> ips = new ArrayList<>();
+            DeviceRow row10 = null;
+            for (Actor actor : dialog.resultsTable.getChildren()) {
+                if (actor instanceof DeviceRow) {
+                    ips.add(actor.getName());
+                    if ("192.168.1.10".equals(actor.getName())) row10 = (DeviceRow) actor;
+                }
+            }
+            if (ips.size() == 2 && "192.168.1.10".equals(ips.get(0)) && "192.168.1.5".equals(ips.get(1))) {
+                finalOrderCorrect.set(true);
+            }
+            if (row10 != null && !row10.isExpanded()) {
+                autoCollapseCorrect.set(true);
+            }
+        });
+        Thread.sleep(100);
+        assertTrue(finalOrderCorrect.get(), "Printer should be moved to top");
+        assertTrue(autoCollapseCorrect.get(), "Printer should be automatically collapsed");
+
         Gdx.app.exit();
     }
 
@@ -1088,5 +1201,143 @@ public class PrinterDiscoveryDialogTest {
         assertTrue(latch.await(5, TimeUnit.SECONDS), "Test timed out");
         assertTrue(resultsRetained.get(), "Results should be retained after scan cancellation");
         Gdx.app.exit();
+    }
+
+    /**
+     * Verifies that toggling the expansion of a device row does not duplicate its internal UI widgets.
+     */
+    @Test
+    void testExpansionToggleDoesNotDuplicateWidgets() throws InterruptedException {
+        HeadlessApplicationConfiguration config = new HeadlessApplicationConfiguration();
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<DeviceRow> rowRef = new AtomicReference<>();
+
+        new HeadlessApplication(new ApplicationAdapter() {
+            @Override
+            public void create() {
+                try {
+                    GdxTestUtils.mockGdxGL();
+                    Skin skin = GdxTestUtils.createTestSkin();
+                    DiscoveredDevice device = new DiscoveredDevice("192.168.1.10");
+                    DeviceRow row = new DeviceRow(device, skin, d -> {});
+                    rowRef.set(row);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                } finally {
+                    latch.countDown();
+                }
+            }
+        }, config);
+
+        assertTrue(latch.await(5, TimeUnit.SECONDS));
+        DeviceRow row = rowRef.get();
+        assertNotNull(row);
+
+        AtomicInteger initialCount = new AtomicInteger();
+        AtomicInteger finalCount = new AtomicInteger();
+
+        Gdx.app.postRunnable(() -> {
+            initialCount.set(row.getChildren().size);
+            
+            // Find expand button (it starts as "-" because isExpanded = true by default)
+            TextButton expandButton = null;
+            for (Actor actor : row.getChildren()) {
+                if (actor instanceof TextButton && "-".equals(((TextButton) actor).getText().toString())) {
+                    expandButton = (TextButton) actor;
+                    break;
+                }
+            }
+            
+            assertNotNull(expandButton, "Expand button should be found");
+            
+            // Click to collapse
+            expandButton.toggle();
+            // Click to expand again
+            expandButton.toggle();
+            
+            finalCount.set(row.getChildren().size);
+            Gdx.app.exit();
+        });
+
+        Thread.sleep(500);
+        assertEquals(initialCount.get(), finalCount.get(), "Child count should remain the same after toggle");
+    }
+
+    /**
+     * Verifies that sorting results in the discovery dialog does not accumulate empty cells in the results table.
+     */
+    @Test
+    void testSortingDoesNotAddExtraCells() throws InterruptedException {
+        HeadlessApplicationConfiguration config = new HeadlessApplicationConfiguration();
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<PrinterDiscoveryDialog> dialogRef = new AtomicReference<>();
+
+        new HeadlessApplication(new ApplicationAdapter() {
+            @Override
+            public void create() {
+                try {
+                    GdxTestUtils.mockGdxGL();
+                    Skin skin = GdxTestUtils.createTestSkin();
+                    
+                    NetworkScanner mockScanner = new NetworkScanner() {
+                        @Override public CompletableFuture<List<DiscoveredDevice>> scanRange(String b, int s, int e, List<Integer> p, boolean u, ScanProgressListener l) { return new CompletableFuture<>(); }
+                        @Override public CompletableFuture<List<DiscoveredDevice>> scanRange(String b, int s, int e, List<Integer> p) { return null; }
+                        @Override public CompletableFuture<List<DiscoveredDevice>> scanRange(String b, int s, int e, List<Integer> p, boolean u) { return null; }
+                        @Override public CompletableFuture<DiscoveredDevice> scanHost(String h, List<Integer> p) { return null; }
+                        @Override public CompletableFuture<DiscoveredDevice> scanHost(String h, List<Integer> p, boolean u) { return null; }
+                        @Override public CompletableFuture<DiscoveredDevice> scanHost(String h, List<Integer> p, boolean u, ScanProgressListener l) { return null; }
+                        @Override public void setTimeout(int t) {}
+                        @Override public int getTimeout() { return 500; }
+                        @Override public void setMdnsTimeout(int t) {}
+                        @Override public int getMdnsTimeout() { return 500; }
+                        @Override public void setSsdpTimeout(int t) {}
+                        @Override public int getSsdpTimeout() { return 500; }
+                        @Override public void setIncludeSelfIp(boolean i) {}
+                        @Override public boolean isIncludeSelfIp() { return false; }
+                        @Override public void stopScan() {}
+                        @Override public void close() {}
+                    };
+                    
+                    NetworkInformationCollector mockCollector = new NetworkInformationCollector() {
+                        @Override public List<NetworkInterfaceInfo> collect() { return Collections.emptyList(); }
+                        @Override public CompletableFuture<List<NetworkInterfaceInfo>> collectAsync() { return CompletableFuture.completedFuture(Collections.emptyList()); }
+                    };
+
+                    PrinterDiscoveryDialog dialog = new PrinterDiscoveryDialog(skin, mockScanner, mockCollector);
+                    dialogRef.set(dialog);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                } finally {
+                    latch.countDown();
+                }
+            }
+        }, config);
+
+        assertTrue(latch.await(5, TimeUnit.SECONDS));
+        PrinterDiscoveryDialog dialog = dialogRef.get();
+        assertNotNull(dialog);
+
+        AtomicInteger initialCellCount = new AtomicInteger();
+        AtomicInteger finalCellCount = new AtomicInteger();
+
+        Gdx.app.postRunnable(() -> {
+            // Add two devices
+            dialog.addDiscoveredDevice(new DiscoveredDevice("192.168.1.10"), true);
+            dialog.addDiscoveredDevice(new DiscoveredDevice("192.168.1.5"), true);
+            
+            // Total cells in resultsTable (Table internal state)
+            initialCellCount.set(dialog.resultsTable.getCells().size);
+            
+            // Trigger an update that causes sorting (positive identification)
+            DiscoveredDevice devUpdate = new DiscoveredDevice("192.168.1.10");
+            devUpdate.setVendor("Prusa");
+            dialog.addDiscoveredDevice(devUpdate, true);
+            
+            finalCellCount.set(dialog.resultsTable.getCells().size);
+            Gdx.app.exit();
+        });
+
+        Thread.sleep(500);
+        assertEquals(initialCellCount.get(), finalCellCount.get(), "Cell count in results table should not increase after sorting");
     }
 }

@@ -21,6 +21,7 @@ public class DeviceRow extends Table {
     private final DiscoveredDevice currentDevice;
     private final Skin skin;
     private final Consumer<DiscoveredDevice> onDetailsClick;
+    private boolean isExpanded = true;
 
     /**
      * Constructs a new DeviceRow.
@@ -47,7 +48,7 @@ public class DeviceRow extends Table {
      * @param device updated device information
      */
     public void update(DiscoveredDevice device) {
-        clear();
+        boolean wasIdentified = currentDevice.getVendor() != null && !currentDevice.getVendor().isEmpty();
 
         // Merge device information
         if (device.getName() != null && (currentDevice.getName() == null || currentDevice.getName().isEmpty())) {
@@ -82,10 +83,16 @@ public class DeviceRow extends Table {
             currentDevice.addMdnsService(mdnsService);
         }
 
+        boolean isIdentified = currentDevice.getVendor() != null && !currentDevice.getVendor().isEmpty();
+        if (!wasIdentified && isIdentified) {
+            isExpanded = false;
+        }
+
         buildLayout();
     }
 
     private void buildLayout() {
+        clear();
         String ip = currentDevice.getIpAddress();
         String name = currentDevice.getName();
         String vendor = currentDevice.getVendor();
@@ -132,18 +139,30 @@ public class DeviceRow extends Table {
             }
         });
 
+        TextButton expandButton = new TextButton(isExpanded ? "-" : "+", skin);
+        expandButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                isExpanded = !isExpanded;
+                buildLayout();
+            }
+        });
+
         add(selectionCheckBox).width(40).left();
+        add(expandButton).width(30).left().padLeft(5);
         add(deviceLabel).expandX().center();
         add(hintButton).width(40).right();
         row();
 
         // Add ports/services
-        Table portsTable = new Table();
-        portsTable.left();
-        for (PortScanResult result : currentDevice.getServices()) {
-            addPortInfo(portsTable, result);
+        if (isExpanded) {
+            Table portsTable = new Table();
+            portsTable.left();
+            for (PortScanResult result : currentDevice.getServices()) {
+                addPortInfo(portsTable, result);
+            }
+            add(portsTable).colspan(4).expandX().fillX().padLeft(45).padTop(5).row();
         }
-        add(portsTable).colspan(3).expandX().fillX().padLeft(45).padTop(5).row();
     }
 
     private void addPortInfo(Table portsTable, PortScanResult result) {
@@ -168,5 +187,9 @@ public class DeviceRow extends Table {
 
     public DiscoveredDevice getDevice() {
         return currentDevice;
+    }
+
+    public boolean isExpanded() {
+        return isExpanded;
     }
 }
