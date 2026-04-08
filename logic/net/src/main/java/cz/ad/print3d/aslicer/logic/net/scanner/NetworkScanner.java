@@ -55,6 +55,15 @@ public interface NetworkScanner extends AutoCloseable {
         default void onDeviceDiscovered(DiscoveredDevice device) {}
 
         /**
+         * Called when information about a previously discovered device is updated.
+         * This can be used to update existing results in real-time as more information
+         * (e.g. from port scanning or enrichment) becomes available.
+         *
+         * @param device the updated device information
+         */
+        default void onDeviceUpdated(DiscoveredDevice device) {}
+
+        /**
          * Called when an individual port is discovered on a host.
          *
          * @param host       the host IP address

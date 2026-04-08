@@ -38,12 +38,13 @@ public class AcceleratorDiscoveryTest {
         };
 
         ScanTracker tracker = new ScanTracker();
-        HostScanTask task = new HostScanTask(host, config, false, listener, stubPortScanner, new DefaultServiceValidator(), tracker, new Semaphore(10), Runnable::run) {
+        HostScanTask task = new HostScanTask(host, config, false, listener, stubPortScanner, new DefaultServiceValidator(), new DeviceEnricher(), tracker, new Semaphore(10), Runnable::run) {
             @Override
             protected boolean checkReachable(String host, int timeout) {
                 return true; // Simulate reachable
             }
         };
+        task.setDeepScanThreshold(0); // Force isHostUp check
         
         CompletableFuture<DiscoveredDevice> future = task.execute();
         
@@ -77,7 +78,7 @@ public class AcceleratorDiscoveryTest {
         };
 
         ScanTracker tracker = new ScanTracker();
-        HostScanTask task = new HostScanTask(host, config, false, listener, stubPortScanner, new DefaultServiceValidator(), tracker, new Semaphore(10), Runnable::run) {
+        HostScanTask task = new HostScanTask(host, config, false, listener, stubPortScanner, new DefaultServiceValidator(), new DeviceEnricher(), tracker, new Semaphore(10), Runnable::run) {
             @Override protected boolean checkReachable(String host, int timeout) { return false; }
         };
         

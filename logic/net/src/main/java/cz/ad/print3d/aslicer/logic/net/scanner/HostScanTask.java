@@ -40,9 +40,15 @@ public class HostScanTask {
     private final NetworkScanner.ScanProgressListener listener;
     private final PortScanner portScanner;
     private final ServiceValidator serviceValidator;
+    private final DeviceEnricher deviceEnricher;
     private final ScanTracker scanTracker;
     private final Semaphore portScanSemaphore;
     private final java.util.concurrent.Executor scanExecutor;
+    /**
+     * The threshold for the number of ports to scan. If the number of ports is above this threshold,
+     * an "up check" (ICMP/common ports) is performed first to avoid scanning dead hosts.
+     * For fast scans with fewer ports, the check is skipped to reduce overhead.
+     */
     private int deepScanThreshold = 100;
     private final java.util.concurrent.atomic.AtomicInteger completedPorts = new java.util.concurrent.atomic.AtomicInteger(0);
     private final java.util.concurrent.atomic.AtomicBoolean notifiedDiscovery = new java.util.concurrent.atomic.AtomicBoolean(false);
@@ -63,14 +69,16 @@ public class HostScanTask {
      */
     public HostScanTask(String host, ScanConfiguration config, boolean useBannerGrabbing,
                         NetworkScanner.ScanProgressListener listener, PortScanner portScanner,
-                        ServiceValidator serviceValidator, ScanTracker scanTracker,
-                        Semaphore portScanSemaphore, java.util.concurrent.Executor scanExecutor) {
+                        ServiceValidator serviceValidator, DeviceEnricher deviceEnricher,
+                        ScanTracker scanTracker, Semaphore portScanSemaphore,
+                        java.util.concurrent.Executor scanExecutor) {
         this.host = host;
         this.config = config;
         this.useBannerGrabbing = useBannerGrabbing;
         this.listener = listener;
         this.portScanner = portScanner;
         this.serviceValidator = serviceValidator;
+        this.deviceEnricher = deviceEnricher;
         this.scanTracker = scanTracker;
         this.portScanSemaphore = portScanSemaphore;
         this.scanExecutor = scanExecutor;
@@ -101,13 +109,16 @@ public class HostScanTask {
         device.setReachable(initialReachable);
 
         // Perform an "up check" to identify if the host is alive.
-        // This acts as an accelerator for the discovery process.
+        // This acts as an accelerator for the discovery process, but only if we have many ports to scan.
         CompletableFuture<Boolean> upCheckFuture;
         if (initialReachable) {
             upCheckFuture = CompletableFuture.completedFuture(true);
             notifyDiscovery(device);
-        } else {
+        } else if (ports.size() > deepScanThreshold) {
             upCheckFuture = isHostUp(device);
+        } else {
+            // For fast scans with few ports, we skip the overhead of ICMP and fallback scans
+            upCheckFuture = CompletableFuture.completedFuture(true);
         }
         scanTracker.track(upCheckFuture);
 
@@ -164,9 +175,13 @@ public class HostScanTask {
                         }
                         if (result.isOpen()) {
                             device.addService(result);
+                            if (deviceEnricher != null) {
+                                deviceEnricher.enrichFromPortScan(device, config);
+                            }
                             if (listener != null) {
                                 listener.onPortDiscovered(host, result);
                                 notifyDiscovery(device);
+                                notifyUpdate(device);
                             }
                         }
                         return result;
@@ -241,6 +256,12 @@ public class HostScanTask {
         }
     }
 
+    private void notifyUpdate(DiscoveredDevice device) {
+        if (listener != null && notifiedDiscovery.get()) {
+            listener.onDeviceUpdated(device);
+        }
+    }
+
     protected boolean checkReachable(String host, int timeout) {
         try {
             InetAddress addr = InetAddress.getByName(host);
@@ -273,8 +294,25 @@ public class HostScanTask {
 
             return CompletableFuture.allOf(checks.toArray(new CompletableFuture<?>[0]))
                     .thenApply(v -> {
-                        boolean anyOpen = checks.stream().anyMatch(f -> f.join().isOpen());
-                        if (anyOpen) device.setReachable(true);
+                        boolean anyOpen = false;
+                        for (CompletableFuture<PortScanResult> f : checks) {
+                            PortScanResult res = f.join();
+                            if (res.isOpen()) {
+                                anyOpen = true;
+                                device.addService(res);
+                                if (deviceEnricher != null) {
+                                    deviceEnricher.enrichFromPortScan(device, config);
+                                }
+                                if (listener != null) {
+                                    listener.onPortDiscovered(host, res);
+                                }
+                            }
+                        }
+                        if (anyOpen) {
+                            device.setReachable(true);
+                            notifyDiscovery(device);
+                            notifyUpdate(device);
+                        }
                         return anyOpen;
                     });
         });

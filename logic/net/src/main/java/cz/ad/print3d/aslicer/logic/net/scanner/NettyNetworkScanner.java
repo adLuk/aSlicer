@@ -244,7 +244,8 @@ public class NettyNetworkScanner implements NetworkScanner {
         }, null);
         scanTracker.track(ssdpFuture);
         
-        HostScanTask task = new HostScanTask(host, config, useBannerGrabbing, listener, portScanner, serviceValidator, scanTracker, portScanSemaphore, scanExecutor);
+        HostScanTask task = new HostScanTask(host, config, useBannerGrabbing, listener, portScanner,
+                serviceValidator, deviceEnricher, scanTracker, portScanSemaphore, scanExecutor);
         // Hint that we might already know it's reachable via mDNS/SSDP
         // (Wait, discovery is still in progress, so we might not know yet).
         // For scanHost, we wait for discovery anyway.

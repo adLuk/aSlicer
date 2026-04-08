@@ -30,6 +30,9 @@ import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import cz.ad.print3d.aslicer.ui.desktop.model.ModelManager;
+import cz.ad.print3d.aslicer.ui.desktop.view.wizard.PrinterConnectionStep;
+import cz.ad.print3d.aslicer.ui.desktop.view.wizard.PrinterDiscoveryStep;
+import cz.ad.print3d.aslicer.ui.desktop.view.wizard.Wizard;
 
 import java.util.function.Consumer;
 
@@ -55,7 +58,7 @@ public class DesktopUI implements Disposable {
     private final Table rootTable;
     private SettingsWindow settingsWindow;
     private ModelListWindow modelListWindow;
-    private PrinterDiscoveryDialog printerDiscoveryDialog;
+    private Wizard printerWizard;
 
     /**
      * Creates a new DesktopUI instance.
@@ -224,19 +227,46 @@ public class DesktopUI implements Disposable {
     }
 
     /**
-     * Toggles the visibility of the printer discovery window.
+     * Toggles the visibility of the printer discovery wizard.
      */
     public void togglePrinterDiscoveryWindow() {
-        if (printerDiscoveryDialog == null) {
-            printerDiscoveryDialog = new PrinterDiscoveryDialog(skin);
-            printerDiscoveryDialog.centerWindow();
-            addDialog(printerDiscoveryDialog);
+        if (printerWizard == null) {
+            printerWizard = new Wizard("Printer Discovery Wizard", skin);
+            PrinterDiscoveryStep discoveryStep = new PrinterDiscoveryStep(skin);
+            PrinterConnectionStep connectionStep = new PrinterConnectionStep(skin, discoveryStep);
+            
+            printerWizard.addStep(discoveryStep);
+            printerWizard.addStep(connectionStep);
+            
+            printerWizard.setListener(new Wizard.WizardListener() {
+                @Override
+                public void onFinish(Wizard wizard) {
+                    // Logic to handle finished wizard, e.g. adding printers to ModelManager
+                    System.out.println("Wizard finished. Selected printers: " + discoveryStep.getSelectedDevices().size());
+                    System.out.println("Connection codes: " + connectionStep.getConnectionCodes());
+                }
+
+                @Override
+                public void onCancel(Wizard wizard) {
+                    System.out.println("Wizard cancelled.");
+                }
+            });
+
+            centerWindow(printerWizard);
+            addDialog(printerWizard);
         } else {
-            printerDiscoveryDialog.setVisible(!printerDiscoveryDialog.isVisible());
-            if (printerDiscoveryDialog.isVisible()) {
-                printerDiscoveryDialog.centerWindow();
+            printerWizard.setVisible(!printerWizard.isVisible());
+            if (printerWizard.isVisible()) {
+                centerWindow(printerWizard);
             }
         }
+    }
+
+    private void centerWindow(Window window) {
+        window.setPosition(
+            com.badlogic.gdx.Gdx.graphics.getWidth() / 2f - window.getWidth() / 2f,
+            com.badlogic.gdx.Gdx.graphics.getHeight() / 2f - window.getHeight() / 2f
+        );
     }
 
     /**
@@ -333,8 +363,8 @@ public class DesktopUI implements Disposable {
 
     @Override
     public void dispose() {
-        if (printerDiscoveryDialog != null) {
-            printerDiscoveryDialog.remove();
+        if (printerWizard != null) {
+            printerWizard.remove();
         }
         view1Stage.dispose();
         view2Stage.dispose();

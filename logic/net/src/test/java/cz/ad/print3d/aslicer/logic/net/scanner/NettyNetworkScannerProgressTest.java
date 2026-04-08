@@ -1,16 +1,10 @@
 package cz.ad.print3d.aslicer.logic.net.scanner;
 
-import cz.ad.print3d.aslicer.logic.net.scanner.dto.DiscoveredDevice;
-import cz.ad.print3d.aslicer.logic.net.scanner.dto.MdnsServiceInfo;
-import cz.ad.print3d.aslicer.logic.net.scanner.dto.PortScanResult;
-import cz.ad.print3d.aslicer.logic.net.scanner.dto.SsdpServiceInfo;
+import cz.ad.print3d.aslicer.logic.net.scanner.dto.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -157,5 +151,53 @@ class NettyNetworkScannerProgressTest {
         // After fix, it should be at least 0.33 or 0.66.
         
         assertTrue(maxProgressBeforeFinish > 0.1, "Progress was stuck! Max intermediate progress: " + maxProgressBeforeFinish + ", updates: " + progressUpdates);
+    }
+
+    @Test
+    void testProgressWithProfilePorts() throws Exception {
+        // Setup common ports (5 ports)
+        Set<Integer> commonPorts = new HashSet<>(Arrays.asList(22, 80, 443, 3344, 8080));
+
+        // Setup a profile with extra ports (5 extra ports)
+        PortDiscoveryConfig pdc1 = new PortDiscoveryConfig(990, "FTPS", null);
+        PortDiscoveryConfig pdc2 = new PortDiscoveryConfig(8883, "MQTT", null);
+        PortDiscoveryConfig pdc3 = new PortDiscoveryConfig(3000, "Bambu 1", null);
+        PortDiscoveryConfig pdc4 = new PortDiscoveryConfig(3002, "Bambu 2", null);
+        PortDiscoveryConfig pdc5 = new PortDiscoveryConfig(6000, "Bambu Camera", null);
+
+        PrinterDiscoveryProfile profile = new PrinterDiscoveryProfile("Bambu",
+                new HashSet<>(Arrays.asList(pdc1, pdc2, pdc3, pdc4, pdc5)),
+                new HashSet<>(Arrays.asList(990, 8883)));
+
+        ScanConfiguration config = new ScanConfiguration(Arrays.asList(profile), commonPorts, false);
+
+        // Total unique ports = 5 (common) + 5 (profile) = 10 ports
+        // Bug: totalPorts was calculated based on commonPorts.size() = 5.
+        // So progress would reach 10/5 = 2.0 (200%).
+
+        networkScanner.setIncludeSelfIp(true);
+
+        List<Double> progressUpdates = Collections.synchronizedList(new ArrayList<>());
+
+        CompletableFuture<List<DiscoveredDevice>> future = networkScanner.scanRange("192.0.2.", 1, 1, config, false, new NetworkScanner.ScanProgressListener() {
+            @Override
+            public void onProgress(double progress, String currentIp) {
+                progressUpdates.add(progress);
+            }
+
+            @Override
+            public void onDeviceDiscovered(DiscoveredDevice device) {}
+        });
+
+        future.get(10, TimeUnit.SECONDS);
+
+        double maxProgress = 0;
+        synchronized (progressUpdates) {
+            for (Double p : progressUpdates) {
+                maxProgress = Math.max(maxProgress, p);
+            }
+        }
+
+        assertTrue(maxProgress <= 1.0001, "Progress exceeded 100%: " + maxProgress + ", updates: " + progressUpdates);
     }
 }

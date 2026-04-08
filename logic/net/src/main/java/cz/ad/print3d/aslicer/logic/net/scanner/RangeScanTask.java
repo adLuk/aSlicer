@@ -251,7 +251,7 @@ public class RangeScanTask {
                                    Map<String, DiscoveredDevice> discoveredDevicesMap,
                                    CompletableFuture<List<DiscoveredDevice>> externalFuture) {
         int totalHosts = hostsToScan.size();
-        int portsPerHost = config.getCommonPorts().size();
+        int portsPerHost = config.getAllPorts().size();
         long totalPorts = (long) totalHosts * (portsPerHost > 0 ? portsPerHost : 1);
         List<CompletableFuture<DiscoveredDevice>> hostFutures = new ArrayList<>();
 
@@ -262,6 +262,9 @@ public class RangeScanTask {
                 @Override public void onProgress(double progress, String currentIp) {}
                 @Override public void onDeviceDiscovered(DiscoveredDevice device) {
                     if (listener != null) listener.onDeviceDiscovered(device);
+                }
+                @Override public void onDeviceUpdated(DiscoveredDevice device) {
+                    if (listener != null) listener.onDeviceUpdated(device);
                 }
                 @Override public void onPortDiscovered(String host, PortScanResult portResult) {
                     if (listener != null) listener.onPortDiscovered(host, portResult);
@@ -323,7 +326,10 @@ public class RangeScanTask {
             // Phase 1: Fast scan / Check if already discovered
             CompletableFuture<Boolean> isUpFuture;
             if (mdnsByIpMap.containsKey(hostIp) || ssdpByIpMap.containsKey(hostIp)) {
-                totalScannedPorts.addAndGet(p1PortsPerHost);
+                long completed = totalScannedPorts.addAndGet(p1PortsPerHost);
+                if (listener != null) {
+                    listener.onProgress((double) completed / totalPorts, hostIp);
+                }
                 isUpFuture = CompletableFuture.completedFuture(true);
             } else {
                 isUpFuture = scanHostInternal(hostIp, normalConfig, new NetworkScanner.ScanProgressListener() {
@@ -344,6 +350,9 @@ public class RangeScanTask {
                     @Override public void onProgress(double progress, String currentIp) {}
                     @Override public void onDeviceDiscovered(DiscoveredDevice device) {
                         if (listener != null) listener.onDeviceDiscovered(device);
+                    }
+                    @Override public void onDeviceUpdated(DiscoveredDevice device) {
+                        if (listener != null) listener.onDeviceUpdated(device);
                     }
                     @Override public void onPortDiscovered(String host, PortScanResult portResult) {
                         if (listener != null) listener.onPortDiscovered(host, portResult);
@@ -389,7 +398,8 @@ public class RangeScanTask {
                                                                  NetworkScanner.ScanProgressListener listener,
                                                                  Map<String, List<MdnsServiceInfo>> mdnsByIpMap,
                                                                  Map<String, List<SsdpServiceInfo>> ssdpByIpMap) {
-        HostScanTask task = new HostScanTask(host, currentConfig, useBannerGrabbing, listener, portScanner, serviceValidator, scanTracker, portScanSemaphore, scanExecutor);
+        HostScanTask task = new HostScanTask(host, currentConfig, useBannerGrabbing, listener, portScanner,
+                serviceValidator, deviceEnricher, scanTracker, portScanSemaphore, scanExecutor);
         if (mdnsByIpMap.containsKey(host) || ssdpByIpMap.containsKey(host)) {
             task.setInitialReachable(true);
         }

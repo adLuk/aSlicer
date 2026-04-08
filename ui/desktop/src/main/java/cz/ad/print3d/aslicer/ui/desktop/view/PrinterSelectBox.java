@@ -1,11 +1,7 @@
 package cz.ad.print3d.aslicer.ui.desktop.view;
 
 import com.badlogic.gdx.scenes.scene2d.Actor;
-import com.badlogic.gdx.scenes.scene2d.ui.CheckBox;
-import com.badlogic.gdx.scenes.scene2d.ui.ScrollPane;
-import com.badlogic.gdx.scenes.scene2d.ui.Skin;
-import com.badlogic.gdx.scenes.scene2d.ui.Table;
-import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
+import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import cz.ad.print3d.aslicer.logic.printer.Printer3D;
 import cz.ad.print3d.aslicer.logic.printer.PrinterRepository;
@@ -19,7 +15,7 @@ import java.util.Set;
  * A component for selecting printers from a repository.
  * It supports single, multiple, or no selection, mimicking a combobox.
  */
-public class PrinterSelectBox extends Table {
+public final class PrinterSelectBox extends Table {
     private final PrinterRepository repository;
     private final Skin skin;
     private final TextButton selectionButton;

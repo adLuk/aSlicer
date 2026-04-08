@@ -7,7 +7,10 @@ import cz.ad.print3d.aslicer.logic.net.scanner.dto.ScanConfiguration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
@@ -81,7 +84,7 @@ class DeepScanPrioritizationTest {
         String host = "127.0.0.1";
         ScanConfiguration config = new ScanConfiguration(Collections.emptyList(), Set.of(80), true);
         
-        HostScanTask task = new HostScanTask(host, config, false, null, portScanner, new DefaultServiceValidator(), scanTracker, semaphore, java.util.concurrent.Executors.newCachedThreadPool());
+        HostScanTask task = new HostScanTask(host, config, false, null, portScanner, new DefaultServiceValidator(), new DeviceEnricher(), scanTracker, semaphore, java.util.concurrent.Executors.newCachedThreadPool());
         CompletableFuture<DiscoveredDevice> future = task.execute();
         
         DiscoveredDevice device = future.get(10, TimeUnit.SECONDS);

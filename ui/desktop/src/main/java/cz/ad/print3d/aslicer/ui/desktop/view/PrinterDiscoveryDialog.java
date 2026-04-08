@@ -49,7 +49,7 @@ import java.util.Map;
  * Dialog window for discovering 3D printers on the network.
  * It allows users to specify an IP range and scan for active devices and services.
  */
-public class PrinterDiscoveryDialog extends Window {
+public final class PrinterDiscoveryDialog extends Window {
 
     final Skin skin;
     final TextField startIpField;
@@ -283,6 +283,11 @@ public class PrinterDiscoveryDialog extends Window {
 
             @Override
             public void onDeviceDiscovered(DiscoveredDevice device) {
+                Gdx.app.postRunnable(() -> addDiscoveredDevice(device));
+            }
+
+            @Override
+            public void onDeviceUpdated(DiscoveredDevice device) {
                 Gdx.app.postRunnable(() -> addDiscoveredDevice(device));
             }
 

@@ -16,7 +16,7 @@ import java.util.function.Consumer;
  * It manages merging device information, services, and mDNS data, and handles the display
  * of port status and details button.
  */
-public class DeviceRow extends Table {
+public final class DeviceRow extends Table {
 
     private final DiscoveredDevice currentDevice;
     private final Skin skin;
