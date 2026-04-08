@@ -113,7 +113,7 @@ public class DesktopUI implements Disposable {
      *
      * @return the created Skin object
      */
-    private Skin createSkin() {
+    protected Skin createSkin() {
         Skin skin = new Skin();
         Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
         pixmap.setColor(Color.WHITE);
@@ -228,10 +228,14 @@ public class DesktopUI implements Disposable {
 
     /**
      * Toggles the visibility of the printer discovery wizard.
+     *
+     * @param initialWidth  the initial width of the wizard
+     * @param initialHeight the initial height of the wizard
+     * @param sizeCallback  a callback to be invoked when the wizard size changes or it is closed
      */
-    public void togglePrinterDiscoveryWindow() {
+    public void togglePrinterDiscoveryWindow(int initialWidth, int initialHeight, java.util.function.BiConsumer<Integer, Integer> sizeCallback) {
         if (printerWizard == null) {
-            printerWizard = new Wizard("Printer Discovery Wizard", skin);
+            printerWizard = new Wizard("Printer Discovery Wizard", skin, initialWidth, initialHeight);
             PrinterDiscoveryStep discoveryStep = new PrinterDiscoveryStep(skin);
             PrinterConnectionStep connectionStep = new PrinterConnectionStep(skin, discoveryStep);
             
@@ -244,11 +248,19 @@ public class DesktopUI implements Disposable {
                     // Logic to handle finished wizard, e.g. adding printers to ModelManager
                     System.out.println("Wizard finished. Selected printers: " + discoveryStep.getSelectedDevices().size());
                     System.out.println("Connection codes: " + connectionStep.getConnectionCodes());
+                    if (sizeCallback != null) {
+                        sizeCallback.accept((int) wizard.getWidth(), (int) wizard.getHeight());
+                    }
+                    printerWizard = null;
                 }
 
                 @Override
                 public void onCancel(Wizard wizard) {
                     System.out.println("Wizard cancelled.");
+                    if (sizeCallback != null) {
+                        sizeCallback.accept((int) wizard.getWidth(), (int) wizard.getHeight());
+                    }
+                    printerWizard = null;
                 }
             });
 
@@ -258,6 +270,10 @@ public class DesktopUI implements Disposable {
             printerWizard.setVisible(!printerWizard.isVisible());
             if (printerWizard.isVisible()) {
                 centerWindow(printerWizard);
+            } else {
+                if (sizeCallback != null) {
+                    sizeCallback.accept((int) printerWizard.getWidth(), (int) printerWizard.getHeight());
+                }
             }
         }
     }
@@ -276,6 +292,13 @@ public class DesktopUI implements Disposable {
      */
     public ModelListWindow getModelListWindow() {
         return modelListWindow;
+    }
+
+    /**
+     * @return the printer discovery wizard
+     */
+    public Wizard getPrinterWizard() {
+        return printerWizard;
     }
 
     /**

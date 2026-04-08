@@ -29,6 +29,10 @@ public class AppConfigDto {
     private int windowWidth = 800;
     private int windowHeight = 600;
 
+    // Wizard settings
+    private int wizardWidth = 800;
+    private int wizardHeight = 600;
+
     // Last used files/dirs
     private String lastDir = "";
     private String lastFile = "";
@@ -102,6 +106,34 @@ public class AppConfigDto {
      */
     public void setWindowHeight(int windowHeight) {
         this.windowHeight = windowHeight;
+    }
+
+    /**
+     * @return the width of the wizard window
+     */
+    public int getWizardWidth() {
+        return wizardWidth;
+    }
+
+    /**
+     * @param wizardWidth the width of the wizard window to set
+     */
+    public void setWizardWidth(int wizardWidth) {
+        this.wizardWidth = wizardWidth;
+    }
+
+    /**
+     * @return the height of the wizard window
+     */
+    public int getWizardHeight() {
+        return wizardHeight;
+    }
+
+    /**
+     * @param wizardHeight the height of the wizard window to set
+     */
+    public void setWizardHeight(int wizardHeight) {
+        this.wizardHeight = wizardHeight;
     }
 
     /**

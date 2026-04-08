@@ -416,7 +416,17 @@ public class DesktopApp implements ApplicationListener {
      * Toggles the visibility of the printer discovery window.
      */
     public void togglePrinterDiscoveryWindow() {
-        desktopUI.togglePrinterDiscoveryWindow();
+        AppConfigDto dto = appConfig.loadToDto();
+        desktopUI.togglePrinterDiscoveryWindow(
+            dto.getWizardWidth(),
+            dto.getWizardHeight(),
+            (width, height) -> {
+                AppConfigDto currentDto = appConfig.loadToDto();
+                currentDto.setWizardWidth(width);
+                currentDto.setWizardHeight(height);
+                appConfig.saveFromDto(currentDto);
+            }
+        );
     }
 
     @Override

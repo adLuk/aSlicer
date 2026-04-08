@@ -93,14 +93,22 @@ public final class DeviceRow extends Table {
 
     private void buildLayout() {
         clear();
+        pad(8);
+        
         String ip = currentDevice.getIpAddress();
         String name = currentDevice.getName();
         String vendor = currentDevice.getVendor();
         String model = currentDevice.getModel();
 
-        StringBuilder deviceLabelText = new StringBuilder();
         boolean positivelyIdentified = vendor != null && !vendor.isEmpty();
+        
+        if (positivelyIdentified) {
+            setBackground(skin.newDrawable("white", new Color(0.1f, 0.3f, 0.1f, 0.4f)));
+        } else {
+            setBackground(skin.newDrawable("white", new Color(0.2f, 0.2f, 0.2f, 0.4f)));
+        }
 
+        StringBuilder deviceLabelText = new StringBuilder();
         if (positivelyIdentified) {
             deviceLabelText.append(vendor).append(" Printer @ ");
         }
@@ -115,12 +123,16 @@ public final class DeviceRow extends Table {
         }
 
         Label deviceLabel = new Label(deviceLabelText.toString(), skin);
-        if (positivelyIdentified) {
-            deviceLabel.setColor(Color.YELLOW);
+        // Enable markup if the skin supports it, otherwise use fallback
+        if (skin.has("default", Label.LabelStyle.class) && deviceLabel.getStyle().font.getData().markupEnabled) {
+            // markup enabled
         } else {
-            deviceLabel.setColor(Color.WHITE);
+            // fallback if markup is not enabled
+            if (positivelyIdentified) {
+                deviceLabel.setColor(Color.YELLOW);
+            }
         }
-        deviceLabel.setAlignment(Align.center);
+        deviceLabel.setAlignment(Align.left);
 
         CheckBox selectionCheckBox = new CheckBox("", skin);
         selectionCheckBox.setChecked(currentDevice.isSelected());
@@ -128,6 +140,7 @@ public final class DeviceRow extends Table {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
                 currentDevice.setSelected(selectionCheckBox.isChecked());
+                DeviceRow.this.fire(new ChangeListener.ChangeEvent());
             }
         });
 
@@ -148,10 +161,10 @@ public final class DeviceRow extends Table {
             }
         });
 
-        add(selectionCheckBox).width(40).left();
+        add(selectionCheckBox).width(30).left();
         add(expandButton).width(30).left().padLeft(5);
-        add(deviceLabel).expandX().center();
-        add(hintButton).width(40).right();
+        add(deviceLabel).expandX().fillX().left().padLeft(10);
+        add(hintButton).width(35).right().padLeft(10);
         row();
 
         // Add ports/services
@@ -161,7 +174,7 @@ public final class DeviceRow extends Table {
             for (PortScanResult result : currentDevice.getServices()) {
                 addPortInfo(portsTable, result);
             }
-            add(portsTable).colspan(4).expandX().fillX().padLeft(45).padTop(5).row();
+            add(portsTable).colspan(4).expandX().fillX().padLeft(75).padTop(8).row();
         }
     }
 

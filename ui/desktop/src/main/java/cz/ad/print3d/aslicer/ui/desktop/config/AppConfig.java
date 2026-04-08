@@ -186,6 +186,8 @@ public class AppConfig {
         AppConfigDto dto = new AppConfigDto();
         dto.setWindowWidth(getInt("window.width", 1280));
         dto.setWindowHeight(getInt("window.height", 720));
+        dto.setWizardWidth(getInt("wizard.width", 800));
+        dto.setWizardHeight(getInt("wizard.height", 600));
         dto.setLastDir(getProperty("last.dir", ""));
         dto.setLastFile(getProperty("last.file", ""));
         dto.setDistance(getFloat("model.distance", 0.5f));
@@ -244,6 +246,8 @@ public class AppConfig {
 
         setProperty("window.width", dto.getWindowWidth());
         setProperty("window.height", dto.getWindowHeight());
+        setProperty("wizard.width", dto.getWizardWidth());
+        setProperty("wizard.height", dto.getWizardHeight());
         setProperty("last.dir", dto.getLastDir());
         setProperty("last.file", dto.getLastFile());
         setProperty("model.distance", dto.getDistance());

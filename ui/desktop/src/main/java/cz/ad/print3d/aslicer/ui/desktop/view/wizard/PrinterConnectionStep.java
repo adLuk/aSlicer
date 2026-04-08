@@ -1,5 +1,6 @@
 package cz.ad.print3d.aslicer.ui.desktop.view.wizard;
 
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
@@ -32,6 +33,11 @@ public class PrinterConnectionStep implements WizardStep {
     @Override
     public String getTitle() {
         return "Connection Details";
+    }
+
+    @Override
+    public String getDescription() {
+        return "Enter the access codes for your selected printers. This information is necessary to establish a secure communication channel.";
     }
 
     @Override
@@ -70,22 +76,32 @@ public class PrinterConnectionStep implements WizardStep {
 
         List<DiscoveredDevice> selectedDevices = discoveryStep.getSelectedDevices();
         if (selectedDevices.isEmpty()) {
-            content.add(new Label("No printers selected in the previous step.", skin)).row();
+            Table emptyTable = new Table();
+            emptyTable.add(new Label("No printers selected in the previous step.", skin)).row();
+            content.add(emptyTable).center().expand();
             return;
         }
 
         Table scrollTable = new Table();
         scrollTable.top().left();
+        scrollTable.pad(10);
 
         for (DiscoveredDevice device : selectedDevices) {
-            String displayName = (device.getVendor() != null ? device.getVendor() : "Unknown") + " Printer (" + device.getIpAddress() + ")";
-            scrollTable.add(new Label(displayName, skin)).left().padBottom(5).row();
+            Table deviceCard = new Table();
+            deviceCard.setBackground(skin.newDrawable("white", new Color(0.2f, 0.2f, 0.2f, 0.5f)));
+            deviceCard.pad(15);
+            
+            String displayName = (device.getVendor() != null ? device.getVendor() : "Unknown") + " Printer";
+            deviceCard.add(new Label(displayName, skin, skin.has("default-bold", Label.LabelStyle.class) ? "default-bold" : "default")).left().expandX();
+            deviceCard.add(new Label(device.getIpAddress(), skin)).right().row();
+
+            deviceCard.add(new Image(skin.getDrawable("white"))).colspan(2).fillX().height(1).padTop(5).padBottom(10).row();
 
             Table inputTable = new Table();
-            inputTable.add(new Label("Access Code / Unique Code:", skin)).padRight(10);
+            inputTable.add(new Label("Access Code:", skin)).padRight(15);
             
             TextField codeField = new TextField("", skin);
-            codeField.setMessageText("Enter code");
+            codeField.setMessageText("Enter code (e.g. for Bambu)");
             codeField.addListener(new ChangeListener() {
                 @Override
                 public void changed(ChangeEvent event, Actor actor) {
@@ -94,14 +110,17 @@ public class PrinterConnectionStep implements WizardStep {
                     }
                 }
             });
-            inputTable.add(codeField).width(200);
+            inputTable.add(codeField).width(250).expandX().fillX();
             
             codeFields.put(device.getIpAddress(), codeField);
-            scrollTable.add(inputTable).left().padLeft(20).padBottom(15).row();
+            deviceCard.add(inputTable).colspan(2).fillX().row();
+            
+            scrollTable.add(deviceCard).fillX().padBottom(15).row();
         }
 
         ScrollPane scrollPane = new ScrollPane(scrollTable, skin);
         scrollPane.setFadeScrollBars(false);
+        scrollPane.getStyle().background = skin.newDrawable("white", new Color(0.15f, 0.15f, 0.15f, 1f));
         content.add(scrollPane).expand().fill();
     }
 

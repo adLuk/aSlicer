@@ -15,6 +15,15 @@ public interface WizardStep {
     String getTitle();
 
     /**
+     * Returns a brief description or instructions for the step.
+     *
+     * @return the description of the step
+     */
+    default String getDescription() {
+        return "";
+    }
+
+    /**
      * Returns the content actor for the step.
      *
      * @return the content actor for the step

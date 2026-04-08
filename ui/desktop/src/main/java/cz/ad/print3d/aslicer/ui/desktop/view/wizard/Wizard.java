@@ -20,22 +20,44 @@ public final class Wizard extends Window {
     private final TextButton finishButton;
     private final TextButton cancelButton;
     private final Label stepTitleLabel;
+    private final Label stepProgressLabel;
+    private final Label stepDescriptionLabel;
 
     private WizardListener listener;
 
     /**
-     * Constructs a new Wizard.
+     * Constructs a new Wizard with default size.
      *
      * @param title the title of the wizard window
      * @param skin  the skin to use for styling
      */
     public Wizard(String title, Skin skin) {
+        this(title, skin, 800, 600);
+    }
+
+    /**
+     * Constructs a new Wizard with specified size.
+     *
+     * @param title  the title of the wizard window
+     * @param skin   the skin to use for styling
+     * @param width  the width of the wizard
+     * @param height the height of the wizard
+     */
+    public Wizard(String title, Skin skin, int width, int height) {
         super(title, skin);
         setMovable(true);
         setResizable(true);
-        setSize(600, 500);
+        setResizeBorder(10);
+        setSize(width, height);
 
-        stepTitleLabel = new Label("", skin);
+        if (skin.has("title-white", Label.LabelStyle.class)) {
+            stepTitleLabel = new Label("", skin, "title-white");
+        } else {
+            stepTitleLabel = new Label("", skin);
+        }
+        stepProgressLabel = new Label("", skin);
+        stepDescriptionLabel = new Label("", skin);
+        stepDescriptionLabel.setWrap(true);
         contentTable = new Table();
 
         backButton = new TextButton("< Back", skin);
@@ -50,18 +72,30 @@ public final class Wizard extends Window {
 
     private void setupLayout() {
         Table mainTable = new Table();
-        mainTable.pad(10);
-        mainTable.add(stepTitleLabel).left().padBottom(10).row();
+        mainTable.pad(15);
+
+        // Header section
+        Table headerTable = new Table();
+        headerTable.add(stepTitleLabel).left().expandX();
+        headerTable.add(stepProgressLabel).right().padLeft(10);
+        mainTable.add(headerTable).fillX().padBottom(5).row();
+        
+        mainTable.add(new Image(getSkin().getDrawable("white"))).fillX().height(1).padBottom(10).row();
+        
+        mainTable.add(stepDescriptionLabel).fillX().padBottom(10).row();
         mainTable.add(contentTable).expand().fill().row();
 
-        Table buttonTable = new Table();
-        buttonTable.add(cancelButton).padRight(10);
-        buttonTable.add().expandX();
-        buttonTable.add(backButton).padRight(5);
-        buttonTable.add(nextButton).padRight(5);
-        buttonTable.add(finishButton);
+        // Separator before buttons
+        mainTable.add(new Image(getSkin().getDrawable("white"))).fillX().height(1).padTop(10).padBottom(10).row();
 
-        mainTable.add(buttonTable).fillX().padTop(10);
+        Table buttonTable = new Table();
+        buttonTable.add(cancelButton).padRight(10).minWidth(80);
+        buttonTable.add().expandX();
+        buttonTable.add(backButton).padRight(5).minWidth(80);
+        buttonTable.add(nextButton).padRight(5).minWidth(80);
+        buttonTable.add(finishButton).minWidth(80);
+
+        mainTable.add(buttonTable).fillX();
         add(mainTable).expand().fill();
     }
 
@@ -127,21 +161,29 @@ public final class Wizard extends Window {
         WizardStep currentStep = steps.get(currentStepIndex);
         
         stepTitleLabel.setText(currentStep.getTitle());
+        stepDescriptionLabel.setText(currentStep.getDescription());
+        stepProgressLabel.setText(String.format("Step %d of %d", currentStepIndex + 1, steps.size()));
+        
         contentTable.clear();
         contentTable.add(currentStep.getContent()).expand().fill();
+        
+        // Ensure layout refreshes when step content changes
+        contentTable.invalidateHierarchy();
+        invalidateHierarchy();
         
         currentStep.onEnter(this);
         updateButtons();
     }
 
-    /**
-     * Navigates to the next step if possible.
-     */
     public void next() {
         if (currentStepIndex < steps.size() - 1) {
             WizardStep currentStep = steps.get(currentStepIndex);
             if (currentStep.isValid() && currentStep.isComplete()) {
                 setStep(currentStepIndex + 1);
+            } else {
+                // If this is hit, it means the button was enabled but the step wasn't actually valid/complete.
+                // This shouldn't happen, but let's re-update buttons.
+                updateButtons();
             }
         }
     }
@@ -197,11 +239,17 @@ public final class Wizard extends Window {
         boolean isLastStep = currentStepIndex == steps.size() - 1;
         WizardStep currentStep = steps.get(currentStepIndex);
         
+        boolean canProceed = currentStep.isComplete() && currentStep.isValid();
+        
         nextButton.setVisible(!isLastStep);
-        nextButton.setDisabled(!currentStep.isComplete());
+        nextButton.setDisabled(!canProceed);
         
         finishButton.setVisible(isLastStep);
-        finishButton.setDisabled(!currentStep.isComplete());
+        finishButton.setDisabled(!canProceed);
+        
+        // Ensure UI correctly reflects disabled state
+        nextButton.invalidate();
+        finishButton.invalidate();
     }
 
     /**

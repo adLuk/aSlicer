@@ -16,10 +16,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 package cz.ad.print3d.aslicer.ui.desktop.config;
-import cz.ad.print3d.aslicer.ui.desktop.DesktopApp;
-import cz.ad.print3d.aslicer.ui.desktop.config.*;
-import cz.ad.print3d.aslicer.ui.desktop.persistence.*;
-import cz.ad.print3d.aslicer.ui.desktop.view.*;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -57,6 +53,8 @@ public class AppConfigDtoTest {
         AppConfigDto dto = new AppConfigDto();
         assertEquals(800, dto.getWindowWidth());
         assertEquals(600, dto.getWindowHeight());
+        assertEquals(800, dto.getWizardWidth());
+        assertEquals(600, dto.getWizardHeight());
         assertEquals("", dto.getLastDir());
         assertEquals("", dto.getLastFile());
         assertEquals(0.5f, dto.getDistance());
@@ -74,6 +72,8 @@ public class AppConfigDtoTest {
         
         dto.setWindowWidth(1024);
         dto.setWindowHeight(768);
+        dto.setWizardWidth(900);
+        dto.setWizardHeight(700);
         dto.setLastDir("/test/dir");
         dto.setLastFile("/test/file.stl");
         dto.setCameraPosX(1.0f);
@@ -101,6 +101,8 @@ public class AppConfigDtoTest {
 
         assertEquals(1024, loadedDto.getWindowWidth());
         assertEquals(768, loadedDto.getWindowHeight());
+        assertEquals(900, loadedDto.getWizardWidth());
+        assertEquals(700, loadedDto.getWizardHeight());
         assertEquals("/test/dir", loadedDto.getLastDir());
         assertEquals("/test/file.stl", loadedDto.getLastFile());
         assertEquals(1.0f, loadedDto.getCameraPosX());
