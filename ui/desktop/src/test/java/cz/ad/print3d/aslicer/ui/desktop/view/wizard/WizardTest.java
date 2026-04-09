@@ -66,9 +66,12 @@ public class WizardTest {
                     // Test next navigation (should work if complete)
                     step1.complete = true;
                     wizard.updateButtons();
+                    assertEquals("Step 1 of 2", wizard.getStepProgressLabel().getText().toString());
+
                     wizard.next();
                     assertFalse(step1.isEntered);
                     assertTrue(step2.isEntered);
+                    assertEquals("Step 2 of 2", wizard.getStepProgressLabel().getText().toString());
 
                     // Test back navigation
                     wizard.back();

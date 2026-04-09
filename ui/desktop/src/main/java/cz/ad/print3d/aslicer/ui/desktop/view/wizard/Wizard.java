@@ -3,6 +3,7 @@ package cz.ad.print3d.aslicer.ui.desktop.view.wizard;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
+import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener.ChangeEvent;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,6 +25,7 @@ public final class Wizard extends Window {
     private final Label stepDescriptionLabel;
 
     private WizardListener listener;
+    private boolean touchDownReceived = false; // For testing purposes to verify event propagation
 
     /**
      * Constructs a new Wizard with default size.
@@ -61,9 +63,13 @@ public final class Wizard extends Window {
         contentTable = new Table();
 
         backButton = new TextButton("< Back", skin);
+        backButton.setName("backButton");
         nextButton = new TextButton("Next >", skin);
+        nextButton.setName("nextButton");
         finishButton = new TextButton("Finish", skin);
+        finishButton.setName("finishButton");
         cancelButton = new TextButton("Cancel", skin);
+        cancelButton.setName("cancelButton");
 
         setupLayout();
         setupListeners();
@@ -99,34 +105,61 @@ public final class Wizard extends Window {
         add(mainTable).expand().fill();
     }
 
+    /**
+     * Sets up event listeners for the wizard buttons.
+     * <p>
+     * This implementation follows Scene2D best practices for complex UI components
+     * by using event bubbling. Instead of attaching individual listeners to each button,
+     * a single listener is attached to the {@code Wizard} (the parent container).
+     * </p>
+     * <p>
+     * When a button is clicked, it fires a {@link ChangeEvent}. This event bubbles
+     * up through the actor hierarchy until it reaches the {@code Wizard}, where it is handled.
+     * This approach has several advantages:
+     * <ul>
+     *     <li>Reduces memory overhead by avoiding multiple anonymous listener classes.</li>
+     *     <li>Centralizes control logic, making it easier to maintain and debug.</li>
+     *     <li>Ensures that all types of events (including {@link com.badlogic.gdx.scenes.scene2d.InputEvent})
+     *     reach the wizard implementation, addressing issues where events might be filtered
+     *     by standard listener implementations like {@link ChangeListener}.</li>
+     * </ul>
+     * </p>
+     */
     private void setupListeners() {
-        backButton.addListener(new ChangeListener() {
-            @Override
-            public void changed(ChangeEvent event, Actor actor) {
-                back();
+        // We add ourselves as a listener to handle bubbling events from buttons.
+        addListener(event -> {
+            // Track touchDown events for verification (as requested in problem analysis)
+            if (event instanceof com.badlogic.gdx.scenes.scene2d.InputEvent) {
+                com.badlogic.gdx.scenes.scene2d.InputEvent inputEvent = (com.badlogic.gdx.scenes.scene2d.InputEvent) event;
+                if (inputEvent.getType() == com.badlogic.gdx.scenes.scene2d.InputEvent.Type.touchDown) {
+                    touchDownReceived = true;
+                }
             }
-        });
 
-        nextButton.addListener(new ChangeListener() {
-            @Override
-            public void changed(ChangeEvent event, Actor actor) {
-                next();
+            if (event instanceof ChangeEvent) {
+                Actor actor = event.getTarget();
+                
+                if (isButtonActor(actor, backButton, "backButton")) {
+                    back();
+                    return false;
+                } else if (isButtonActor(actor, nextButton, "nextButton")) {
+                    next();
+                    return false;
+                } else if (isButtonActor(actor, finishButton, "finishButton")) {
+                    finish();
+                    return false;
+                } else if (isButtonActor(actor, cancelButton, "cancelButton")) {
+                    cancel();
+                    return false;
+                }
             }
+            return false;
         });
+    }
 
-        finishButton.addListener(new ChangeListener() {
-            @Override
-            public void changed(ChangeEvent event, Actor actor) {
-                finish();
-            }
-        });
-
-        cancelButton.addListener(new ChangeListener() {
-            @Override
-            public void changed(ChangeEvent event, Actor actor) {
-                cancel();
-            }
-        });
+    private boolean isButtonActor(Actor target, Actor button, String name) {
+        if (target == null || button == null) return false;
+        return target == button || name.equals(target.getName()) || button.isAscendantOf(target);
     }
 
     /**
@@ -162,7 +195,6 @@ public final class Wizard extends Window {
         
         stepTitleLabel.setText(currentStep.getTitle());
         stepDescriptionLabel.setText(currentStep.getDescription());
-        stepProgressLabel.setText(String.format("Step %d of %d", currentStepIndex + 1, steps.size()));
         
         contentTable.clear();
         contentTable.add(currentStep.getContent()).expand().fill();
@@ -224,15 +256,18 @@ public final class Wizard extends Window {
     }
 
     /**
-     * Updates the state and visibility of navigation buttons.
+     * Updates the state and visibility of navigation buttons and progress label.
      */
     public void updateButtons() {
         if (currentStepIndex == -1) {
             backButton.setDisabled(true);
             nextButton.setDisabled(true);
             finishButton.setDisabled(true);
+            stepProgressLabel.setText("");
             return;
         }
+
+        stepProgressLabel.setText(String.format("Step %d of %d", currentStepIndex + 1, steps.size()));
 
         backButton.setDisabled(currentStepIndex == 0);
         
@@ -259,6 +294,27 @@ public final class Wizard extends Window {
      */
     public void setListener(WizardListener listener) {
         this.listener = listener;
+    }
+
+    public Label getStepProgressLabel() {
+        return stepProgressLabel;
+    }
+
+    /**
+     * Checks if a touchDown event was received by the wizard's listener.
+     * This is primarily used for unit testing to verify event propagation.
+     *
+     * @return true if a touchDown event was received
+     */
+    public boolean wasTouchDownReceived() {
+        return touchDownReceived;
+    }
+
+    /**
+     * Resets the touchDown event tracking flag.
+     */
+    public void resetTouchDownReceived() {
+        touchDownReceived = false;
     }
 
     /**

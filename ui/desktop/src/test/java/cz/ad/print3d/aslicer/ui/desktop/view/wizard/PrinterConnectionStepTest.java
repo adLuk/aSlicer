@@ -32,7 +32,7 @@ public class PrinterConnectionStepTest {
                     Skin skin = GdxTestUtils.createTestSkin();
 
                     DiscoveredDevice device = new DiscoveredDevice("192.168.1.100");
-                    device.setVendor("Bambu");
+                    device.setVendor("Bambu Lab");
                     device.setSelected(true);
 
                     PrinterDiscoveryStep mockDiscoveryStep = new PrinterDiscoveryStep(skin) {
@@ -50,20 +50,14 @@ public class PrinterConnectionStepTest {
                     // Move to connection step
                     wizard.setStep(1);
 
+                    // Should not be valid because validation is required
                     assertFalse(connectionStep.isValid());
                     assertFalse(connectionStep.isComplete());
 
+                    // Check if codes are empty initially
                     Map<String, String> codes = connectionStep.getConnectionCodes();
                     assertEquals(1, codes.size());
                     assertEquals("", codes.get("192.168.1.100"));
-
-                    // Find and set code
-                    connectionStep.getContent(); // Ensures layout is built
-                    // In a real test we would find the TextField actor, but here we can just test the logic
-                    // Actually, buildLayout is private, so we depend on onEnter(wizard) which calls it.
-
-                    // Let's reflectively or via some accessor find the text field if we wanted to be thorough,
-                    // but for this task, a basic validation is enough.
 
                 } finally {
                     latch.countDown();
