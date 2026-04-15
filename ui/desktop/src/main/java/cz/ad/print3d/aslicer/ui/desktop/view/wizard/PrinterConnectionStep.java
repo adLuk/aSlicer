@@ -339,4 +339,16 @@ public class PrinterConnectionStep implements WizardStep {
         }
         return codes;
     }
+
+    /**
+     * Allow interaction of Wizard step with events processed and update Wizard internal state based on changes
+     * in step.
+     *
+     * @param event event filtered by Wizard to be this specific type.
+     * @return true in case when event was processed and processing is finished, otherwise false.
+     */
+    @Override
+    public boolean processChange(ChangeListener.ChangeEvent event) {
+        return false;
+    }
 }

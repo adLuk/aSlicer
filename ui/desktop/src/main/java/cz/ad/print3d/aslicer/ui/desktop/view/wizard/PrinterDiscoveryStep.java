@@ -194,6 +194,26 @@ public class PrinterDiscoveryStep implements WizardStep {
         }
     }
 
+    /**
+     * Allow interaction of Wizard step with events processed and update Wizard internal state based on changes
+     * in step.
+     *
+     * @param event event filtered by Wizard to be this specific type.
+     * @return true in case when event was processed and processing is finished, otherwise false.
+     */
+    @Override
+    public boolean processChange(ChangeListener.ChangeEvent event) {
+        boolean result = false;
+        if(event!=null){
+            Actor actor = event.getTarget();
+            if(actor instanceof DeviceRow) {
+                updateWizardButtons();
+                result = true;
+            }
+        }
+        return result;
+    }
+
     private void initializeIpRange() {
         progressLabel.setText("Getting network information...");
         collector.collectAsync().thenAccept(interfaces -> Gdx.app.postRunnable(() -> {
@@ -313,8 +333,6 @@ public class PrinterDiscoveryStep implements WizardStep {
                 for (DiscoveredDevice device : devices) {
                     addDiscoveredDevice(device);
                 }
-                
-                updateWizardButtons();
             }
         })).exceptionally(ex -> {
             Gdx.app.postRunnable(() -> {
@@ -367,7 +385,6 @@ public class PrinterDiscoveryStep implements WizardStep {
                 row.update(device);
             }
             sortResults();
-            updateWizardButtons();
         });
     }
 

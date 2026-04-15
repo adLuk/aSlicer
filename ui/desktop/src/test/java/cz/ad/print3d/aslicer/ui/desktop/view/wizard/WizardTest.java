@@ -8,6 +8,7 @@ import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
+import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import cz.ad.print3d.aslicer.ui.desktop.GdxTestUtils;
 import org.junit.jupiter.api.Test;
 
@@ -117,5 +118,6 @@ public class WizardTest {
         @Override public void onExit(Wizard wizard) { isEntered = false; }
         @Override public boolean isValid() { return true; }
         @Override public boolean isComplete() { return complete; }
+        @Override public boolean processChange(ChangeListener.ChangeEvent event) {return false;}
     }
 }

@@ -11,7 +11,7 @@ import java.util.List;
 /**
  * A wizard component that manages multiple {@link WizardStep}s in a dialog window.
  */
-public final class Wizard extends Window {
+public class Wizard extends Window {
 
     private final List<WizardStep> steps = new ArrayList<>();
     private int currentStepIndex = -1;
@@ -85,9 +85,9 @@ public final class Wizard extends Window {
         headerTable.add(stepTitleLabel).left().expandX();
         headerTable.add(stepProgressLabel).right().padLeft(10);
         mainTable.add(headerTable).fillX().padBottom(5).row();
-        
+
         mainTable.add(new Image(getSkin().getDrawable("white"))).fillX().height(1).padBottom(10).row();
-        
+
         mainTable.add(stepDescriptionLabel).fillX().padBottom(10).row();
         mainTable.add(contentTable).expand().fill().row();
 
@@ -129,6 +129,7 @@ public final class Wizard extends Window {
         // We add ourselves as a listener to handle bubbling events from buttons.
         addListener(event -> {
             // Track touchDown events for verification (as requested in problem analysis)
+            boolean retValue = false;
             if (event instanceof com.badlogic.gdx.scenes.scene2d.InputEvent) {
                 com.badlogic.gdx.scenes.scene2d.InputEvent inputEvent = (com.badlogic.gdx.scenes.scene2d.InputEvent) event;
                 if (inputEvent.getType() == com.badlogic.gdx.scenes.scene2d.InputEvent.Type.touchDown) {
@@ -137,23 +138,25 @@ public final class Wizard extends Window {
             }
 
             if (event instanceof ChangeEvent) {
-                Actor actor = event.getTarget();
-                
-                if (isButtonActor(actor, backButton, "backButton")) {
-                    back();
-                    return false;
-                } else if (isButtonActor(actor, nextButton, "nextButton")) {
-                    next();
-                    return false;
-                } else if (isButtonActor(actor, finishButton, "finishButton")) {
-                    finish();
-                    return false;
-                } else if (isButtonActor(actor, cancelButton, "cancelButton")) {
-                    cancel();
-                    return false;
+                WizardStep currentStep = getCurrentStep();
+                boolean processed = false;
+                if (currentStep != null) {
+                    processed = currentStep.processChange((ChangeEvent) event);
+                }
+                if(!processed) {
+                    Actor actor = event.getTarget();
+                    if (isButtonActor(actor, backButton, "backButton")) {
+                        back();
+                    } else if (isButtonActor(actor, nextButton, "nextButton")) {
+                        next();
+                    } else if (isButtonActor(actor, finishButton, "finishButton")) {
+                        finish();
+                    } else if (isButtonActor(actor, cancelButton, "cancelButton")) {
+                        cancel();
+                    }
                 }
             }
-            return false;
+            return retValue;
         });
     }
 
@@ -192,17 +195,17 @@ public final class Wizard extends Window {
 
         currentStepIndex = index;
         WizardStep currentStep = steps.get(currentStepIndex);
-        
+
         stepTitleLabel.setText(currentStep.getTitle());
         stepDescriptionLabel.setText(currentStep.getDescription());
-        
+
         contentTable.clear();
         contentTable.add(currentStep.getContent()).expand().fill();
-        
+
         // Ensure layout refreshes when step content changes
         contentTable.invalidateHierarchy();
         invalidateHierarchy();
-        
+
         currentStep.onEnter(this);
         updateButtons();
     }
@@ -270,18 +273,18 @@ public final class Wizard extends Window {
         stepProgressLabel.setText(String.format("Step %d of %d", currentStepIndex + 1, steps.size()));
 
         backButton.setDisabled(currentStepIndex == 0);
-        
+
         boolean isLastStep = currentStepIndex == steps.size() - 1;
         WizardStep currentStep = steps.get(currentStepIndex);
-        
+
         boolean canProceed = currentStep.isComplete() && currentStep.isValid();
-        
+
         nextButton.setVisible(!isLastStep);
         nextButton.setDisabled(!canProceed);
-        
+
         finishButton.setVisible(isLastStep);
         finishButton.setDisabled(!canProceed);
-        
+
         // Ensure UI correctly reflects disabled state
         nextButton.invalidate();
         finishButton.invalidate();
@@ -334,5 +337,18 @@ public final class Wizard extends Window {
          * @param wizard the wizard
          */
         void onCancel(Wizard wizard);
+    }
+
+    /**
+     * Helper method providing access to current wizard step instance if defined.
+     *
+     * @return current step instance or null when index of active instance is not valid.
+     */
+    protected WizardStep getCurrentStep() {
+        WizardStep retValue = null;
+        if (currentStepIndex >= 0 && currentStepIndex < steps.size()) {
+            retValue = steps.get(currentStepIndex);
+        }
+        return retValue;
     }
 }

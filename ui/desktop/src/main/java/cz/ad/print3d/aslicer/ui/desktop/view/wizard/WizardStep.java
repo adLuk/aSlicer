@@ -1,6 +1,7 @@
 package cz.ad.print3d.aslicer.ui.desktop.view.wizard;
 
 import com.badlogic.gdx.scenes.scene2d.Actor;
+import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 
 /**
  * Interface representing a single step in a {@link Wizard}.
@@ -57,4 +58,12 @@ public interface WizardStep {
      * @return {@code true} if the step is complete, {@code false} otherwise
      */
     boolean isComplete();
+
+    /**
+     * Allow interaction of Wizard step with events processed and update Wizard internal state based on changes
+     * in step.
+     * @param event event filtered by Wizard to be this specific type.
+     * @return true in case when event was processed and processing is finished, otherwise false.
+     */
+    boolean processChange(ChangeListener.ChangeEvent event);
 }
