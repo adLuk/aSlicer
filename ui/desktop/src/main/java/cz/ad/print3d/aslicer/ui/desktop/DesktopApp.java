@@ -144,6 +144,7 @@ public class DesktopApp implements ApplicationListener {
         SecurityInitializer.init();
         DesktopApp app = new DesktopApp();
         AppConfigDto dto = app.appConfig.loadToDto();
+        System.setProperty("aslicer.ssl.trust_system_certs", String.valueOf(dto.isTrustSystemCerts()));
 
         Lwjgl3ApplicationConfiguration config = new Lwjgl3ApplicationConfiguration();
         config.setTitle("aSlicer - 3D model processing tool");

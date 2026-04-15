@@ -80,6 +80,9 @@ public class AppConfigDto {
     // Protection of sensitive data
     private boolean protectedData = false;
 
+    // SSL Trust Management
+    private boolean trustSystemCerts = true;
+
     /**
      * @return the width of the application window
      */
@@ -484,5 +487,19 @@ public class AppConfigDto {
      */
     public void setProtectedData(boolean protectedData) {
         this.protectedData = protectedData;
+    }
+
+    /**
+     * @return true if system certificates should be trusted as a fallback
+     */
+    public boolean isTrustSystemCerts() {
+        return trustSystemCerts;
+    }
+
+    /**
+     * @param trustSystemCerts true if system certificates should be trusted as a fallback
+     */
+    public void setTrustSystemCerts(boolean trustSystemCerts) {
+        this.trustSystemCerts = trustSystemCerts;
     }
 }

@@ -15,6 +15,11 @@ public interface PrinterSystem {
     String getGCodeInterpreter();
 
     String getFirmwareVersion();
+    
+    /**
+     * @return the printer's serial number, if available.
+     */
+    default String getSerialNumber() { return null; }
 
     List<PrinterAction> getPrinterActions();
 }

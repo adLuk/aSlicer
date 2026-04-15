@@ -20,7 +20,7 @@ The pairing process with Bambu Lab printers involves:
 
 ```java
 BambuPrinterNetConnection connection = new BambuMqttPrinterNetConnection(
-    new URL("mqtts://192.168.1.100:8883"),
+    new URL("https://192.168.1.100:8883"),
     "SN12345678",
     "access_code"
 );

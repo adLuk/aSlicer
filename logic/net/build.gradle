@@ -13,6 +13,8 @@ repositories {
 
 dependencies {
     api project(':logic:model')
+    api project(':logic:core')
+    implementation 'org.slf4j:slf4j-api:2.0.7'
     implementation "com.badlogicgames.gdx:gdx:1.12.1"
     // Source: https://github.com/micycle1/Clipper2-java
     implementation("com.github.micycle1:Clipper2-java:v1.3.0-SNAPSHOT")
@@ -24,7 +26,8 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testImplementation 'org.mockito:mockito-core:5.11.0'
     testImplementation 'org.mockito:mockito-junit-jupiter:5.11.0'
-    testImplementation 'org.bouncycastle:bcpkix-jdk18on:1.77'
+    testImplementation 'org.bouncycastle:bc-fips:1.0.2.5'
+    testImplementation 'org.bouncycastle:bcpkix-fips:1.0.7'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testImplementation "com.badlogicgames.gdx:gdx-backend-headless:1.12.1"
     testImplementation "com.badlogicgames.gdx:gdx-platform:1.12.1:natives-desktop"

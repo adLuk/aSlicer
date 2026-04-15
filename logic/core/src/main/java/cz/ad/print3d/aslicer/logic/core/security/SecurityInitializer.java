@@ -40,7 +40,7 @@ public final class SecurityInitializer {
      */
     public static void init() {
         if (Security.getProvider(BouncyCastleFipsProvider.PROVIDER_NAME) == null) {
-            LOGGER.info("Initializing Bouncy Castle FIPS provider");
+            LOGGER.info("Initializing Bouncy Castle FIPS provider as primary provider");
             Security.insertProviderAt(new BouncyCastleFipsProvider(), 1);
         } else {
             LOGGER.debug("Bouncy Castle FIPS provider already initialized");

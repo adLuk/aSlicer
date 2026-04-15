@@ -1,13 +1,19 @@
 package cz.ad.print3d.aslicer.logic.net.bambu;
 
-import com.hivemq.client.mqtt.mqtt5.Mqtt5AsyncClient;
-import com.hivemq.client.mqtt.mqtt5.Mqtt5Client;
+import com.hivemq.client.mqtt.mqtt3.Mqtt3AsyncClient;
+import com.hivemq.client.mqtt.mqtt3.Mqtt3Client;
+import com.hivemq.client.mqtt.MqttClientSslConfig;
+import com.hivemq.client.mqtt.MqttClientSslConfigBuilder;
+import cz.ad.print3d.aslicer.logic.net.bambu.BambuMqttMapper;
+import cz.ad.print3d.aslicer.logic.net.ssl.InteractiveTrustManagerFactory;
 import cz.ad.print3d.aslicer.logic.printer.system.net.BambuPrinterNetConnection;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Client for communicating with Bambu Lab 3D printers over MQTT.
@@ -19,13 +25,15 @@ import com.fasterxml.jackson.core.JsonProcessingException;
  */
 public class BambuMqttClient {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(BambuMqttClient.class);
     private final String host;
     private final int port;
-    private final String serial;
+    private String serial;
     private final String accessCode;
     private final BambuMqttMapper mapper;
-    private Mqtt5AsyncClient client;
+    private Mqtt3AsyncClient client;
     private Consumer<Map<String, Object>> telemetryConsumer;
+    private final CompletableFuture<String> serialDiscoveryFuture = new CompletableFuture<>();
 
     /**
      * Constructs a new BambuMqttClient with the provided connection details.
@@ -38,6 +46,28 @@ public class BambuMqttClient {
         this.serial = connection.getSerial();
         this.accessCode = connection.getAccessCode();
         this.mapper = new BambuMqttMapper();
+    }
+
+    /**
+     * Gets a future that will be completed with the discovered serial number.
+     *
+     * <p>If the serial number was already provided during construction, this future
+     * will be completed immediately.</p>
+     *
+     * @return a {@link CompletableFuture} for the discovered serial number.
+     */
+    public CompletableFuture<String> getSerialDiscoveryFuture() {
+        if (serial != null && !serial.isEmpty()) {
+            serialDiscoveryFuture.complete(serial);
+        }
+        return serialDiscoveryFuture;
+    }
+
+    /**
+     * @return the discovered serial number, or null if not yet discovered.
+     */
+    public String getSerial() {
+        return serial;
     }
 
     /**
@@ -57,11 +87,22 @@ public class BambuMqttClient {
      * @return a {@link CompletableFuture} that completes when the connection is established.
      */
     public CompletableFuture<Void> connect() {
-        client = Mqtt5Client.builder()
-                .identifier(serial)
+        String clientId = (serial != null && !serial.isEmpty()) ? serial : "aSlicer_discovery_" + System.currentTimeMillis();
+        MqttClientSslConfigBuilder sslBuilder = MqttClientSslConfig.builder()
+                .hostnameVerifier((hostname, session) -> true);
+
+        try {
+            sslBuilder.trustManagerFactory(new InteractiveTrustManagerFactory());
+        } catch (Exception e) {
+            LOGGER.error("Failed to initialize InteractiveTrustManagerFactory", e);
+            return CompletableFuture.failedFuture(e);
+        }
+
+        client = Mqtt3Client.builder()
+                .identifier(clientId)
                 .serverHost(host)
                 .serverPort(port)
-                .sslWithDefaultConfig()
+                .sslConfig(sslBuilder.build())
                 .buildAsync();
 
         return client.connectWith()
@@ -70,10 +111,40 @@ public class BambuMqttClient {
                 .password(accessCode.getBytes(StandardCharsets.UTF_8))
                 .applySimpleAuth()
                 .send()
-                .thenAccept(mqtt5ConnAck -> {
+                .thenAccept(mqtt3ConnAck -> {
                     // Connected successfully
-                    subscribeToTelemetry();
+                    if (serial == null || serial.isEmpty()) {
+                        subscribeToDiscovery();
+                    } else {
+                        subscribeToTelemetry();
+                    }
                 });
+    }
+
+    /**
+     * Subscribes to the wildcard topic to discover the printer's serial number.
+     *
+     * <p>Once a message is received on a topic matching {@code device/+/report},
+     * the serial number is extracted and discovery is completed.</p>
+     */
+    private void subscribeToDiscovery() {
+        client.subscribeWith()
+                .topicFilter("#")
+                .callback(mqtt3Publish -> {
+                    String topic = mqtt3Publish.getTopic().toString();
+                    if (topic.startsWith("device/") && topic.endsWith("/report")) {
+                        String discoveredSerial = topic.split("/")[1];
+                        if (discoveredSerial != null && !discoveredSerial.isEmpty()) {
+                            this.serial = discoveredSerial;
+                            serialDiscoveryFuture.complete(discoveredSerial);
+                            // Resubscribe to specific telemetry and unsubscribe from discovery if needed
+                            client.unsubscribeWith().topicFilter("#").send().thenRun(this::subscribeToTelemetry);
+                        }
+                    }
+                    byte[] payload = mqtt3Publish.getPayloadAsBytes();
+                    handleTelemetry(new String(payload, StandardCharsets.UTF_8));
+                })
+                .send();
     }
 
     /**
@@ -86,8 +157,8 @@ public class BambuMqttClient {
         String topic = BambuTopics.telemetry(serial);
         client.subscribeWith()
                 .topicFilter(topic)
-                .callback(mqtt5Publish -> {
-                    byte[] payload = mqtt5Publish.getPayloadAsBytes();
+                .callback(mqtt3Publish -> {
+                    byte[] payload = mqtt3Publish.getPayloadAsBytes();
                     handleTelemetry(new String(payload, StandardCharsets.UTF_8));
                 })
                 .send();
@@ -128,6 +199,7 @@ public class BambuMqttClient {
      * @return the MQTT telemetry topic string.
      */
     public String getTelemetryTopic() {
+        if (serial == null || serial.isEmpty()) return "#";
         return BambuTopics.telemetry(serial);
     }
 
@@ -137,6 +209,7 @@ public class BambuMqttClient {
      * @return the MQTT request topic string.
      */
     public String getRequestTopic() {
+        if (serial == null || serial.isEmpty()) return null;
         return BambuTopics.request(serial);
     }
 }

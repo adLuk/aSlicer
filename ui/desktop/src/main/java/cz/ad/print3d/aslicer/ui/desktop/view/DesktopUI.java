@@ -133,6 +133,16 @@ public class DesktopUI implements Disposable {
         textButtonStyle.font = font;
         skin.add("default", textButtonStyle);
 
+        Button.ButtonStyle buttonStyle = new Button.ButtonStyle();
+        buttonStyle.up = skin.newDrawable("white", Color.LIGHT_GRAY);
+        buttonStyle.down = skin.newDrawable("white", Color.DARK_GRAY);
+        skin.add("default", buttonStyle);
+
+        ImageButton.ImageButtonStyle imageButtonStyle = new ImageButton.ImageButtonStyle();
+        imageButtonStyle.up = skin.newDrawable("white", Color.LIGHT_GRAY);
+        imageButtonStyle.down = skin.newDrawable("white", Color.DARK_GRAY);
+        skin.add("default", imageButtonStyle);
+
         List.ListStyle listStyle = new List.ListStyle();
         listStyle.font = font;
         listStyle.fontColorSelected = Color.BLACK;

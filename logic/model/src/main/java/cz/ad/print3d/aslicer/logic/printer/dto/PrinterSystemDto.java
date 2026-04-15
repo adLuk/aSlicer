@@ -13,6 +13,17 @@ public class PrinterSystemDto implements PrinterSystem {
     private String printerModel;
     private String gCodeInterpreter;
     private String firmwareVersion;
+    private String serialNumber;
+
+    @Override
+    public String getSerialNumber() {
+        return serialNumber;
+    }
+
+    public void setSerialNumber(String serialNumber) {
+        this.serialNumber = serialNumber;
+    }
+
     private List<PrinterAction> printerActions = new ArrayList<>();
 
     @Override

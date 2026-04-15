@@ -3,12 +3,16 @@ package cz.ad.print3d.aslicer.ui.desktop.view.wizard;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.scenes.scene2d.Actor;
+import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
+import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import cz.ad.print3d.aslicer.logic.net.PrinterClient;
 import cz.ad.print3d.aslicer.logic.net.PrinterClientFactory;
 import cz.ad.print3d.aslicer.logic.net.scanner.dto.DiscoveredDevice;
 import cz.ad.print3d.aslicer.logic.printer.dto.Printer3DDto;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.List;
@@ -22,6 +26,8 @@ import java.util.concurrent.CompletableFuture;
  */
 public class PrinterConnectionStep implements WizardStep {
 
+    private static final Logger logger = LoggerFactory.getLogger(PrinterConnectionStep.class);
+
     private final Skin skin;
     private final Table content;
     private final PrinterDiscoveryStep discoveryStep;
@@ -31,6 +37,7 @@ public class PrinterConnectionStep implements WizardStep {
     private final Map<String, Label> statusLabels = new HashMap<>();
     private final Map<String, TextButton> validateButtons = new HashMap<>();
     private final Map<String, Button> detailButtons = new HashMap<>();
+    private final Map<String, DiscoveredDevice> ipToDevice = new HashMap<>();
     private Wizard wizard;
 
     public PrinterConnectionStep(Skin skin, PrinterDiscoveryStep discoveryStep) {
@@ -89,6 +96,7 @@ public class PrinterConnectionStep implements WizardStep {
         statusLabels.clear();
         validateButtons.clear();
         detailButtons.clear();
+        ipToDevice.clear();
 
         List<DiscoveredDevice> selectedDevices = discoveryStep.getSelectedDevices();
         if (selectedDevices.isEmpty()) {
@@ -113,6 +121,8 @@ public class PrinterConnectionStep implements WizardStep {
     }
 
     private void addDeviceCard(Table parent, DiscoveredDevice device) {
+        String ip = device.getIpAddress();
+        ipToDevice.put(ip, device);
         Table deviceCard = new Table();
         deviceCard.setBackground(skin.newDrawable("white", new Color(0.2f, 0.2f, 0.2f, 0.5f)));
         deviceCard.pad(15);
@@ -132,11 +142,11 @@ public class PrinterConnectionStep implements WizardStep {
         if ("Bambu Lab".equalsIgnoreCase(vendor)) {
             String savedSerial = getSavedCredential(device.getIpAddress(), "serial", device.getName() != null ? device.getName() : "");
             String savedAccessCode = getSavedCredential(device.getIpAddress(), "accessCode", "");
-            addTextField(inputTable, fields, "serial", "Serial Number:", savedSerial);
-            addTextField(inputTable, fields, "accessCode", "Access Code:", savedAccessCode);
+            addTextField(inputTable, fields, "serial", "Serial Number (Optional):", savedSerial, device);
+            addTextField(inputTable, fields, "accessCode", "Access Code:", savedAccessCode, device);
         } else {
             String savedApiKey = getSavedCredential(device.getIpAddress(), "apiKey", "");
-            addTextField(inputTable, fields, "apiKey", "API Key:", savedApiKey);
+            addTextField(inputTable, fields, "apiKey", "API Key:", savedApiKey, device);
         }
         printerFields.put(device.getIpAddress(), fields);
         deviceCard.add(inputTable).colspan(2).fillX().row();
@@ -186,9 +196,10 @@ public class PrinterConnectionStep implements WizardStep {
         });
 
         parent.add(deviceCard).fillX().padBottom(15).row();
+        updateValidateButtonState(ip);
     }
 
-    private void addTextField(Table table, Map<String, TextField> fields, String id, String labelText, String defaultValue) {
+    private void addTextField(Table table, Map<String, TextField> fields, String id, String labelText, String defaultValue, DiscoveredDevice device) {
         table.add(new Label(labelText, skin)).padRight(10).left();
         TextField field = new TextField(defaultValue, skin);
         fields.put(id, field);
@@ -197,23 +208,44 @@ public class PrinterConnectionStep implements WizardStep {
         field.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
-                String ip = null;
-                for (Map.Entry<String, Map<String, TextField>> entry : printerFields.entrySet()) {
-                    if (entry.getValue().values().contains(field)) {
-                        ip = entry.getKey();
-                        break;
-                    }
-                }
-                if (ip != null) {
-                    connectionCredentials.computeIfAbsent(ip, k -> new HashMap<>()).put(id, field.getText());
-                    validatedPrinters.remove(ip);
-                    statusLabels.get(ip).setText("Not validated");
-                    statusLabels.get(ip).setColor(Color.LIGHT_GRAY);
-                    detailButtons.get(ip).setVisible(false);
-                    if (wizard != null) wizard.updateButtons();
-                }
+                String ip = device.getIpAddress();
+                connectionCredentials.computeIfAbsent(ip, k -> new HashMap<>()).put(id, field.getText());
+                validatedPrinters.remove(ip);
+                statusLabels.get(ip).setText("Not validated");
+                statusLabels.get(ip).setColor(Color.LIGHT_GRAY);
+                detailButtons.get(ip).setVisible(false);
+                updateValidateButtonState(ip);
+                if (wizard != null) wizard.updateButtons();
             }
         });
+    }
+
+    private void updateValidateButtonState(String ip) {
+        DiscoveredDevice device = ipToDevice.get(ip);
+        if (device == null) return;
+        
+        Map<String, TextField> fields = printerFields.get(ip);
+        if (fields == null) return;
+
+        boolean ready = false;
+        String vendor = device.getVendor();
+        if ("Bambu Lab".equalsIgnoreCase(vendor)) {
+            TextField accessCodeField = fields.get("accessCode");
+            ready = accessCodeField != null && !accessCodeField.getText().trim().isEmpty();
+        } else {
+            TextField apiKeyField = fields.get("apiKey");
+            ready = apiKeyField != null && !apiKeyField.getText().trim().isEmpty();
+        }
+
+        TextButton validateBtn = validateButtons.get(ip);
+        if (validateBtn != null) {
+            if (ready) {
+                // Highlight color when ready to validate
+                validateBtn.setColor(Color.ORANGE);
+            } else {
+                validateBtn.setColor(Color.WHITE);
+            }
+        }
     }
 
     private String getSavedCredential(String ip, String id, String defaultValue) {
@@ -223,6 +255,14 @@ public class PrinterConnectionStep implements WizardStep {
         return defaultValue;
     }
 
+    /**
+     * Validates the connection to the specified device using the provided credentials.
+     * On success, updates the UI with printer details. On failure, logs the error
+     * and allows the user to view/copy details.
+     *
+     * @param device the device to validate
+     * @param nameLabel label to update with the discovered printer name
+     */
     private void validateConnection(DiscoveredDevice device, Label nameLabel) {
         String ip = device.getIpAddress();
         Map<String, String> credentials = new HashMap<>();
@@ -235,12 +275,21 @@ public class PrinterConnectionStep implements WizardStep {
 
         statusLabel.setText("Validating...");
         statusLabel.setColor(Color.YELLOW);
+        statusLabel.clearListeners();
         validateBtn.setDisabled(true);
 
         PrinterClient client = PrinterClientFactory.createClient(device, credentials);
         if (client == null) {
-            statusLabel.setText("Error: Unsupported vendor");
+            String msg = "Unsupported vendor: " + device.getVendor();
+            statusLabel.setText("Error: " + msg + " (click for details)");
             statusLabel.setColor(Color.RED);
+            statusLabel.clearListeners();
+            statusLabel.addListener(new ClickListener() {
+                @Override
+                public void clicked(InputEvent event, float x, float y) {
+                    showErrorDialog("Error", msg, null);
+                }
+            });
             validateBtn.setDisabled(false);
             return;
         }
@@ -270,12 +319,23 @@ public class PrinterConnectionStep implements WizardStep {
                         statusLabel.setText("Success");
                         statusLabel.setColor(Color.GREEN);
                         validateBtn.setDisabled(false);
+                        validateBtn.setColor(Color.WHITE); // Reset highlight after success
                         detailButtons.get(ip).setVisible(true);
                         
                         if (details.getPrinterSystem() != null) {
                             String info = details.getPrinterSystem().getPrinterManufacturer() + " " +
                                          (details.getPrinterSystem().getPrinterModel() != null ? details.getPrinterSystem().getPrinterModel() : "");
                             nameLabel.setText(info);
+                            
+                            // Autofill serial if it was empty
+                            TextField serialField = printerFields.get(ip).get("serial");
+                            if (serialField != null && (serialField.getText() == null || serialField.getText().isEmpty())) {
+                                String discoveredSerial = details.getPrinterSystem().getSerialNumber();
+                                if (discoveredSerial != null) {
+                                    serialField.setText(discoveredSerial);
+                                    connectionCredentials.computeIfAbsent(ip, k -> new HashMap<>()).put("serial", discoveredSerial);
+                                }
+                            }
                         }
                         
                         if (wizard != null) wizard.updateButtons();
@@ -283,9 +343,22 @@ public class PrinterConnectionStep implements WizardStep {
                     client.disconnect();
                 })
                 .exceptionally(ex -> {
+                    logger.error("Connection validation failed for {}: {}", ip, ex.getMessage(), ex);
                     Gdx.app.postRunnable(() -> {
-                        statusLabel.setText("Failed: " + ex.getMessage());
+                        String msg = ex.getMessage();
+                        if (ex instanceof java.util.concurrent.CompletionException && ex.getCause() != null) {
+                            msg = ex.getCause().getMessage();
+                        }
+                        statusLabel.setText("Failed: " + msg + " (click for details)");
                         statusLabel.setColor(Color.RED);
+                        statusLabel.clearListeners();
+                        String finalMsg = msg;
+                        statusLabel.addListener(new ClickListener() {
+                            @Override
+                            public void clicked(InputEvent event, float x, float y) {
+                                showErrorDialog("Connection Error", "Failed to connect to " + ip + ":\n\n" + finalMsg, ex);
+                            }
+                        });
                         validateBtn.setDisabled(false);
                     });
                     client.disconnect();
@@ -293,6 +366,12 @@ public class PrinterConnectionStep implements WizardStep {
                 });
     }
 
+    /**
+     * Shows a dialog with detailed information about the discovered printer.
+     *
+     * @param device the discovered device
+     * @param details validated printer details
+     */
     private void showDeviceDetails(DiscoveredDevice device, Printer3DDto details) {
         Dialog dialog = new Dialog("Device Details - " + device.getIpAddress(), skin) {
             @Override
@@ -318,6 +397,46 @@ public class PrinterConnectionStep implements WizardStep {
 
         ScrollPane scrollPane = new ScrollPane(contentTable, skin);
         dialog.getContentTable().add(scrollPane).expand().fill().minSize(400, 300);
+        dialog.button("Close");
+        dialog.show(wizard.getStage());
+    }
+
+    /**
+     * Shows an error dialog with the provided message and optional exception details.
+     * Provides a button to copy the error message and stacktrace to the clipboard.
+     *
+     * @param title the dialog title
+     * @param message the error message to display
+     * @param ex optional exception to include stacktrace
+     */
+    private void showErrorDialog(String title, String message, Throwable ex) {
+        Dialog dialog = new Dialog(title, skin);
+
+        Table contentTable = dialog.getContentTable();
+        contentTable.pad(20);
+        Label label = new Label(message, skin);
+        label.setWrap(true);
+        label.setAlignment(com.badlogic.gdx.utils.Align.center);
+        contentTable.add(label).width(450).row();
+
+        TextButton copyBtn = new TextButton("Copy to Clipboard", skin);
+        copyBtn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                StringBuilder fullError = new StringBuilder(message);
+                if (ex != null) {
+                    fullError.append("\n\nStacktrace:\n");
+                    java.io.StringWriter sw = new java.io.StringWriter();
+                    java.io.PrintWriter pw = new java.io.PrintWriter(sw);
+                    ex.printStackTrace(pw);
+                    fullError.append(sw.toString());
+                }
+                Gdx.app.getClipboard().setContents(fullError.toString());
+                copyBtn.setText("Copied!");
+            }
+        });
+
+        dialog.getButtonTable().add(copyBtn).pad(10);
         dialog.button("Close");
         dialog.show(wizard.getStage());
     }

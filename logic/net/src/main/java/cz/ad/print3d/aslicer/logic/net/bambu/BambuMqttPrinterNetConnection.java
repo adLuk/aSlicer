@@ -19,7 +19,7 @@ public class BambuMqttPrinterNetConnection implements BambuPrinterNetConnection 
     /**
      * Constructs a new BambuMqttPrinterNetConnection.
      *
-     * @param printerUrl the printer URL (e.g., {@code mqtts://192.168.1.10:8883})
+     * @param printerUrl the printer URL (e.g., {@code https://192.168.1.10:8883})
      * @param serial     the printer serial number
      * @param accessCode the printer access code (pairing code)
      */
