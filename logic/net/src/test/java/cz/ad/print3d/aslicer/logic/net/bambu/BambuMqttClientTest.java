@@ -23,7 +23,7 @@ public class BambuMqttClientTest {
     public void testDiscoveryTopics() throws Exception {
         BambuPrinterNetConnection conn = new BambuMqttPrinterNetConnection(URI.create("https://192.168.0.10:8883").toURL(), null, "code");
         BambuMqttClient client = new BambuMqttClient(conn);
-        assertEquals("#", client.getTelemetryTopic());
+        assertEquals("device/+/report", client.getTelemetryTopic());
         assertNull(client.getRequestTopic());
     }
 }

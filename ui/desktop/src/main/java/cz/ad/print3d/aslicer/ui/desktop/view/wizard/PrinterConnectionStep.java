@@ -34,6 +34,7 @@ public class PrinterConnectionStep implements WizardStep {
     private final Map<String, Map<String, TextField>> printerFields = new HashMap<>();
     private final Map<String, Map<String, String>> connectionCredentials = new HashMap<>();
     private final Map<String, Printer3DDto> validatedPrinters = new HashMap<>();
+    private final Map<String, PrinterClient> activeClients = new HashMap<>();
     private final Map<String, Label> statusLabels = new HashMap<>();
     private final Map<String, TextButton> validateButtons = new HashMap<>();
     private final Map<String, Button> detailButtons = new HashMap<>();
@@ -70,6 +71,11 @@ public class PrinterConnectionStep implements WizardStep {
 
     @Override
     public void onExit(Wizard wizard) {
+        // Disconnect all connected clients when leaving the step
+        for (PrinterClient client : activeClients.values()) {
+            client.disconnect();
+        }
+        activeClients.clear();
     }
 
     @Override
@@ -140,9 +146,7 @@ public class PrinterConnectionStep implements WizardStep {
         Map<String, TextField> fields = new HashMap<>();
 
         if ("Bambu Lab".equalsIgnoreCase(vendor)) {
-            String savedSerial = getSavedCredential(device.getIpAddress(), "serial", device.getName() != null ? device.getName() : "");
             String savedAccessCode = getSavedCredential(device.getIpAddress(), "accessCode", "");
-            addTextField(inputTable, fields, "serial", "Serial Number (Optional):", savedSerial, device);
             addTextField(inputTable, fields, "accessCode", "Access Code:", savedAccessCode, device);
         } else {
             String savedApiKey = getSavedCredential(device.getIpAddress(), "apiKey", "");
@@ -278,6 +282,11 @@ public class PrinterConnectionStep implements WizardStep {
         statusLabel.clearListeners();
         validateBtn.setDisabled(true);
 
+        // Disconnect old client if exists
+        if (activeClients.containsKey(ip)) {
+            activeClients.get(ip).disconnect();
+        }
+
         PrinterClient client = PrinterClientFactory.createClient(device, credentials);
         if (client == null) {
             String msg = "Unsupported vendor: " + device.getVendor();
@@ -293,6 +302,7 @@ public class PrinterConnectionStep implements WizardStep {
             validateBtn.setDisabled(false);
             return;
         }
+        activeClients.put(ip, client);
 
         client.setCertificateValidationCallback(details -> {
             CompletableFuture<Boolean> future = new CompletableFuture<>();
@@ -311,13 +321,38 @@ public class PrinterConnectionStep implements WizardStep {
             return future;
         });
 
+        client.setDetailsUpdateCallback(details -> {
+            Gdx.app.postRunnable(() -> {
+                validatedPrinters.put(ip, details);
+                if (details.getPrinterSystem() != null) {
+                    String info = details.getPrinterSystem().getPrinterManufacturer() + " " +
+                                 (details.getPrinterSystem().getPrinterModel() != null ? details.getPrinterSystem().getPrinterModel() : "");
+                    nameLabel.setText(info);
+                    
+                    if (details.getPrinterSystem().getSerialNumber() != null) {
+                        statusLabel.setText("Success (Report received)");
+                        statusLabel.setColor(Color.GREEN);
+                        connectionCredentials.computeIfAbsent(ip, k -> new HashMap<>()).put("serial", details.getPrinterSystem().getSerialNumber());
+                    }
+                }
+                if (wizard != null) wizard.updateButtons();
+            });
+        });
+
         client.connect()
                 .thenCompose(v -> client.getDetails())
                 .thenAccept(details -> {
                     Gdx.app.postRunnable(() -> {
                         validatedPrinters.put(ip, details);
-                        statusLabel.setText("Success");
-                        statusLabel.setColor(Color.GREEN);
+                        
+                        if (details.getPrinterSystem() != null && details.getPrinterSystem().getSerialNumber() == null) {
+                            statusLabel.setText("Success (Waiting for report...)");
+                            statusLabel.setColor(Color.YELLOW);
+                        } else {
+                            statusLabel.setText("Success");
+                            statusLabel.setColor(Color.GREEN);
+                        }
+                        
                         validateBtn.setDisabled(false);
                         validateBtn.setColor(Color.WHITE); // Reset highlight after success
                         detailButtons.get(ip).setVisible(true);
@@ -326,21 +361,15 @@ public class PrinterConnectionStep implements WizardStep {
                             String info = details.getPrinterSystem().getPrinterManufacturer() + " " +
                                          (details.getPrinterSystem().getPrinterModel() != null ? details.getPrinterSystem().getPrinterModel() : "");
                             nameLabel.setText(info);
-                            
-                            // Autofill serial if it was empty
-                            TextField serialField = printerFields.get(ip).get("serial");
-                            if (serialField != null && (serialField.getText() == null || serialField.getText().isEmpty())) {
-                                String discoveredSerial = details.getPrinterSystem().getSerialNumber();
-                                if (discoveredSerial != null) {
-                                    serialField.setText(discoveredSerial);
-                                    connectionCredentials.computeIfAbsent(ip, k -> new HashMap<>()).put("serial", discoveredSerial);
-                                }
-                            }
                         }
                         
                         if (wizard != null) wizard.updateButtons();
                     });
-                    client.disconnect();
+                    // Do not disconnect immediately for Bambu Lab to receive reports
+                    if (!"Bambu Lab".equalsIgnoreCase(device.getVendor())) {
+                        client.disconnect();
+                        activeClients.remove(ip);
+                    }
                 })
                 .exceptionally(ex -> {
                     logger.error("Connection validation failed for {}: {}", ip, ex.getMessage(), ex);
@@ -362,6 +391,7 @@ public class PrinterConnectionStep implements WizardStep {
                         validateBtn.setDisabled(false);
                     });
                     client.disconnect();
+                    activeClients.remove(ip);
                     return null;
                 });
     }

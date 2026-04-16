@@ -70,6 +70,13 @@ public class BambuMqttClient {
     }
 
     /**
+     * @return true if the MQTT client is connected.
+     */
+    public boolean isConnected() {
+        return client != null && client.getState().isConnected();
+    }
+
+    /**
      * @return the discovered serial number, or null if not yet discovered.
      */
     public String getSerial() {
@@ -94,7 +101,7 @@ public class BambuMqttClient {
      * to ensure compatibility with XDH algorithms (Ed25519/X25519) while maintaining
      * Bouncy Castle FIPS as the primary global provider.</p>
      *
-     * @return a {@link CompletableFuture} that completes when the connection is established.
+     * @return a {@link CompletableFuture} that completes when the connection is established and subscribed.
      */
     public CompletableFuture<Void> connect() {
         String clientId = (serial != null && !serial.isEmpty()) ? serial : "aSlicer_discovery_" + System.currentTimeMillis();
@@ -140,8 +147,6 @@ public class BambuMqttClient {
                 .applySimpleAuth()
                 .send()
                 .handle((ack, throwable) -> {
-                    restoreProviders(originalProviders);
-                    
                     if (throwable != null) {
                         // Extract original cause from HiveMQ exception
                         Throwable cause = throwable;
@@ -151,18 +156,27 @@ public class BambuMqttClient {
                             }
                             cause = cause.getCause();
                         }
+                        restoreProviders(originalProviders);
                         return CompletableFuture.<Void>failedFuture(cause);
                     }
                     return CompletableFuture.<Void>completedFuture(null);
                 })
                 .thenCompose(f -> f)
-                .thenAccept(v -> {
-                    // Connected successfully
+                .thenCompose(v -> {
+                    // Connected successfully, now subscribe
+                    CompletableFuture<Void> subscribeFuture;
                     if (serial == null || serial.isEmpty()) {
-                        subscribeToDiscovery();
+                        subscribeFuture = subscribeToDiscovery();
                     } else {
-                        subscribeToTelemetry();
+                        subscribeFuture = subscribeToTelemetry();
                     }
+                    return subscribeFuture.handle((subAck, subEx) -> {
+                        restoreProviders(originalProviders);
+                        if (subEx != null) {
+                            return CompletableFuture.<Void>failedFuture(subEx);
+                        }
+                        return CompletableFuture.<Void>completedFuture(null);
+                    }).thenCompose(sf -> sf);
                 });
     }
 
@@ -181,40 +195,46 @@ public class BambuMqttClient {
     }
 
     /**
-     * Subscribes to the wildcard topic to discover the printer's serial number.
+     * Subscribes to the wildcard topic to receive reports from any Bambu printer.
      *
      * <p>Once a message is received on a topic matching {@code device/+/report},
      * the serial number is extracted and discovery is completed.</p>
+     *
+     * @return a {@link CompletableFuture} that completes when the subscription is successful.
      */
-    private void subscribeToDiscovery() {
-        LOGGER.info("Subscribing to discovery wildcard topic (#) for host {}", host);
-        client.subscribeWith()
-                .topicFilter("#")
+    private CompletableFuture<Void> subscribeToDiscovery() {
+        String filter = "device/+/report";
+        LOGGER.info("Subscribing to discovery wildcard topic ({}) for host {}", filter, host);
+        return client.subscribeWith()
+                .topicFilter(filter)
                 .callback(mqtt3Publish -> {
                     String topic = mqtt3Publish.getTopic().toString();
                     LOGGER.trace("Discovery message received on topic: {}", topic);
-                    if (topic.startsWith("device/") && topic.endsWith("/report")) {
-                        String discoveredSerial = topic.split("/")[1];
+                    String[] parts = topic.split("/");
+                    if (parts.length >= 2) {
+                        String discoveredSerial = parts[1];
                         if (discoveredSerial != null && !discoveredSerial.isEmpty()) {
-                            LOGGER.info("Discovered serial number: {} for host {}", discoveredSerial, host);
-                            this.serial = discoveredSerial;
-                            serialDiscoveryFuture.complete(discoveredSerial);
-                            // Resubscribe to specific telemetry and unsubscribe from discovery if needed
-                            client.unsubscribeWith().topicFilter("#").send().thenRun(this::subscribeToTelemetry);
+                            if (this.serial == null || !this.serial.equals(discoveredSerial)) {
+                                LOGGER.info("Discovered serial number: {} for host {}", discoveredSerial, host);
+                                this.serial = discoveredSerial;
+                                serialDiscoveryFuture.complete(discoveredSerial);
+                            }
                         }
                     }
                     byte[] payload = mqtt3Publish.getPayloadAsBytes();
                     handleTelemetry(new String(payload, StandardCharsets.UTF_8));
                 })
                 .send()
-                .whenComplete((subAck, ex) -> {
+                .handle((subAck, ex) -> {
                     if (ex != null) {
-                        LOGGER.error("Failed to subscribe to discovery topic (#) for host {}: {}", host, ex.getMessage());
+                        LOGGER.error("Failed to subscribe to discovery topic ({}) for host {}: {}", filter, host, ex.getMessage());
                         serialDiscoveryFuture.completeExceptionally(ex);
+                        return CompletableFuture.<Void>failedFuture(ex);
                     } else {
-                        LOGGER.info("Successfully subscribed to discovery topic (#) for host {}", host);
+                        LOGGER.info("Successfully subscribed to discovery topic ({}) for host {}", filter, host);
+                        return CompletableFuture.<Void>completedFuture(null);
                     }
-                });
+                }).thenCompose(f -> f);
     }
 
     /**
@@ -222,16 +242,28 @@ public class BambuMqttClient {
      *
      * <p>Incoming messages are handled by the callback which forwards the payload
      * to the {@link #handleTelemetry(String)} method.</p>
+     *
+     * @return a {@link CompletableFuture} that completes when the subscription is successful.
      */
-    void subscribeToTelemetry() {
+    CompletableFuture<Void> subscribeToTelemetry() {
         String topic = BambuTopics.telemetry(serial);
-        client.subscribeWith()
+        LOGGER.info("Subscribing to telemetry topic ({}) for host {}", topic, host);
+        return client.subscribeWith()
                 .topicFilter(topic)
                 .callback(mqtt3Publish -> {
                     byte[] payload = mqtt3Publish.getPayloadAsBytes();
                     handleTelemetry(new String(payload, StandardCharsets.UTF_8));
                 })
-                .send();
+                .send()
+                .handle((subAck, ex) -> {
+                    if (ex != null) {
+                        LOGGER.error("Failed to subscribe to telemetry topic ({}) for host {}: {}", topic, host, ex.getMessage());
+                        return CompletableFuture.<Void>failedFuture(ex);
+                    } else {
+                        LOGGER.info("Successfully subscribed to telemetry topic ({}) for host {}", topic, host);
+                        return CompletableFuture.<Void>completedFuture(null);
+                    }
+                }).thenCompose(f -> f);
     }
 
     /**
@@ -269,7 +301,7 @@ public class BambuMqttClient {
      * @return the MQTT telemetry topic string.
      */
     public String getTelemetryTopic() {
-        if (serial == null || serial.isEmpty()) return "#";
+        if (serial == null || serial.isEmpty()) return "device/+/report";
         return BambuTopics.telemetry(serial);
     }
 

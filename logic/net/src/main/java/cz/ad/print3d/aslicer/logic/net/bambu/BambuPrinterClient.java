@@ -22,6 +22,9 @@ public class BambuPrinterClient extends AbstractPrinterClient {
     private final String serial;
     private final String accessCode;
     private BambuMqttClient mqttClient;
+    private long lastDetailsUpdate = 0;
+    private static final long UPDATE_THROTTLE_MS = 1000;
+    private String lastDiscoveredSerial = null;
 
     /**
      * Constructs a BambuPrinterClient.
@@ -42,9 +45,28 @@ public class BambuPrinterClient extends AbstractPrinterClient {
             URL url = URI.create("https://" + ipAddress + ":8883").toURL();
             BambuMqttPrinterNetConnection connection = new BambuMqttPrinterNetConnection(url, serial, accessCode);
             mqttClient = new BambuMqttClient(connection);
+            mqttClient.setTelemetryConsumer(this::handleTelemetry);
             return attemptConnect().orTimeout(20, TimeUnit.SECONDS);
         } catch (MalformedURLException e) {
             return CompletableFuture.failedFuture(e);
+        }
+    }
+
+    private void handleTelemetry(java.util.Map<String, Object> telemetry) {
+        if (detailsUpdateCallback != null) {
+            String currentSerial = (mqttClient != null) ? mqttClient.getSerial() : null;
+            long now = System.currentTimeMillis();
+            
+            // Update immediately if serial was just discovered, otherwise throttle
+            boolean serialChanged = (currentSerial != null && !currentSerial.equals(lastDiscoveredSerial));
+            
+            if (serialChanged || (now - lastDetailsUpdate >= UPDATE_THROTTLE_MS)) {
+                lastDetailsUpdate = now;
+                lastDiscoveredSerial = currentSerial;
+                getDetails().thenAccept(details -> {
+                    detailsUpdateCallback.accept(details);
+                });
+            }
         }
     }
 
@@ -99,26 +121,24 @@ public class BambuPrinterClient extends AbstractPrinterClient {
             return CompletableFuture.failedFuture(new IllegalStateException("Client not connected"));
         }
 
-        return mqttClient.getSerialDiscoveryFuture()
-                .handle((discoveredSerial, ex) -> {
-                    Printer3DDto dto = new Printer3DDto();
-                    PrinterSystemDto system = new PrinterSystemDto();
-                    system.setPrinterManufacturer("Bambu Lab");
-                    
-                    if (ex != null) {
-                        String label = (serial != null && !serial.isEmpty()) ? serial : ipAddress;
-                        system.setPrinterName("Bambu Lab " + label);
-                        system.setPrinterModel("Bambu Lab Printer (" + label + ")");
-                        if (serial != null) system.setSerialNumber(serial);
-                    } else {
-                        system.setPrinterName("Bambu Lab " + discoveredSerial);
-                        system.setPrinterModel("Bambu Lab Printer (" + discoveredSerial + ")");
-                        system.setSerialNumber(discoveredSerial);
-                    }
-                    
-                    dto.setPrinterSystem(system);
-                    return dto;
-                });
+        Printer3DDto dto = new Printer3DDto();
+        PrinterSystemDto system = new PrinterSystemDto();
+        system.setPrinterManufacturer("Bambu Lab");
+        
+        String currentSerial = mqttClient.getSerial();
+        if (currentSerial == null || currentSerial.isEmpty()) {
+            currentSerial = (serial != null && !serial.isEmpty()) ? serial : ipAddress;
+            system.setPrinterName("Bambu Lab " + currentSerial);
+            system.setPrinterModel("Bambu Lab Printer (" + currentSerial + ")");
+            system.setSerialNumber(null); // Explicitly null to indicate not yet discovered
+        } else {
+            system.setPrinterName("Bambu Lab " + currentSerial);
+            system.setPrinterModel("Bambu Lab Printer (" + currentSerial + ")");
+            system.setSerialNumber(currentSerial);
+        }
+        
+        dto.setPrinterSystem(system);
+        return CompletableFuture.completedFuture(dto);
     }
 
     @Override

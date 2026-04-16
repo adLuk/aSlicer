@@ -26,6 +26,14 @@ public interface PrinterClient {
     CompletableFuture<Printer3DDto> getDetails();
 
     /**
+     * Sets a callback that will be notified when printer details are updated
+     * (e.g., when a report is received after an initial connection).
+     *
+     * @param callback a consumer that will receive the updated printer details.
+     */
+    void setDetailsUpdateCallback(java.util.function.Consumer<Printer3DDto> callback);
+
+    /**
      * Closes the connection to the printer.
      */
     void disconnect();

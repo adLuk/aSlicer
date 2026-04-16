@@ -1,11 +1,13 @@
 package cz.ad.print3d.aslicer.logic.net;
 
+import cz.ad.print3d.aslicer.logic.printer.dto.Printer3DDto;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 import java.net.http.HttpClient;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.util.function.Consumer;
 
 /**
  * Abstract base class for printer clients.
@@ -13,6 +15,7 @@ import java.security.cert.X509Certificate;
 public abstract class AbstractPrinterClient implements PrinterClient {
     protected final String ipAddress;
     protected CertificateValidationCallback certificateValidationCallback;
+    protected Consumer<Printer3DDto> detailsUpdateCallback;
 
     /**
      * Constructs an AbstractPrinterClient with the given IP address.
@@ -26,6 +29,11 @@ public abstract class AbstractPrinterClient implements PrinterClient {
     @Override
     public void setCertificateValidationCallback(CertificateValidationCallback callback) {
         this.certificateValidationCallback = callback;
+    }
+
+    @Override
+    public void setDetailsUpdateCallback(Consumer<Printer3DDto> callback) {
+        this.detailsUpdateCallback = callback;
     }
 
     /**
