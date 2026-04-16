@@ -48,4 +48,20 @@ public class SslDetailsUtils {
             return "Unable to compute fingerprint";
         }
     }
+    /**
+     * Extracts the Common Name (CN) from the certificate's subject.
+     *
+     * @param cert the certificate.
+     * @return the Common Name, or null if not found.
+     */
+    public static String getCommonName(X509Certificate cert) {
+        String name = cert.getSubjectX500Principal().getName();
+        for (String part : name.split(",")) {
+            part = part.trim();
+            if (part.startsWith("CN=")) {
+                return part.substring(3);
+            }
+        }
+        return null;
+    }
 }

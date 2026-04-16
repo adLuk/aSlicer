@@ -5,7 +5,9 @@ import com.hivemq.client.mqtt.MqttClientSslConfig;
 import com.hivemq.client.mqtt.MqttClientSslConfigBuilder;
 import com.hivemq.client.mqtt.mqtt3.Mqtt3AsyncClient;
 import com.hivemq.client.mqtt.mqtt3.Mqtt3Client;
+import com.hivemq.client.mqtt.mqtt3.message.connect.connack.Mqtt3ConnAckReturnCode;
 import cz.ad.print3d.aslicer.logic.net.ssl.InteractiveTrustManagerFactory;
+import cz.ad.print3d.aslicer.logic.net.ssl.SslDetailsUtils;
 import cz.ad.print3d.aslicer.logic.net.ssl.UntrustedCertificateException;
 import cz.ad.print3d.aslicer.logic.printer.system.net.BambuPrinterNetConnection;
 import org.slf4j.Logger;
@@ -14,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import java.nio.charset.StandardCharsets;
 import java.security.Provider;
 import java.security.Security;
+import java.security.cert.X509Certificate;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -32,11 +35,11 @@ public class BambuMqttClient {
     private static final Logger LOGGER = LoggerFactory.getLogger(BambuMqttClient.class);
     private final String host;
     private final int port;
-    private String serial;
+    private volatile String serial;
     private final String accessCode;
     private final BambuMqttMapper mapper;
-    private Mqtt3AsyncClient client;
-    private Consumer<Map<String, Object>> telemetryConsumer;
+    private volatile Mqtt3AsyncClient client;
+    private volatile Consumer<Map<String, Object>> telemetryConsumer;
     private final CompletableFuture<String> serialDiscoveryFuture = new CompletableFuture<>();
 
     /**
@@ -104,7 +107,7 @@ public class BambuMqttClient {
      * @return a {@link CompletableFuture} that completes when the connection is established and subscribed.
      */
     public CompletableFuture<Void> connect() {
-        String clientId = (serial != null && !serial.isEmpty()) ? serial : "aSlicer_discovery_" + System.currentTimeMillis();
+        String clientId = (serial != null && !serial.isEmpty()) ? serial : "aS" + (System.currentTimeMillis() % 1000000000L);
         
         MqttClientSslConfigBuilder sslBuilder = MqttClientSslConfig.builder()
                 .hostnameVerifier((hostname, session) -> true);
@@ -124,8 +127,9 @@ public class BambuMqttClient {
         }
         LOGGER.debug("Temporarily prioritized Sun providers for Bambu MQTT connection");
 
+        InteractiveTrustManagerFactory tmf;
         try {
-            InteractiveTrustManagerFactory tmf = new InteractiveTrustManagerFactory();
+            tmf = new InteractiveTrustManagerFactory();
             sslBuilder.trustManagerFactory(tmf);
         } catch (Exception e) {
             LOGGER.error("Failed to initialize SSL configuration", e);
@@ -133,11 +137,15 @@ public class BambuMqttClient {
             return CompletableFuture.failedFuture(e);
         }
 
+        InteractiveTrustManagerFactory finalTmf = tmf;
+
         client = Mqtt3Client.builder()
                 .identifier(clientId)
                 .serverHost(host)
                 .serverPort(port)
                 .sslConfig(sslBuilder.build())
+                .addConnectedListener(context -> LOGGER.info("MQTT Client connected to {}", host))
+                .addDisconnectedListener(context -> LOGGER.info("MQTT Client disconnected from {}: {}", host, context.getCause()))
                 .buildAsync();
 
         return client.connectWith()
@@ -145,9 +153,25 @@ public class BambuMqttClient {
                 .username("bblp")
                 .password(accessCode.getBytes(StandardCharsets.UTF_8))
                 .applySimpleAuth()
+                .cleanSession(true)
+                .keepAlive(60)
                 .send()
                 .handle((ack, throwable) -> {
+                    // Try to extract serial number from SSL certificate even if connection failed or succeeded
+                    X509Certificate cert = finalTmf.getTrustManager().getLastHandshakeCertificate();
+                    if (cert != null) {
+                        String cn = SslDetailsUtils.getCommonName(cert);
+                        if (cn != null && !cn.isEmpty() && (this.serial == null || this.serial.isEmpty())) {
+                            LOGGER.info("Extracted serial number from SSL certificate: {} for host {}", cn, host);
+                            this.serial = cn;
+                            serialDiscoveryFuture.complete(cn);
+                        }
+                    }
+
                     if (throwable != null) {
+                        // Restore security providers immediately on failure
+                        restoreProviders(originalProviders);
+                        
                         // Extract original cause from HiveMQ exception
                         Throwable cause = throwable;
                         while (cause.getCause() != null && cause != cause.getCause()) {
@@ -156,9 +180,18 @@ public class BambuMqttClient {
                             }
                             cause = cause.getCause();
                         }
-                        restoreProviders(originalProviders);
                         return CompletableFuture.<Void>failedFuture(cause);
                     }
+                    
+                    if (ack.getReturnCode() != Mqtt3ConnAckReturnCode.SUCCESS) {
+                        restoreProviders(originalProviders);
+                        return CompletableFuture.<Void>failedFuture(new RuntimeException("MQTT Connection rejected with code: " + ack.getReturnCode()));
+                    }
+                    
+                    // After successful connection and serial discovery from certificate,
+                    // we might need to update the client if it was created with a temporary ID.
+                    // But for now, we just continue to subscription.
+                    
                     return CompletableFuture.<Void>completedFuture(null);
                 })
                 .thenCompose(f -> f)
@@ -171,9 +204,17 @@ public class BambuMqttClient {
                         subscribeFuture = subscribeToTelemetry();
                     }
                     return subscribeFuture.handle((subAck, subEx) -> {
+                        // Restore security providers after subscription (success or failure)
                         restoreProviders(originalProviders);
                         if (subEx != null) {
-                            return CompletableFuture.<Void>failedFuture(subEx);
+                            LOGGER.warn("Initial subscription failed for {}, but connection is active. Will try later if serial is discovered.", host, subEx);
+                            // Do not fail the whole connect if subscription failed but we are connected.
+                            // The printer might have rejected wildcard # but we might get serial later (e.g. mDNS)
+                            // Or we already got it from SSL cert but subscription failed for some other reason.
+                            if (this.serial != null && !this.serial.isEmpty()) {
+                                return subscribeToTelemetry();
+                            }
+                            return CompletableFuture.<Void>completedFuture(null);
                         }
                         return CompletableFuture.<Void>completedFuture(null);
                     }).thenCompose(sf -> sf);
@@ -203,7 +244,11 @@ public class BambuMqttClient {
      * @return a {@link CompletableFuture} that completes when the subscription is successful.
      */
     private CompletableFuture<Void> subscribeToDiscovery() {
-        String filter = "device/+/report";
+        // Since wildcard device/+/report is not supported in LAN mode,
+        // we subscribe to all topics (#) temporarily to find the serial if it's not known yet.
+        // Some reports say even # might be rejected, but others say it works.
+        // If it's rejected, we must rely on SSL cert CN or mDNS.
+        String filter = "#";
         LOGGER.info("Subscribing to discovery wildcard topic ({}) for host {}", filter, host);
         return client.subscribeWith()
                 .topicFilter(filter)
@@ -218,6 +263,8 @@ public class BambuMqttClient {
                                 LOGGER.info("Discovered serial number: {} for host {}", discoveredSerial, host);
                                 this.serial = discoveredSerial;
                                 serialDiscoveryFuture.complete(discoveredSerial);
+                                // If we were in discovery mode, now we can subscribe to the real telemetry topic
+                                subscribeToTelemetry();
                             }
                         }
                     }

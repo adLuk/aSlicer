@@ -175,8 +175,14 @@ public class InteractiveTrustManager implements X509TrustManager {
         }
     }
 
+    private X509Certificate lastHandshakeCertificate;
+
     @Override
     public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+        if (chain != null && chain.length > 0) {
+            this.lastHandshakeCertificate = chain[0];
+        }
+
         // 1. First priority: Check against Application BCFKS TrustStore (if not empty)
         if (appTrustManager != null) {
             try {
@@ -227,5 +233,14 @@ public class InteractiveTrustManager implements X509TrustManager {
             return combined;
         }
         return appIssuers;
+    }
+
+    /**
+     * Gets the last certificate seen during a server handshake check.
+     *
+     * @return the last server certificate, or null if none.
+     */
+    public X509Certificate getLastHandshakeCertificate() {
+        return lastHandshakeCertificate;
     }
 }

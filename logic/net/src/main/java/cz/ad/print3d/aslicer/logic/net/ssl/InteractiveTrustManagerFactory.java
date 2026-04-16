@@ -35,4 +35,13 @@ public class InteractiveTrustManagerFactory extends SimpleTrustManagerFactory {
     protected TrustManager[] engineGetTrustManagers() {
         return new TrustManager[] { trustManager };
     }
+
+    /**
+     * Gets the InteractiveTrustManager instance used by this factory.
+     *
+     * @return the {@link InteractiveTrustManager}.
+     */
+    public InteractiveTrustManager getTrustManager() {
+        return trustManager;
+    }
 }
