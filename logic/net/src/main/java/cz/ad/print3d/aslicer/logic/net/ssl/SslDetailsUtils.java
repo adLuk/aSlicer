@@ -59,7 +59,11 @@ public class SslDetailsUtils {
         for (String part : name.split(",")) {
             part = part.trim();
             if (part.startsWith("CN=")) {
-                return part.substring(3);
+                String cn = part.substring(3);
+                if (cn.startsWith("SN:")) {
+                    return cn.substring(3);
+                }
+                return cn;
             }
         }
         return null;

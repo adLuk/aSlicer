@@ -65,4 +65,16 @@ public class BambuMqttClientTest {
         String cn = cz.ad.print3d.aslicer.logic.net.ssl.SslDetailsUtils.getCommonName(cert);
         assertEquals("01S123456789012", cn);
     }
+
+    @Test
+    public void testSendGetVersionWhenNotConnected() throws Exception {
+        BambuPrinterNetConnection conn = new BambuMqttPrinterNetConnection(URI.create("https://192.168.0.10:8883").toURL(), "SN999", "code");
+        BambuMqttClient client = new BambuMqttClient(conn);
+        // Should fail because client is not initialized/connected
+        client.sendGetVersion().handle((v, ex) -> {
+            org.junit.jupiter.api.Assertions.assertNotNull(ex);
+            org.junit.jupiter.api.Assertions.assertTrue(ex.getMessage().contains("MQTT client is not connected"));
+            return null;
+        }).get(5, java.util.concurrent.TimeUnit.SECONDS);
+    }
 }

@@ -63,6 +63,9 @@ public class BambuMqttMapperTest {
         BambuMqttMapper mapper = new BambuMqttMapper();
         Map<String, Object> result = mapper.parse(json);
 
-        assertTrue(result.isEmpty());
+        assertFalse(result.isEmpty());
+        assertTrue(result.containsKey("unknown_source"));
+        assertTrue(result.containsKey("unknown_source_raw"));
+        assertEquals(json, result.get("unknown_source_raw"));
     }
 }

@@ -49,14 +49,20 @@ public class BambuMqttMapper {
         JsonNode root = objectMapper.readTree(payload);
         Map<String, Object> result = new HashMap<>();
 
-        for (String source : sourceMapping.keySet()) {
-            if (root.has(source)) {
-                Object data = objectMapper.treeToValue(root.get(source), sourceMapping.get(source));
-                result.put(source, data);
-                if ("system".equals(source)) {
-                    result.put("system_raw", payload);
-                }
+        java.util.Iterator<String> fieldNames = root.fieldNames();
+        while (fieldNames.hasNext()) {
+            String fieldName = fieldNames.next();
+            JsonNode node = root.get(fieldName);
+            
+            if (sourceMapping.containsKey(fieldName)) {
+                Object data = objectMapper.treeToValue(node, sourceMapping.get(fieldName));
+                result.put(fieldName, data);
+            } else {
+                // For unknown sources, put the raw node as a generic map or string
+                result.put(fieldName, node);
             }
+            // Always include raw payload for each root key discovered
+            result.put(fieldName + "_raw", payload);
         }
         return result;
     }

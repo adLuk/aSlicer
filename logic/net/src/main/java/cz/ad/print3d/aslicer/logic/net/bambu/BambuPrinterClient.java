@@ -19,6 +19,7 @@ import java.util.concurrent.TimeUnit;
  * Client for communicating with Bambu Lab printers.
  */
 public class BambuPrinterClient extends AbstractPrinterClient {
+    private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(BambuPrinterClient.class);
     private final String serial;
     private final String accessCode;
     private BambuMqttClient mqttClient;
@@ -61,6 +62,13 @@ public class BambuPrinterClient extends AbstractPrinterClient {
     }
 
     private void handleTelemetry(java.util.Map<String, Object> telemetry) {
+        if (telemetry == null || telemetry.isEmpty()) return;
+        
+        // Log received telemetry types for debugging
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug("Received telemetry from {}: {}", ipAddress, telemetry.keySet());
+        }
+
         // Extract version info if available from "system" topic
         if (telemetry.containsKey("system")) {
             versionReport = (String) telemetry.get("system_raw");
@@ -75,6 +83,14 @@ public class BambuPrinterClient extends AbstractPrinterClient {
                             hwVersion = module.getHwVer();
                         }
                     }
+                }
+            }
+        } else if (versionReport == null || versionReport.isEmpty()) {
+            // Fallback to any raw payload we have if system report is not available yet
+            for (String key : telemetry.keySet()) {
+                if (key.endsWith("_raw")) {
+                    versionReport = (String) telemetry.get(key);
+                    break;
                 }
             }
         }
@@ -143,7 +159,8 @@ public class BambuPrinterClient extends AbstractPrinterClient {
                         SslCertificateManager.trustCertificate(cert, ipAddress);
                         // Refresh the MQTT client to use new trust store
                         mqttClient.disconnect();
-                        return attemptConnect();
+                        // Re-run the full connect process to ensure a clean state (new MQTT client)
+                        return connect();
                     } catch (Exception e) {
                         return CompletableFuture.failedFuture(e);
                     }
