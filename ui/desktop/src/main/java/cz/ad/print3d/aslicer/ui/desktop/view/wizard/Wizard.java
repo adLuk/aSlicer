@@ -244,6 +244,7 @@ public class Wizard extends Window {
             if (listener != null) {
                 listener.onFinish(this);
             }
+            dispose();
             remove();
         }
     }
@@ -255,7 +256,17 @@ public class Wizard extends Window {
         if (listener != null) {
             listener.onCancel(this);
         }
+        dispose();
         remove();
+    }
+
+    /**
+     * Disposes of any resources held by the wizard and its steps.
+     */
+    public void dispose() {
+        for (WizardStep step : steps) {
+            step.dispose();
+        }
     }
 
     /**

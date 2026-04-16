@@ -23,7 +23,6 @@ import cz.ad.print3d.aslicer.logic.net.scanner.dto.SsdpServiceInfo;
 import java.net.NetworkInterface;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
 
 /**
  * Manages various network discovery services such as mDNS and SSDP.
@@ -75,5 +74,14 @@ public class DiscoveryManager {
     public void stopDiscovery() {
         mdnsScanner.stopScan();
         ssdpScanner.stopScan();
+    }
+
+    /**
+     * Closes all discovery scanners and releases resources.
+     */
+    public void close() {
+        stopDiscovery();
+        mdnsScanner.close();
+        ssdpScanner.close();
     }
 }

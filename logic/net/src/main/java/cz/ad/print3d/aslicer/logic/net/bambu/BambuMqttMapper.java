@@ -53,6 +53,9 @@ public class BambuMqttMapper {
             if (root.has(source)) {
                 Object data = objectMapper.treeToValue(root.get(source), sourceMapping.get(source));
                 result.put(source, data);
+                if ("system".equals(source)) {
+                    result.put("system_raw", payload);
+                }
             }
         }
         return result;

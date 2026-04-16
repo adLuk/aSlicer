@@ -6,6 +6,12 @@ import cz.ad.print3d.aslicer.logic.printer.system.action.PrinterAction;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Data Transfer Object for printer system information.
+ *
+ * <p>Implements the {@link PrinterSystem} interface to provide a simple container
+ * for printer metadata such as manufacturer, model, and version information.</p>
+ */
 public class PrinterSystemDto implements PrinterSystem {
 
     private String printerManufacturer;
@@ -13,6 +19,8 @@ public class PrinterSystemDto implements PrinterSystem {
     private String printerModel;
     private String gCodeInterpreter;
     private String firmwareVersion;
+    private String hardwareVersion;
+    private String fullReport;
     private String serialNumber;
 
     @Override
@@ -69,6 +77,24 @@ public class PrinterSystemDto implements PrinterSystem {
 
     public void setFirmwareVersion(String firmwareVersion) {
         this.firmwareVersion = firmwareVersion;
+    }
+
+    @Override
+    public String getHardwareVersion() {
+        return hardwareVersion;
+    }
+
+    public void setHardwareVersion(String hardwareVersion) {
+        this.hardwareVersion = hardwareVersion;
+    }
+
+    @Override
+    public String getFullReport() {
+        return fullReport;
+    }
+
+    public void setFullReport(String fullReport) {
+        this.fullReport = fullReport;
     }
 
     @Override

@@ -66,4 +66,10 @@ public interface WizardStep {
      * @return true in case when event was processed and processing is finished, otherwise false.
      */
     boolean processChange(ChangeListener.ChangeEvent event);
+
+    /**
+     * Disposes of any resources held by the step.
+     * Called when the wizard is closed or finished.
+     */
+    default void dispose() {}
 }

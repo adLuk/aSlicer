@@ -25,6 +25,14 @@ public class BambuPrinterClient extends AbstractPrinterClient {
     private long lastDetailsUpdate = 0;
     private static final long UPDATE_THROTTLE_MS = 1000;
     private String lastDiscoveredSerial = null;
+    /** Current software version extracted from telemetry. */
+    private String swVersion = null;
+    /** Current hardware version extracted from telemetry. */
+    private String hwVersion = null;
+    /** Current AMS status (humidity and temperature) extracted from telemetry. */
+    private String amsStatus = null;
+    /** Complete version report as JSON string. */
+    private String versionReport = null;
 
     /**
      * Constructs a BambuPrinterClient.
@@ -53,6 +61,38 @@ public class BambuPrinterClient extends AbstractPrinterClient {
     }
 
     private void handleTelemetry(java.util.Map<String, Object> telemetry) {
+        // Extract version info if available from "system" topic
+        if (telemetry.containsKey("system")) {
+            versionReport = (String) telemetry.get("system_raw");
+            Object systemObj = telemetry.get("system");
+            if (systemObj instanceof BambuSystemStatus) {
+                BambuSystemStatus systemStatus = (BambuSystemStatus) systemObj;
+                if (systemStatus.getGetVersion() != null && systemStatus.getGetVersion().getModules() != null) {
+                    for (BambuSystemStatus.Module module : systemStatus.getGetVersion().getModules()) {
+                        // Usually "ota" or "printer" module contains the main version info
+                        if ("ota".equals(module.getName()) || "printer".equals(module.getName())) {
+                            swVersion = module.getSwVer();
+                            hwVersion = module.getHwVer();
+                        }
+                    }
+                }
+            }
+        }
+
+        // Extract AMS info if available from "print" topic
+        if (telemetry.containsKey("print")) {
+            Object printObj = telemetry.get("print");
+            if (printObj instanceof BambuTelemetry.BambuPrintStatus) {
+                BambuTelemetry.BambuPrintStatus printStatus = (BambuTelemetry.BambuPrintStatus) printObj;
+                if (printStatus.getAms() != null && printStatus.getAms().getAmsDevices() != null && !printStatus.getAms().getAmsDevices().isEmpty()) {
+                    BambuTelemetry.AmsDevice firstAms = printStatus.getAms().getAmsDevices().get(0);
+                    if (firstAms.getTemp() != null && firstAms.getHumidity() != null) {
+                        amsStatus = "AMS (temp: " + firstAms.getTemp() + "°C, humidity: " + firstAms.getHumidity() + "%)";
+                    }
+                }
+            }
+        }
+
         if (detailsUpdateCallback != null) {
             String currentSerial = (mqttClient != null) ? mqttClient.getSerial() : null;
             long now = System.currentTimeMillis();
@@ -123,7 +163,22 @@ public class BambuPrinterClient extends AbstractPrinterClient {
 
         Printer3DDto dto = new Printer3DDto();
         PrinterSystemDto system = new PrinterSystemDto();
-        system.setPrinterManufacturer("Bambu Lab");
+        
+        String manufacturer = "Bambu Lab";
+        if (amsStatus != null) {
+            manufacturer = amsStatus + " " + manufacturer;
+        }
+        system.setPrinterManufacturer(manufacturer);
+        
+        if (swVersion != null) {
+            system.setFirmwareVersion(swVersion);
+        }
+        if (hwVersion != null) {
+            system.setHardwareVersion(hwVersion);
+        }
+        if (versionReport != null) {
+            system.setFullReport(versionReport);
+        }
         
         String currentSerial = mqttClient.getSerial();
         if (currentSerial == null || currentSerial.isEmpty()) {

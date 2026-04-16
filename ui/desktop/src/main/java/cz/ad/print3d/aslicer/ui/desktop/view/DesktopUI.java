@@ -397,6 +397,7 @@ public class DesktopUI implements Disposable {
     @Override
     public void dispose() {
         if (printerWizard != null) {
+            printerWizard.dispose();
             printerWizard.remove();
         }
         view1Stage.dispose();

@@ -214,6 +214,14 @@ public class PrinterDiscoveryStep implements WizardStep {
         return result;
     }
 
+    @Override
+    public void dispose() {
+        stopScan();
+        if (scanner != null) {
+            scanner.close();
+        }
+    }
+
     private void initializeIpRange() {
         progressLabel.setText("Getting network information...");
         collector.collectAsync().thenAccept(interfaces -> Gdx.app.postRunnable(() -> {

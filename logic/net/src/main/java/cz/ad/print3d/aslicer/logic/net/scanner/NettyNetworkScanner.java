@@ -320,6 +320,7 @@ public class NettyNetworkScanner implements NetworkScanner {
     public void close() {
         stopScan();
         portScanner.close();
+        discoveryManager.close();
         scanExecutor.shutdown();
     }
 }

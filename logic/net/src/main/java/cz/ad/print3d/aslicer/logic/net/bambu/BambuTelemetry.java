@@ -2,6 +2,7 @@ package cz.ad.print3d.aslicer.logic.net.bambu;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.List;
 
 /**
  * Base telemetry data container from a Bambu Lab printer.
@@ -52,6 +53,9 @@ public class BambuTelemetry {
         @JsonProperty("bed_temper")
         private double bedTemperature;
 
+        @JsonProperty("ams")
+        private AmsData ams;
+
         /**
          * @return the current G-code execution state (e.g., "IDLE", "RUNNING", "PAUSE").
          */
@@ -101,5 +105,44 @@ public class BambuTelemetry {
          * @param bedTemperature the bed temperature to set.
          */
         public void setBedTemperature(double bedTemperature) { this.bedTemperature = bedTemperature; }
+
+        /**
+         * @return the AMS status information.
+         */
+        public AmsData getAms() { return ams; }
+
+        /**
+         * @param ams the AMS status information to set.
+         */
+        public void setAms(AmsData ams) { this.ams = ams; }
+    }
+
+    /**
+     * DTO for the AMS (Automatic Material System) data.
+     */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class AmsData {
+        @JsonProperty("ams")
+        private List<AmsDevice> amsDevices;
+
+        public List<AmsDevice> getAmsDevices() { return amsDevices; }
+        public void setAmsDevices(List<AmsDevice> amsDevices) { this.amsDevices = amsDevices; }
+    }
+
+    /**
+     * DTO for a single AMS device.
+     */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class AmsDevice {
+        private String id;
+        private String temp;
+        private String humidity;
+
+        public String getId() { return id; }
+        public void setId(String id) { this.id = id; }
+        public String getTemp() { return temp; }
+        public void setTemp(String temp) { this.temp = temp; }
+        public String getHumidity() { return humidity; }
+        public void setHumidity(String humidity) { this.humidity = humidity; }
     }
 }

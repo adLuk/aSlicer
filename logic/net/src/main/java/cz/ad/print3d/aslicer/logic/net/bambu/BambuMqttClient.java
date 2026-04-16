@@ -212,10 +212,19 @@ public class BambuMqttClient {
                             // The printer might have rejected wildcard # but we might get serial later (e.g. mDNS)
                             // Or we already got it from SSL cert but subscription failed for some other reason.
                             if (this.serial != null && !this.serial.isEmpty()) {
+                                sendGetVersion();
                                 return subscribeToTelemetry();
                             }
+                            serialDiscoveryFuture.thenAccept(s -> sendGetVersion());
                             return CompletableFuture.<Void>completedFuture(null);
                         }
+                        
+                        if (this.serial != null && !this.serial.isEmpty()) {
+                            sendGetVersion();
+                        } else {
+                            serialDiscoveryFuture.thenAccept(s -> sendGetVersion());
+                        }
+                        
                         return CompletableFuture.<Void>completedFuture(null);
                     }).thenCompose(sf -> sf);
                 });
@@ -340,6 +349,35 @@ public class BambuMqttClient {
         if (client != null) {
             client.disconnect();
         }
+    }
+
+    /**
+     * Sends a {@code system: get_version} message to the printer to retrieve hardware and software
+     * version information for all modules.
+     *
+     * <p>This should be called as soon as the printer's serial number is known, as it is
+     * required to construct the request topic.</p>
+     *
+     * @return a {@link CompletableFuture} that completes when the message is sent.
+     */
+    public CompletableFuture<Void> sendGetVersion() {
+        String topic = getRequestTopic();
+        if (topic == null) {
+            LOGGER.warn("Cannot send get_version: request topic unknown for host {}", host);
+            return CompletableFuture.completedFuture(null);
+        }
+        String payload = "{\"system\": {\"get_version\": []}, \"sequence_id\": \"0\"}";
+        LOGGER.info("Sending get_version request to topic {} for host {}", topic, host);
+        return client.publishWith()
+                .topic(topic)
+                .payload(payload.getBytes(StandardCharsets.UTF_8))
+                .send()
+                .handle((pubAck, ex) -> {
+                    if (ex != null) {
+                        LOGGER.error("Failed to send get_version to {}: {}", host, ex.getMessage());
+                    }
+                    return (Void) null;
+                });
     }
 
     /**

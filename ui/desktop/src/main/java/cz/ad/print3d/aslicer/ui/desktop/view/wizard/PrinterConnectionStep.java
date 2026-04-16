@@ -329,9 +329,15 @@ public class PrinterConnectionStep implements WizardStep {
                                  (details.getPrinterSystem().getPrinterModel() != null ? details.getPrinterSystem().getPrinterModel() : "");
                     nameLabel.setText(info);
                     
-                    if (details.getPrinterSystem().getSerialNumber() != null) {
+                    if (details.getPrinterSystem().getFullReport() != null) {
                         statusLabel.setText("Success (Report received)");
                         statusLabel.setColor(Color.GREEN);
+                    } else if (details.getPrinterSystem().getSerialNumber() != null) {
+                        statusLabel.setText("Success (Connected)");
+                        statusLabel.setColor(Color.GREEN);
+                    }
+
+                    if (details.getPrinterSystem().getSerialNumber() != null) {
                         connectionCredentials.computeIfAbsent(ip, k -> new HashMap<>()).put("serial", details.getPrinterSystem().getSerialNumber());
                     }
                 }
@@ -345,7 +351,7 @@ public class PrinterConnectionStep implements WizardStep {
                     Gdx.app.postRunnable(() -> {
                         validatedPrinters.put(ip, details);
                         
-                        if (details.getPrinterSystem() != null && details.getPrinterSystem().getSerialNumber() == null) {
+                        if (details.getPrinterSystem() != null && details.getPrinterSystem().getFullReport() == null) {
                             statusLabel.setText("Success (Waiting for report...)");
                             statusLabel.setColor(Color.YELLOW);
                         } else {
@@ -419,10 +425,28 @@ public class PrinterConnectionStep implements WizardStep {
         contentTable.add(new Label("", skin)).row();
 
         if (details != null && details.getPrinterSystem() != null) {
+            contentTable.add(new Label("", skin)).row();
+            contentTable.add(new Image(skin.newDrawable("white", new Color(0.5f, 0.5f, 0.5f, 0.5f)))).fillX().height(1).padTop(5).padBottom(10).row();
+            
             contentTable.add(new Label("Validated System Information", skin, "default", Color.GREEN)).left().padBottom(5).row();
             contentTable.add(new Label("Manufacturer: " + details.getPrinterSystem().getPrinterManufacturer(), skin)).left().padLeft(10).row();
             contentTable.add(new Label("Model: " + details.getPrinterSystem().getPrinterModel(), skin)).left().padLeft(10).row();
-            contentTable.add(new Label("Firmware: " + details.getPrinterSystem().getFirmwareVersion(), skin)).left().padLeft(10).row();
+            contentTable.add(new Label("Software: " + details.getPrinterSystem().getFirmwareVersion(), skin)).left().padLeft(10).row();
+            if (details.getPrinterSystem().getHardwareVersion() != null) {
+                contentTable.add(new Label("Hardware: " + details.getPrinterSystem().getHardwareVersion(), skin)).left().padLeft(10).row();
+            }
+            
+            contentTable.add(new Label("", skin)).row();
+            contentTable.add(new Image(skin.newDrawable("white", new Color(0.5f, 0.5f, 0.5f, 0.5f)))).fillX().height(1).padTop(5).padBottom(10).row();
+            contentTable.add(new Label("Full Report:", skin, "default", Color.YELLOW)).left().padBottom(5).row();
+            
+            if (details.getPrinterSystem().getFullReport() != null && !details.getPrinterSystem().getFullReport().isEmpty()) {
+                Label reportLabel = new Label(details.getPrinterSystem().getFullReport(), skin);
+                reportLabel.setWrap(true);
+                contentTable.add(reportLabel).left().padLeft(10).width(380).row();
+            } else {
+                contentTable.add(new Label("No raw data received from printer yet.", skin, "default", Color.ORANGE)).left().padLeft(10).row();
+            }
         }
 
         ScrollPane scrollPane = new ScrollPane(contentTable, skin);
@@ -499,5 +523,18 @@ public class PrinterConnectionStep implements WizardStep {
     @Override
     public boolean processChange(ChangeListener.ChangeEvent event) {
         return false;
+    }
+
+    @Override
+    public void dispose() {
+        // Ensure all active clients are disconnected when the step is disposed
+        for (PrinterClient client : activeClients.values()) {
+            try {
+                client.disconnect();
+            } catch (Exception e) {
+                logger.error("Error during client disconnect: {}", e.getMessage());
+            }
+        }
+        activeClients.clear();
     }
 }
