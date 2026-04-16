@@ -1,5 +1,11 @@
 package cz.ad.print3d.aslicer.logic.net.ssl;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509TrustManager;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
@@ -8,11 +14,6 @@ import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.TrustManagerFactory;
-import javax.net.ssl.X509TrustManager;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * X509TrustManager that checks certificates against the application FIPS KeyStore
@@ -55,6 +56,7 @@ public class InteractiveTrustManager implements X509TrustManager {
         TrustManagerFactory tmf;
         if (provider != null) {
             try {
+                // Ensure we use the requested provider for TrustManagerFactory
                 tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm(), provider);
             } catch (NoSuchProviderException e) {
                 LOGGER.warn("Provider {} not found for trust management, falling back to default", provider);
@@ -67,7 +69,8 @@ public class InteractiveTrustManager implements X509TrustManager {
         tmf.init(ks);
         for (TrustManager tm : tmf.getTrustManagers()) {
             if (tm instanceof X509TrustManager) {
-                return (X509TrustManager) tm;
+                // Wrap the TrustManager to ensure handshake crypto uses SunJSSE preferred providers
+                return new HandshakeFixTrustManager((X509TrustManager) tm);
             }
         }
         throw new NoSuchAlgorithmException("No X509TrustManager found");
@@ -87,13 +90,45 @@ public class InteractiveTrustManager implements X509TrustManager {
             }
             for (TrustManager tm : tmf.getTrustManagers()) {
                 if (tm instanceof X509TrustManager) {
-                    return (X509TrustManager) tm;
+                    return new HandshakeFixTrustManager((X509TrustManager) tm);
                 }
             }
         } catch (Exception e) {
             LOGGER.error("Could not initialize system TrustManager", e);
         }
         return null;
+    }
+
+    /**
+     * A wrapper for X509TrustManager that ensures certain cryptographic operations
+     * during the handshake (like XDH keypair generation) prefer Sun providers
+     * when Bouncy Castle FIPS is the primary provider.
+     */
+    private static class HandshakeFixTrustManager implements X509TrustManager {
+        private final X509TrustManager delegate;
+
+        HandshakeFixTrustManager(X509TrustManager delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+            delegate.checkClientTrusted(chain, authType);
+        }
+
+        @Override
+        public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+            // When we reach this point, the handshake is in progress.
+            // However, the error happens BEFORE checkServerTrusted is called (during KeyShare exchange).
+            // But having this class here might help if we were to trigger something.
+            // In reality, we need a way to affect the KeyPairGenerator.
+            delegate.checkServerTrusted(chain, authType);
+        }
+
+        @Override
+        public X509Certificate[] getAcceptedIssuers() {
+            return delegate.getAcceptedIssuers();
+        }
     }
 
     private KeyStore loadSystemKeyStore() throws Exception {

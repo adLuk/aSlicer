@@ -1,19 +1,23 @@
 package cz.ad.print3d.aslicer.logic.net.bambu;
 
-import com.hivemq.client.mqtt.mqtt3.Mqtt3AsyncClient;
-import com.hivemq.client.mqtt.mqtt3.Mqtt3Client;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.hivemq.client.mqtt.MqttClientSslConfig;
 import com.hivemq.client.mqtt.MqttClientSslConfigBuilder;
-import cz.ad.print3d.aslicer.logic.net.bambu.BambuMqttMapper;
+import com.hivemq.client.mqtt.mqtt3.Mqtt3AsyncClient;
+import com.hivemq.client.mqtt.mqtt3.Mqtt3Client;
 import cz.ad.print3d.aslicer.logic.net.ssl.InteractiveTrustManagerFactory;
+import cz.ad.print3d.aslicer.logic.net.ssl.UntrustedCertificateException;
 import cz.ad.print3d.aslicer.logic.printer.system.net.BambuPrinterNetConnection;
-import java.nio.charset.StandardCharsets;
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.nio.charset.StandardCharsets;
+import java.security.Provider;
+import java.security.Security;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 /**
  * Client for communicating with Bambu Lab 3D printers over MQTT.
@@ -53,6 +57,8 @@ public class BambuMqttClient {
      *
      * <p>If the serial number was already provided during construction, this future
      * will be completed immediately.</p>
+     * 
+     * <p>The future has a default timeout of 10 seconds for discovery.</p>
      *
      * @return a {@link CompletableFuture} for the discovered serial number.
      */
@@ -60,7 +66,7 @@ public class BambuMqttClient {
         if (serial != null && !serial.isEmpty()) {
             serialDiscoveryFuture.complete(serial);
         }
-        return serialDiscoveryFuture;
+        return serialDiscoveryFuture.orTimeout(10, TimeUnit.SECONDS);
     }
 
     /**
@@ -84,17 +90,39 @@ public class BambuMqttClient {
      *
      * <p>Once connected, it automatically subscribes to the telemetry topic.</p>
      *
+     * <p>This method configures a custom SSL context that prioritizes the SunJSSE provider
+     * to ensure compatibility with XDH algorithms (Ed25519/X25519) while maintaining
+     * Bouncy Castle FIPS as the primary global provider.</p>
+     *
      * @return a {@link CompletableFuture} that completes when the connection is established.
      */
     public CompletableFuture<Void> connect() {
         String clientId = (serial != null && !serial.isEmpty()) ? serial : "aSlicer_discovery_" + System.currentTimeMillis();
+        
         MqttClientSslConfigBuilder sslBuilder = MqttClientSslConfig.builder()
                 .hostnameVerifier((hostname, session) -> true);
 
+        // To solve the "IllegalAccessError" and "Could not generate XDH keypair" issues when BCFIPS is the primary provider:
+        // We temporarily reorder providers to put Sun providers before BCFIPS for the duration of the connect call.
+        // This allows SunJSSE to use its internal classes (like TlsMasterSecretParameterSpec) and algorithms (XDH).
+        String[] sunProviders = {"SunJSSE", "SunJCE", "SunEC"};
+        java.util.List<Provider> originalProviders = new java.util.ArrayList<>();
+        for (String name : sunProviders) {
+            Provider p = Security.getProvider(name);
+            if (p != null) {
+                originalProviders.add(p);
+                Security.removeProvider(name);
+                Security.insertProviderAt(p, 1);
+            }
+        }
+        LOGGER.debug("Temporarily prioritized Sun providers for Bambu MQTT connection");
+
         try {
-            sslBuilder.trustManagerFactory(new InteractiveTrustManagerFactory());
+            InteractiveTrustManagerFactory tmf = new InteractiveTrustManagerFactory();
+            sslBuilder.trustManagerFactory(tmf);
         } catch (Exception e) {
-            LOGGER.error("Failed to initialize InteractiveTrustManagerFactory", e);
+            LOGGER.error("Failed to initialize SSL configuration", e);
+            restoreProviders(originalProviders);
             return CompletableFuture.failedFuture(e);
         }
 
@@ -111,7 +139,24 @@ public class BambuMqttClient {
                 .password(accessCode.getBytes(StandardCharsets.UTF_8))
                 .applySimpleAuth()
                 .send()
-                .thenAccept(mqtt3ConnAck -> {
+                .handle((ack, throwable) -> {
+                    restoreProviders(originalProviders);
+                    
+                    if (throwable != null) {
+                        // Extract original cause from HiveMQ exception
+                        Throwable cause = throwable;
+                        while (cause.getCause() != null && cause != cause.getCause()) {
+                            if (cause instanceof UntrustedCertificateException) {
+                                break;
+                            }
+                            cause = cause.getCause();
+                        }
+                        return CompletableFuture.<Void>failedFuture(cause);
+                    }
+                    return CompletableFuture.<Void>completedFuture(null);
+                })
+                .thenCompose(f -> f)
+                .thenAccept(v -> {
                     // Connected successfully
                     if (serial == null || serial.isEmpty()) {
                         subscribeToDiscovery();
@@ -122,19 +167,36 @@ public class BambuMqttClient {
     }
 
     /**
+     * Restores the original provider ordering by moving specified providers to the end.
+     * 
+     * @param providers list of providers to move back.
+     */
+    private void restoreProviders(java.util.List<Provider> providers) {
+        for (int i = providers.size() - 1; i >= 0; i--) {
+            Provider p = providers.get(i);
+            Security.removeProvider(p.getName());
+            Security.addProvider(p);
+        }
+        LOGGER.debug("Restored original security provider ordering");
+    }
+
+    /**
      * Subscribes to the wildcard topic to discover the printer's serial number.
      *
      * <p>Once a message is received on a topic matching {@code device/+/report},
      * the serial number is extracted and discovery is completed.</p>
      */
     private void subscribeToDiscovery() {
+        LOGGER.info("Subscribing to discovery wildcard topic (#) for host {}", host);
         client.subscribeWith()
                 .topicFilter("#")
                 .callback(mqtt3Publish -> {
                     String topic = mqtt3Publish.getTopic().toString();
+                    LOGGER.trace("Discovery message received on topic: {}", topic);
                     if (topic.startsWith("device/") && topic.endsWith("/report")) {
                         String discoveredSerial = topic.split("/")[1];
                         if (discoveredSerial != null && !discoveredSerial.isEmpty()) {
+                            LOGGER.info("Discovered serial number: {} for host {}", discoveredSerial, host);
                             this.serial = discoveredSerial;
                             serialDiscoveryFuture.complete(discoveredSerial);
                             // Resubscribe to specific telemetry and unsubscribe from discovery if needed
@@ -144,7 +206,15 @@ public class BambuMqttClient {
                     byte[] payload = mqtt3Publish.getPayloadAsBytes();
                     handleTelemetry(new String(payload, StandardCharsets.UTF_8));
                 })
-                .send();
+                .send()
+                .whenComplete((subAck, ex) -> {
+                    if (ex != null) {
+                        LOGGER.error("Failed to subscribe to discovery topic (#) for host {}: {}", host, ex.getMessage());
+                        serialDiscoveryFuture.completeExceptionally(ex);
+                    } else {
+                        LOGGER.info("Successfully subscribed to discovery topic (#) for host {}", host);
+                    }
+                });
     }
 
     /**
