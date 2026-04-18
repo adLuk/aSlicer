@@ -30,6 +30,10 @@ public class PrinterClientFactory {
                 if (serial == null || serial.isEmpty()) {
                     // Try to get serial from device name if not provided
                     serial = device.getName();
+                    // If name is just a generic placeholder, treat as null to trigger discovery
+                    if (serial != null && (serial.equalsIgnoreCase("Bambu Printer") || serial.equalsIgnoreCase("Bambu Lab Printer") || serial.equalsIgnoreCase("Unknown"))) {
+                        serial = null;
+                    }
                 }
                 String accessCode = credentials.get("accessCode");
                 return new BambuPrinterClient(ip, serial, accessCode);

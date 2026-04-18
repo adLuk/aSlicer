@@ -66,10 +66,14 @@ public class BambuMqttClient {
      * @return a {@link CompletableFuture} for the discovered serial number.
      */
     public CompletableFuture<String> getSerialDiscoveryFuture() {
-        if (serial != null && !serial.isEmpty()) {
+        if (serial != null && !serial.isEmpty() && !isPlaceholderSerial(serial)) {
             serialDiscoveryFuture.complete(serial);
         }
         return serialDiscoveryFuture.orTimeout(10, TimeUnit.SECONDS);
+    }
+
+    private boolean isPlaceholderSerial(String s) {
+        return s == null || s.isEmpty() || s.equalsIgnoreCase("Bambu Printer") || s.equalsIgnoreCase("Bambu Lab Printer") || s.equalsIgnoreCase("Unknown");
     }
 
     /**
@@ -173,7 +177,7 @@ public class BambuMqttClient {
                     X509Certificate cert = finalTmf.getTrustManager().getLastHandshakeCertificate();
                     if (cert != null) {
                         String cn = SslDetailsUtils.getCommonName(cert);
-                        if (cn != null && !cn.isEmpty() && (this.serial == null || this.serial.isEmpty())) {
+                        if (cn != null && !cn.isEmpty() && (this.serial == null || isPlaceholderSerial(this.serial))) {
                             LOGGER.info("Extracted serial number from SSL certificate: {} for host {}", cn, host);
                             this.serial = cn;
                             serialDiscoveryFuture.complete(cn);
@@ -391,7 +395,15 @@ public class BambuMqttClient {
      */
     public void disconnect() {
         if (client != null) {
-            client.disconnect();
+            LOGGER.info("Disconnecting MQTT client for host {}", host);
+            client.disconnect()
+                    .whenComplete((v, ex) -> {
+                        if (ex != null) {
+                            LOGGER.warn("Error during MQTT disconnect for {}: {}", host, ex.getMessage());
+                        } else {
+                            LOGGER.debug("MQTT client for {} disconnected successfully", host);
+                        }
+                    });
         }
     }
 
@@ -425,25 +437,17 @@ public class BambuMqttClient {
                 LOGGER.info("MQTT client for {} is not connected (state: {}). Attempting to reconnect... ({} retries left)", 
                     host, client.getState(), retries);
                 
-                // If not connected and not currently connecting, trigger connect()
+                CompletableFuture<Void> connFuture;
                 if (client.getState() == com.hivemq.client.mqtt.MqttClientState.DISCONNECTED) {
-                    this.connect();
+                    connFuture = this.connect();
+                } else {
+                    // Already connecting or other state, wait a bit
+                    connFuture = CompletableFuture.runAsync(() -> {
+                        try { Thread.sleep(2000); } catch (InterruptedException ignored) {}
+                    });
                 }
 
-                // Return a future that waits and then tries again
-                CompletableFuture<Void> retryFuture = new CompletableFuture<>();
-                CompletableFuture.runAsync(() -> {
-                    try {
-                        Thread.sleep(2000);
-                        sendGetVersion(retries - 1).whenComplete((v, ex) -> {
-                            if (ex != null) retryFuture.completeExceptionally(ex);
-                            else retryFuture.complete(null);
-                        });
-                    } catch (InterruptedException e) {
-                        retryFuture.completeExceptionally(e);
-                    }
-                });
-                return retryFuture;
+                return connFuture.thenCompose(v -> sendGetVersion(retries - 1));
             }
             
             String state = client.getState().toString();
@@ -452,9 +456,16 @@ public class BambuMqttClient {
         }
         
         String topic = getRequestTopic();
-        if (topic == null) {
-            LOGGER.warn("Cannot send get_version: request topic unknown for host {}", host);
-            return CompletableFuture.completedFuture(null);
+        if (topic == null || isPlaceholderSerial(serial)) {
+            LOGGER.info("Request topic unknown or placeholder for host {}, waiting for serial discovery...", host);
+            return getSerialDiscoveryFuture()
+                    .handle((s, ex) -> {
+                        if (ex != null) {
+                            LOGGER.warn("Serial discovery timed out for {}, cannot send get_version", host);
+                            return CompletableFuture.<Void>completedFuture(null);
+                        }
+                        return sendGetVersion(retries);
+                    }).thenCompose(f -> f);
         }
         // Use robust payload with command: get_version
         String payload = "{\"system\": {\"sequence_id\": \"0\", \"command\": \"get_version\"}, \"user_id\": \"0\", \"sequence_id\": \"0\"}";

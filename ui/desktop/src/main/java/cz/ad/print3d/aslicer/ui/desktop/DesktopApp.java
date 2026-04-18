@@ -543,6 +543,7 @@ public class DesktopApp implements ApplicationListener {
     @Override
     public void dispose() {
         saveAllConfig();
+        if (connectionPool != null) connectionPool.clear();
         if (sceneManager != null) sceneManager.dispose();
         if (modelManager != null) modelManager.dispose();
         if (desktopUI != null) desktopUI.dispose();
