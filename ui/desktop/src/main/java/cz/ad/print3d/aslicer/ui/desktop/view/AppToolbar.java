@@ -64,6 +64,7 @@ public final class AppToolbar extends Table {
     private final Skin skin;
     private final ToolbarListener listener;
     private final PrinterRepository repository;
+    private PrinterSelectBox printerSelectBox;
 
     /**
      * Creates a new toolbar with the specified skin, listener and printer repository.
@@ -125,7 +126,7 @@ public final class AppToolbar extends Table {
         modelGroup.addButton(clearButton);
         modelGroup.addButton(openButton);
 
-        PrinterSelectBox printerSelectBox = new PrinterSelectBox(skin, repository);
+        printerSelectBox = new PrinterSelectBox(skin, repository);
         ToolbarGroup printerGroup = new ToolbarGroup(skin);
         printerGroup.addButton(printerSelectBox);
         printerGroup.addButton(addPrinterButton);
@@ -139,6 +140,15 @@ public final class AppToolbar extends Table {
         add().expandX();
         add(settingsGroup).fillY();
         left();
+    }
+
+    /**
+     * Refreshes the list of printers in the selection box.
+     */
+    public void refreshPrinters() {
+        if (printerSelectBox != null) {
+            printerSelectBox.refresh();
+        }
     }
 
     /**

@@ -59,6 +59,7 @@ public class DesktopUI implements Disposable {
     private SettingsWindow settingsWindow;
     private ModelListWindow modelListWindow;
     private Wizard printerWizard;
+    private AppToolbar toolbar;
 
     /**
      * Creates a new DesktopUI instance.
@@ -88,6 +89,7 @@ public class DesktopUI implements Disposable {
      * @param modelManager  the manager for loaded models
      */
     public void setupLayout(AppToolbar toolbar, AppStageToolbar stageToolbar, AppSideToolbar sideToolbar, SceneManager sceneManager, ModelManager modelManager) {
+        this.toolbar = toolbar;
         rootTable.clear();
         rootTable.add(toolbar).expandX().fillX().colspan(2).row();
         rootTable.add(sideToolbar).expandY().fillY();
@@ -239,26 +241,32 @@ public class DesktopUI implements Disposable {
     /**
      * Toggles the visibility of the printer discovery wizard.
      *
-     * @param connectionPool the application-scope connection pool
-     * @param initialWidth   the initial width of the wizard
-     * @param initialHeight  the initial height of the wizard
-     * @param sizeCallback   a callback to be invoked when the wizard size changes or it is closed
+     * @param connectionPool    the application-scope connection pool
+     * @param printerRepository the repository for storing printer configurations
+     * @param initialWidth      the initial width of the wizard
+     * @param initialHeight     the initial height of the wizard
+     * @param sizeCallback      a callback to be invoked when the wizard size changes or it is closed
      */
-    public void togglePrinterDiscoveryWindow(cz.ad.print3d.aslicer.logic.net.PrinterConnectionPool connectionPool, int initialWidth, int initialHeight, java.util.function.BiConsumer<Integer, Integer> sizeCallback) {
+    public void togglePrinterDiscoveryWindow(cz.ad.print3d.aslicer.logic.net.PrinterConnectionPool connectionPool, cz.ad.print3d.aslicer.logic.printer.PrinterRepository printerRepository, int initialWidth, int initialHeight, java.util.function.BiConsumer<Integer, Integer> sizeCallback) {
         if (printerWizard == null) {
             printerWizard = new Wizard("Printer Discovery Wizard", skin, initialWidth, initialHeight);
             PrinterDiscoveryStep discoveryStep = new PrinterDiscoveryStep(skin);
             PrinterConnectionStep connectionStep = new PrinterConnectionStep(skin, discoveryStep, connectionPool);
+            cz.ad.print3d.aslicer.ui.desktop.view.wizard.PrinterSaveStep saveStep = new cz.ad.print3d.aslicer.ui.desktop.view.wizard.PrinterSaveStep(skin, connectionStep, printerRepository);
             
             printerWizard.addStep(discoveryStep);
             printerWizard.addStep(connectionStep);
+            printerWizard.addStep(saveStep);
             
             printerWizard.setListener(new Wizard.WizardListener() {
                 @Override
                 public void onFinish(Wizard wizard) {
                     // Logic to handle finished wizard, e.g. adding printers to ModelManager
-                    System.out.println("Wizard finished. Selected printers: " + discoveryStep.getSelectedDevices().size());
-                    System.out.println("Connection codes: " + connectionStep.getConnectionCodes());
+                    saveStep.savePrinters();
+                    if (toolbar != null) {
+                        toolbar.refreshPrinters();
+                    }
+                    System.out.println("Wizard finished. Printers saved.");
                     if (sizeCallback != null) {
                         sizeCallback.accept((int) wizard.getWidth(), (int) wizard.getHeight());
                     }

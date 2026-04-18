@@ -41,7 +41,14 @@ public class WizardPersistenceTest {
                     };
 
                     // Open wizard with initial size 900x700
-                    ui.togglePrinterDiscoveryWindow(new PrinterConnectionPool(), 900, 700, (w, h) -> {
+                    ui.togglePrinterDiscoveryWindow(new PrinterConnectionPool(), new cz.ad.print3d.aslicer.logic.printer.PrinterRepository() {
+                        @Override public java.util.List<String> getGroups() { return java.util.Collections.emptyList(); }
+                        @Override public java.util.Map<String, cz.ad.print3d.aslicer.logic.printer.Printer3D> getPrintersByGroup(String groupName) { return java.util.Collections.emptyMap(); }
+                        @Override public java.util.Optional<cz.ad.print3d.aslicer.logic.printer.Printer3D> getPrinter(String groupName, String printerName) { return java.util.Optional.empty(); }
+                        @Override public void savePrinter(String groupName, String printerName, cz.ad.print3d.aslicer.logic.printer.Printer3D printer) {}
+                        @Override public boolean deletePrinter(String groupName, String printerName) { return false; }
+                        @Override public boolean deleteGroup(String groupName) { return false; }
+                    }, 900, 700, (w, h) -> {
                         savedWidth.set(w);
                         savedHeight.set(h);
                     });
@@ -64,6 +71,7 @@ public class WizardPersistenceTest {
         }, config);
 
         assertTrue(latch.await(5, TimeUnit.SECONDS));
+        System.out.println("[DEBUG_LOG] Saved width: " + savedWidth.get());
         assertEquals(1000, savedWidth.get());
         assertEquals(800, savedHeight.get());
     }

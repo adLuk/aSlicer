@@ -150,7 +150,8 @@ public class DesktopApp implements ApplicationListener {
         this.scenePersistence = new ScenePersistence();
         this.connectionPool = new cz.ad.print3d.aslicer.logic.net.PrinterConnectionPool();
         try {
-            this.printerRepository = new cz.ad.print3d.aslicer.logic.core.printer.ZipPrinterRepository(java.nio.file.Paths.get("printers.zip"));
+            java.nio.file.Path printerPath = AppConfig.CONFIG_PATH.getParent().resolve("printers.zip");
+            this.printerRepository = new cz.ad.print3d.aslicer.logic.core.printer.ZipPrinterRepository(printerPath, null, true);
         } catch (java.io.IOException e) {
             LOGGER.error("Failed to initialize printer repository", e);
             // Fallback to a simple implementation if Zip fails
@@ -460,11 +461,15 @@ public class DesktopApp implements ApplicationListener {
 
     /**
      * Toggles the visibility of the printer discovery window.
+     * Initializes the {@link cz.ad.print3d.aslicer.logic.core.printer.ZipPrinterRepository}
+     * with encryption enabled to store printer configurations securely in the user's
+     * configuration directory.
      */
     public void togglePrinterDiscoveryWindow() {
         AppConfigDto dto = appConfig.loadToDto();
         desktopUI.togglePrinterDiscoveryWindow(
             connectionPool,
+            printerRepository,
             dto.getWizardWidth(),
             dto.getWizardHeight(),
             (width, height) -> {

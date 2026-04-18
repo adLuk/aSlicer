@@ -232,6 +232,14 @@ public class Wizard extends Window {
         }
     }
 
+    public List<WizardStep> getSteps() {
+        return steps;
+    }
+
+    public WizardListener getListener() {
+        return listener;
+    }
+
     /**
      * Completes the wizard.
      */
@@ -355,7 +363,7 @@ public class Wizard extends Window {
      *
      * @return current step instance or null when index of active instance is not valid.
      */
-    protected WizardStep getCurrentStep() {
+    public WizardStep getCurrentStep() {
         WizardStep retValue = null;
         if (currentStepIndex >= 0 && currentStepIndex < steps.size()) {
             retValue = steps.get(currentStepIndex);

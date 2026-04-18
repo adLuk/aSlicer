@@ -575,6 +575,24 @@ public class PrinterConnectionStep implements WizardStep {
     }
 
     /**
+     * Returns a map of validated printer details.
+     *
+     * @return map of IP to validated printer DTOs
+     */
+    public Map<String, Printer3DDto> getValidatedPrinters() {
+        return validatedPrinters;
+    }
+
+    /**
+     * Returns a mapping of device IP to its discovery information.
+     *
+     * @return map of IP to discovered device metadata
+     */
+    public Map<String, DiscoveredDevice> getIpToDevice() {
+        return ipToDevice;
+    }
+
+    /**
      * Returns a map of connection codes for each selected printer IP.
      *
      * @return map of IP to code (API key or access code)
