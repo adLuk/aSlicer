@@ -500,8 +500,6 @@ public class DesktopApp implements ApplicationListener {
         }
     }
 
-    private float poolCheckTimer = 0;
-    private static final float POOL_CHECK_INTERVAL = 30f; // 30 seconds
 
     /**
      * Main rendering loop called by LibGDX for each frame.
@@ -509,17 +507,6 @@ public class DesktopApp implements ApplicationListener {
      */
     @Override
     public void render() {
-        float delta = Gdx.graphics.getDeltaTime();
-        
-        // Periodically ensure all pooled connections are alive
-        poolCheckTimer += delta;
-        if (poolCheckTimer >= POOL_CHECK_INTERVAL) {
-            poolCheckTimer = 0;
-            if (connectionPool != null) {
-                connectionPool.ensureAllConnected();
-            }
-        }
-
         Gdx.gl.glViewport(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
 

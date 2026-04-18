@@ -111,6 +111,13 @@ public class BambuMqttClient {
      * @return a {@link CompletableFuture} that completes when the connection is established and subscribed.
      */
     public CompletableFuture<Void> connect() {
+        if (client != null) {
+            try {
+                client.disconnect();
+            } catch (Exception e) {
+                LOGGER.debug("Error disconnecting old MQTT client: {}", e.getMessage());
+            }
+        }
         String clientId = (serial != null && !serial.isEmpty()) ? serial : "aS" + (System.currentTimeMillis() % 1000000000L);
         
         MqttClientSslConfigBuilder sslBuilder = MqttClientSslConfig.builder()
@@ -148,7 +155,6 @@ public class BambuMqttClient {
                 .serverHost(host)
                 .serverPort(port)
                 .sslConfig(sslBuilder.build())
-                .automaticReconnectWithDefaultConfig()
                 .addConnectedListener(context -> {
                     LOGGER.info("MQTT Client ({}) connected to {}", clientId, host);
                     // Resubscribe on reconnect if serial is known
@@ -433,23 +439,6 @@ public class BambuMqttClient {
         }
 
         if (!client.getState().isConnected()) {
-            if (retries > 0) {
-                LOGGER.info("MQTT client for {} is not connected (state: {}). Attempting to reconnect... ({} retries left)", 
-                    host, client.getState(), retries);
-                
-                CompletableFuture<Void> connFuture;
-                if (client.getState() == com.hivemq.client.mqtt.MqttClientState.DISCONNECTED) {
-                    connFuture = this.connect();
-                } else {
-                    // Already connecting or other state, wait a bit
-                    connFuture = CompletableFuture.runAsync(() -> {
-                        try { Thread.sleep(2000); } catch (InterruptedException ignored) {}
-                    });
-                }
-
-                return connFuture.thenCompose(v -> sendGetVersion(retries - 1));
-            }
-            
             String state = client.getState().toString();
             LOGGER.error("Failed to send get_version to {}: MQTT client is not connected. Current state: {}", host, state);
             return CompletableFuture.failedFuture(new RuntimeException("MQTT client is not connected (state: " + state + ")"));
