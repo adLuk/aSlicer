@@ -178,12 +178,13 @@ public class DesktopApp implements ApplicationListener {
             LOGGER.debug("Application started with arguments: {}", (Object) args);
         }
         SecurityInitializer.init();
+        I18N.init();
         DesktopApp app = new DesktopApp();
         AppConfigDto dto = app.appConfig.loadToDto();
         System.setProperty("aslicer.ssl.trust_system_certs", String.valueOf(dto.isTrustSystemCerts()));
 
         Lwjgl3ApplicationConfiguration config = new Lwjgl3ApplicationConfiguration();
-        config.setTitle("aSlicer - 3D model processing tool");
+        config.setTitle(I18N.get("app.title"));
         config.setWindowedMode(dto.getWindowWidth(), dto.getWindowHeight());
         config.useVsync(true);
         config.setForegroundFPS(60);
@@ -246,6 +247,7 @@ public class DesktopApp implements ApplicationListener {
      */
     @Override
     public void create() {
+        I18N.init();
         // Start network information collection as early as possible
         new cz.ad.print3d.aslicer.logic.net.info.NetworkInformationCollector().collectAsync();
 

@@ -1,4 +1,5 @@
 package cz.ad.print3d.aslicer.ui.desktop.view;
+import cz.ad.print3d.aslicer.ui.desktop.I18N;
 
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
@@ -54,7 +55,7 @@ public final class PrinterSelectBox extends Table {
         selectedPrinters.clear();
         List<String> groups = repository.getGroups();
         if (groups.isEmpty()) {
-            selectionButton.setText("No printers");
+            selectionButton.setText(I18N.get("printerselectbox.noPrinters"));
             selectionButton.setDisabled(true);
         } else {
             selectionButton.setDisabled(false);
@@ -114,11 +115,11 @@ public final class PrinterSelectBox extends Table {
 
     private void updateButtonText() {
         if (selectedPrinters.isEmpty()) {
-            selectionButton.setText("None");
+            selectionButton.setText(I18N.get("printerselectbox.none"));
         } else if (selectedPrinters.size() == 1) {
             selectionButton.setText(selectedPrinters.iterator().next().getPrinterSystem().getPrinterName());
         } else {
-            selectionButton.setText(selectedPrinters.size() + " printers");
+            selectionButton.setText(I18N.format("printerselectbox.multipleFormat", selectedPrinters.size()));
         }
     }
 }

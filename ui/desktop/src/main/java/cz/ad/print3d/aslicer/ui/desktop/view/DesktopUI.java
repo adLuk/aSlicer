@@ -29,6 +29,7 @@ import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
+import cz.ad.print3d.aslicer.ui.desktop.I18N;
 import cz.ad.print3d.aslicer.ui.desktop.model.ModelManager;
 import cz.ad.print3d.aslicer.ui.desktop.view.wizard.PrinterConnectionStep;
 import cz.ad.print3d.aslicer.ui.desktop.view.wizard.PrinterDiscoveryStep;
@@ -249,7 +250,7 @@ public class DesktopUI implements Disposable {
      */
     public void togglePrinterDiscoveryWindow(cz.ad.print3d.aslicer.logic.net.PrinterConnectionPool connectionPool, cz.ad.print3d.aslicer.logic.printer.PrinterRepository printerRepository, int initialWidth, int initialHeight, java.util.function.BiConsumer<Integer, Integer> sizeCallback) {
         if (printerWizard == null) {
-            printerWizard = new Wizard("Printer Discovery Wizard", skin, initialWidth, initialHeight);
+            printerWizard = new Wizard(I18N.get("wizard.printer.title"), skin, initialWidth, initialHeight);
             PrinterDiscoveryStep discoveryStep = new PrinterDiscoveryStep(skin);
             PrinterConnectionStep connectionStep = new PrinterConnectionStep(skin, discoveryStep, connectionPool);
             cz.ad.print3d.aslicer.ui.desktop.view.wizard.PrinterSaveStep saveStep = new cz.ad.print3d.aslicer.ui.desktop.view.wizard.PrinterSaveStep(skin, connectionStep, printerRepository);
@@ -266,7 +267,7 @@ public class DesktopUI implements Disposable {
                     if (toolbar != null) {
                         toolbar.refreshPrinters();
                     }
-                    System.out.println("Wizard finished. Printers saved.");
+                    System.out.println(I18N.get("wizard.printer.finished"));
                     if (sizeCallback != null) {
                         sizeCallback.accept((int) wizard.getWidth(), (int) wizard.getHeight());
                     }
@@ -275,7 +276,7 @@ public class DesktopUI implements Disposable {
 
                 @Override
                 public void onCancel(Wizard wizard) {
-                    System.out.println("Wizard cancelled.");
+                    System.out.println(I18N.get("wizard.printer.cancelled"));
                     if (sizeCallback != null) {
                         sizeCallback.accept((int) wizard.getWidth(), (int) wizard.getHeight());
                     }

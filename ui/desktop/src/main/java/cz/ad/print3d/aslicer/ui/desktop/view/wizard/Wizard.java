@@ -1,4 +1,5 @@
 package cz.ad.print3d.aslicer.ui.desktop.view.wizard;
+import cz.ad.print3d.aslicer.ui.desktop.I18N;
 
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
@@ -62,13 +63,13 @@ public class Wizard extends Window {
         stepDescriptionLabel.setWrap(true);
         contentTable = new Table();
 
-        backButton = new TextButton("< Back", skin);
+        backButton = new TextButton(I18N.get("wizard.back"), skin);
         backButton.setName("backButton");
-        nextButton = new TextButton("Next >", skin);
+        nextButton = new TextButton(I18N.get("wizard.next"), skin);
         nextButton.setName("nextButton");
-        finishButton = new TextButton("Finish", skin);
+        finishButton = new TextButton(I18N.get("wizard.finish"), skin);
         finishButton.setName("finishButton");
-        cancelButton = new TextButton("Cancel", skin);
+        cancelButton = new TextButton(I18N.get("wizard.cancel"), skin);
         cancelButton.setName("cancelButton");
 
         setupLayout();
@@ -289,7 +290,7 @@ public class Wizard extends Window {
             return;
         }
 
-        stepProgressLabel.setText(String.format("Step %d of %d", currentStepIndex + 1, steps.size()));
+        stepProgressLabel.setText(I18N.format("wizard.stepProgressFormat", currentStepIndex + 1, steps.size()));
 
         backButton.setDisabled(currentStepIndex == 0);
 

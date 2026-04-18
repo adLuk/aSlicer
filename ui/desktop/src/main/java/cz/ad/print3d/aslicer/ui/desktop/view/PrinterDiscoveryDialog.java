@@ -16,6 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 package cz.ad.print3d.aslicer.ui.desktop.view;
+import cz.ad.print3d.aslicer.ui.desktop.I18N;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
@@ -96,7 +97,7 @@ public final class PrinterDiscoveryDialog extends Window {
      * @param config    the scan configuration to use
      */
     public PrinterDiscoveryDialog(Skin skin, NetworkScanner scanner, NetworkInformationCollector collector, ScanConfiguration config) {
-        super("Discover Printers", skin);
+        super(I18N.get("printerdiscovery.title"), skin);
         this.skin = skin;
         this.scanner = scanner;
         this.collector = collector;
@@ -115,11 +116,11 @@ public final class PrinterDiscoveryDialog extends Window {
 
         // Row 1: IP Range and Search Button
         Table ipRow = new Table();
-        ipRow.add(new Label("Start IP:", skin)).padRight(5);
+        ipRow.add(new Label(I18N.get("printerdiscovery.startIp"), skin)).padRight(5);
         startIpField = new TextField("", skin);
         ipRow.add(startIpField).width(110).padRight(10);
 
-        ipRow.add(new Label("End IP:", skin)).padRight(5);
+        ipRow.add(new Label(I18N.get("printerdiscovery.endIp"), skin)).padRight(5);
         endIpField = new TextField("", skin);
         ipRow.add(endIpField).width(110).padRight(10);
 
@@ -141,14 +142,14 @@ public final class PrinterDiscoveryDialog extends Window {
 
         // Row 2: Checkboxes and Timeout
         Table optionsRow = new Table();
-        deepScanCheckBox = new CheckBox("Deep Scan", skin);
+        deepScanCheckBox = new CheckBox(I18N.get("printerdiscovery.deepScan"), skin);
         optionsRow.add(deepScanCheckBox).padRight(10);
 
-        includeSelfIpCheckBox = new CheckBox("Include self IP", skin);
+        includeSelfIpCheckBox = new CheckBox(I18N.get("printerdiscovery.includeSelfIp"), skin);
         includeSelfIpCheckBox.setChecked(false);
         optionsRow.add(includeSelfIpCheckBox).padRight(10);
 
-        optionsRow.add(new Label("Timeout (ms):", skin)).padRight(5);
+        optionsRow.add(new Label(I18N.get("printerdiscovery.timeout"), skin)).padRight(5);
         timeoutField = new TextField("500", skin);
         timeoutField.setTextFieldFilter(new TextField.TextFieldFilter.DigitsOnlyFilter());
         optionsRow.add(timeoutField).width(60);
@@ -172,7 +173,7 @@ public final class PrinterDiscoveryDialog extends Window {
 
         // Close button
         Table bottomTable = new Table();
-        TextButton closeButton = new TextButton("Close", skin);
+        TextButton closeButton = new TextButton(I18N.get("printerdiscovery.close"), skin);
         closeButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
@@ -199,7 +200,7 @@ public final class PrinterDiscoveryDialog extends Window {
      * This operation is performed asynchronously and displays progress information.
      */
     private void initializeIpRange() {
-        progressLabel.setText("Getting network information...");
+        progressLabel.setText(I18N.get("printerdiscovery.gettingNetworkInfo"));
         collector.collectAsync().thenAccept(interfaces -> Gdx.app.postRunnable(() -> {
             progressLabel.setText("");
             for (NetworkInterfaceInfo ni : interfaces) {
@@ -219,7 +220,7 @@ public final class PrinterDiscoveryDialog extends Window {
                 }
             }
         })).exceptionally(ex -> {
-            Gdx.app.postRunnable(() -> progressLabel.setText("Failed to get network info: " + ex.getMessage()));
+            Gdx.app.postRunnable(() -> progressLabel.setText(I18N.format("printerdiscovery.failedToGetNetworkInfo", ex.getMessage())));
             return null;
         });
     }
@@ -232,8 +233,8 @@ public final class PrinterDiscoveryDialog extends Window {
         if (isScanning) return;
 
         resultsTable.clear();
-        resultsTable.add(new Label("Scanning...", skin)).expandX().center().row();
-        progressLabel.setText("Starting scan...");
+        resultsTable.add(new Label(I18N.get("printerdiscovery.scanning"), skin)).expandX().center().row();
+        progressLabel.setText(I18N.get("printerdiscovery.startingScan"));
 
         String startIp = startIpField.getText();
         String endIp = endIpField.getText();
@@ -241,7 +242,7 @@ public final class PrinterDiscoveryDialog extends Window {
 
         if (startIp.isEmpty() || endIp.isEmpty()) {
             resultsTable.clear();
-            resultsTable.add(new Label("Please enter a valid IP range.", skin)).expandX().center().row();
+            resultsTable.add(new Label(I18N.get("printerdiscovery.enterValidIpRange"), skin)).expandX().center().row();
             progressLabel.setText("");
             return;
         }
@@ -276,7 +277,7 @@ public final class PrinterDiscoveryDialog extends Window {
             public void onProgress(double progress, String currentIp) {
                 Gdx.app.postRunnable(() -> {
                     if (isScanning) {
-                        progressLabel.setText(String.format("Scanning: %.0f%% (%s)", progress * 100, currentIp));
+                        progressLabel.setText(I18N.format("printerdiscovery.scanProgressFormat", progress * 100, currentIp));
                     }
                 });
             }
@@ -300,7 +301,7 @@ public final class PrinterDiscoveryDialog extends Window {
                 isScanning = false;
                 searchButton.getStyle().imageUp = searchIcon;
                 searchButton.setDisabled(false);
-                progressLabel.setText("Scan complete.");
+                progressLabel.setText(I18N.get("printerdiscovery.scanComplete"));
                 updateResults(devices);
             }
         })).exceptionally(ex -> {
@@ -309,10 +310,10 @@ public final class PrinterDiscoveryDialog extends Window {
                 searchButton.getStyle().imageUp = searchIcon;
                 searchButton.setDisabled(false);
                 if (ex.getCause() instanceof java.util.concurrent.CancellationException || ex instanceof java.util.concurrent.CancellationException) {
-                    progressLabel.setText("Scan stopped.");
+                    progressLabel.setText(I18N.get("printerdiscovery.scanStopped"));
                 } else {
                     resultsTable.clear();
-                    resultsTable.add(new Label("Scan failed: " + ex.getMessage(), skin)).expandX().center().row();
+                    resultsTable.add(new Label(I18N.format("printerdiscovery.scanFailed", ex.getMessage()), skin)).expandX().center().row();
                     progressLabel.setText("");
                 }
             });
@@ -330,7 +331,7 @@ public final class PrinterDiscoveryDialog extends Window {
     void stopScan() {
         if (!isScanning) return;
         searchButton.setDisabled(true);
-        progressLabel.setText("Stopping scan...");
+        progressLabel.setText(I18N.get("printerdiscovery.stoppingScan"));
         scanner.stopScan();
     }
 
@@ -345,7 +346,7 @@ public final class PrinterDiscoveryDialog extends Window {
     public void updateResults(List<DiscoveredDevice> devices) {
         resultsTable.clear();
         if (devices.isEmpty()) {
-            resultsTable.add(new Label("No printers found.", skin)).expandX().center().row();
+            resultsTable.add(new Label(I18N.get("printerdiscovery.noPrintersFound"), skin)).expandX().center().row();
             return;
         }
 
@@ -376,7 +377,7 @@ public final class PrinterDiscoveryDialog extends Window {
         if (resultsTable.getChildren().size == 1 && resultsTable.getChildren().get(0) instanceof Label) {
             Label l = (Label) resultsTable.getChildren().get(0);
             String text = l.getText().toString();
-            if (text.equals("No printers found.") || text.equals("Scanning...") || text.startsWith("Please enter")) {
+            if (text.equals(I18N.get("printerdiscovery.noPrintersFound")) || text.equals(I18N.get("printerdiscovery.scanning")) || text.equals(I18N.get("printerdiscovery.enterValidIpRange"))) {
                 resultsTable.clear();
             }
         }
@@ -487,7 +488,7 @@ public final class PrinterDiscoveryDialog extends Window {
      * @param device the device to show details for
      */
     private void showDeviceDetails(DiscoveredDevice device) {
-        Dialog dialog = new Dialog("Device Details - " + device.getIpAddress(), skin) {
+        Dialog dialog = new Dialog(I18N.format("printerdiscovery.deviceDetailsTitle", device.getIpAddress()), skin) {
             @Override
             protected void result(Object object) {
                 hide();
@@ -499,21 +500,21 @@ public final class PrinterDiscoveryDialog extends Window {
         content.left();
 
         // Device Header
-        content.add(new Label("Device Information", skin, "default", Color.YELLOW)).left().padBottom(5).row();
-        content.add(new Label("IP Address: " + device.getIpAddress(), skin)).left().padLeft(10).row();
-        if (device.getVendor() != null) content.add(new Label("Vendor: " + device.getVendor(), skin)).left().padLeft(10).row();
-        if (device.getModel() != null) content.add(new Label("Model: " + device.getModel(), skin)).left().padLeft(10).row();
-        if (device.getName() != null) content.add(new Label("Name: " + device.getName(), skin)).left().padLeft(10).row();
+        content.add(new Label(I18N.get("printerdiscovery.deviceInfo"), skin, "default", Color.YELLOW)).left().padBottom(5).row();
+        content.add(new Label(I18N.format("printerdiscovery.ipAddress", device.getIpAddress()), skin)).left().padLeft(10).row();
+        if (device.getVendor() != null) content.add(new Label(I18N.format("printerdiscovery.vendor", device.getVendor()), skin)).left().padLeft(10).row();
+        if (device.getModel() != null) content.add(new Label(I18N.format("printerdiscovery.model", device.getModel()), skin)).left().padLeft(10).row();
+        if (device.getName() != null) content.add(new Label(I18N.format("printerdiscovery.name", device.getName()), skin)).left().padLeft(10).row();
         content.add(new Label("", skin)).row(); // Spacer
 
         // Port Scan Results
-        content.add(new Label("Open Ports & Services", skin, "default", Color.GREEN)).left().padBottom(5).row();
+        content.add(new Label(I18N.get("printerdiscovery.openPortsHeader"), skin, "default", Color.GREEN)).left().padBottom(5).row();
         if (device.getServices().isEmpty()) {
-            content.add(new Label("No open ports discovered.", skin)).left().padLeft(10).row();
+            content.add(new Label(I18N.get("printerdiscovery.noOpenPorts"), skin)).left().padLeft(10).row();
         } else {
             for (PortScanResult service : device.getServices()) {
                 String serviceName = service.getService() != null ? service.getService() : "Unknown";
-                content.add(new Label("Port " + service.getPort() + ": " + serviceName, skin, "default", Color.WHITE)).left().padLeft(10).row();
+                content.add(new Label(I18N.format("printerdiscovery.portInfoFormat", service.getPort(), serviceName), skin, "default", Color.WHITE)).left().padLeft(10).row();
                 if (service.getServiceDetails() != null && !service.getServiceDetails().isEmpty()) {
                     Label detailsLabel = new Label(service.getServiceDetails(), skin);
                     detailsLabel.setWrap(true);
@@ -525,14 +526,14 @@ public final class PrinterDiscoveryDialog extends Window {
         content.add(new Label("", skin)).row(); // Spacer
 
         // mDNS Data
-        content.add(new Label("mDNS Services", skin, "default", Color.CYAN)).left().padBottom(5).row();
+        content.add(new Label(I18N.get("printerdiscovery.mdnsHeader"), skin, "default", Color.CYAN)).left().padBottom(5).row();
         if (device.getMdnsServices().isEmpty()) {
-            content.add(new Label("No mDNS data received.", skin)).left().padLeft(10).row();
+            content.add(new Label(I18N.get("printerdiscovery.noMdnsData"), skin)).left().padLeft(10).row();
         } else {
             for (MdnsServiceInfo service : device.getMdnsServices()) {
-                content.add(new Label("Service: " + service.getName(), skin, "default", Color.WHITE)).left().padLeft(10).row();
-                content.add(new Label("Type: " + service.getType(), skin)).left().padLeft(20).row();
-                content.add(new Label("Hostname: " + service.getHostname(), skin)).left().padLeft(20).row();
+                content.add(new Label(I18N.format("printerdiscovery.mdnsService", service.getName()), skin, "default", Color.WHITE)).left().padLeft(10).row();
+                content.add(new Label(I18N.format("printerdiscovery.mdnsType", service.getType()), skin)).left().padLeft(20).row();
+                content.add(new Label(I18N.format("printerdiscovery.mdnsHostname", service.getHostname()), skin)).left().padLeft(20).row();
                 
                 if (!service.getAttributes().isEmpty()) {
                     for (Map.Entry<String, String> entry : service.getAttributes().entrySet()) {
@@ -546,7 +547,7 @@ public final class PrinterDiscoveryDialog extends Window {
         scrollPane.setFadeScrollBars(false);
         dialog.getContentTable().add(scrollPane).expand().fill().minSize(400, 300);
 
-        dialog.button("Close");
+        dialog.button(I18N.get("printerdiscovery.close"));
         dialog.show(getStage());
     }
 

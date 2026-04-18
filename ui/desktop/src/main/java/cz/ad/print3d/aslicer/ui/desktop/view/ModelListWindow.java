@@ -16,6 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 package cz.ad.print3d.aslicer.ui.desktop.view;
+import cz.ad.print3d.aslicer.ui.desktop.I18N;
 
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
@@ -128,7 +129,7 @@ public final class ModelListWindow extends Window {
      * @param listener     the listener for model list events, such as model removal requests
      */
     public ModelListWindow(Skin skin, Array<String> modelPaths, Array<cz.ad.print3d.aslicer.logic.model.Model> logicModels, ModelListListener listener) {
-        super("Loaded Models", skin);
+        super(I18N.get("modellist.title"), skin);
         this.modelPaths = modelPaths;
         this.logicModels = logicModels;
         this.listener = listener;
@@ -163,7 +164,7 @@ public final class ModelListWindow extends Window {
         detailLabel.setWrap(true);
 
         add(scrollPane).expand().fill().row();
-        add(new Label("Model Details:", skin)).left().padTop(10).row();
+        add(new Label(I18N.get("modellist.detailsHeader"), skin)).left().padTop(10).row();
         add(detailLabel).expandX().fillX().minHeight(100).padTop(5);
 
         updateDetailLabel();
@@ -404,7 +405,7 @@ public final class ModelListWindow extends Window {
 
         Selection<ModelListItem> selection = list.getSelection();
         if (selection.size() != 1) {
-            detailLabel.setText(selection.isEmpty() ? "No model selected" : "Multiple models selected");
+            detailLabel.setText(selection.isEmpty() ? I18N.get("modellist.noSelection") : I18N.get("modellist.multipleSelection"));
             return;
         }
 
@@ -420,11 +421,11 @@ public final class ModelListWindow extends Window {
             }
 
             String unitStr = model.lengthUnit() != null ? model.lengthUnit().getValue() : "unknown";
-            String info = String.format("File: %s\nParts: %d\nTriangles: %d\nUnits: %s",
+            String info = I18N.format("modellist.infoFormat",
                 item.displayName, partCount, triangleCount, unitStr);
             detailLabel.setText(info);
         } else {
-            detailLabel.setText("Data not available");
+            detailLabel.setText(I18N.get("modellist.dataNotAvailable"));
         }
     }
 

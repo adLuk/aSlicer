@@ -16,6 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 package cz.ad.print3d.aslicer.ui.desktop.view;
+import cz.ad.print3d.aslicer.ui.desktop.I18N;
 
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
@@ -47,7 +48,7 @@ public class ModelFileDialog {
             filters.put(stack.UTF8("*.gcode"));
             filters.flip();
 
-            String result = openNativeDialog("Open 3D Model Files", lastDir, filters, "3D Model Files");
+            String result = openNativeDialog(I18N.get("filedialog.open.title"), lastDir, filters, I18N.get("filedialog.open.filterDescription"));
             if (result == null) {
                 return null;
             }

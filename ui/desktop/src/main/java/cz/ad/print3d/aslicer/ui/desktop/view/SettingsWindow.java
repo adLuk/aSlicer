@@ -16,6 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 package cz.ad.print3d.aslicer.ui.desktop.view;
+import cz.ad.print3d.aslicer.ui.desktop.I18N;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
@@ -50,7 +51,7 @@ public final class SettingsWindow extends Window {
     private boolean currentProtectedData;
 
     public SettingsWindow(Skin skin, CameraInputController camController, float initialGridSize, boolean initialProtectedData, Consumer<Float> gridSizeCallback, Consumer<Boolean> protectedDataCallback, Runnable saveCallback) {
-        super("Settings", skin);
+        super(I18N.get("settings.title"), skin);
         this.camController = camController;
         this.currentGridSize = initialGridSize;
         this.currentProtectedData = initialProtectedData;
@@ -66,7 +67,7 @@ public final class SettingsWindow extends Window {
         Table content = new Table();
         content.pad(10);
 
-        content.add(new Label("Rotate Button (0=L, 1=R, 2=M):", skin)).left();
+        content.add(new Label(I18N.get("settings.rotateButton"), skin)).left();
         TextButton rotateBtn = new TextButton(String.valueOf(camController.rotateButton), skin);
         rotateBtn.addListener(new ChangeListener() {
             @Override
@@ -77,7 +78,7 @@ public final class SettingsWindow extends Window {
         });
         content.add(rotateBtn).width(50).padLeft(10).row();
 
-        content.add(new Label("Pan Button (0=L, 1=R, 2=M):", skin)).left();
+        content.add(new Label(I18N.get("settings.panButton"), skin)).left();
         TextButton panBtn = new TextButton(String.valueOf(camController.translateButton), skin);
         panBtn.addListener(new ChangeListener() {
             @Override
@@ -88,7 +89,7 @@ public final class SettingsWindow extends Window {
         });
         content.add(panBtn).width(50).padLeft(10).row();
 
-        content.add(new Label("Zoom Button (0=L, 1=R, 2=M):", skin)).left();
+        content.add(new Label(I18N.get("settings.zoomButton"), skin)).left();
         TextButton zoomBtn = new TextButton(String.valueOf(camController.forwardButton), skin);
         zoomBtn.addListener(new ChangeListener() {
             @Override
@@ -99,7 +100,7 @@ public final class SettingsWindow extends Window {
         });
         content.add(zoomBtn).width(50).padLeft(10).row();
 
-        content.add(new Label("Forward Key:", skin)).left();
+        content.add(new Label(I18N.get("settings.forwardKey"), skin)).left();
         TextButton forwardBtn = new TextButton(Input.Keys.toString(camController.forwardKey), skin);
         forwardBtn.addListener(new ChangeListener() {
             @Override
@@ -111,7 +112,7 @@ public final class SettingsWindow extends Window {
         });
         content.add(forwardBtn).width(80).padLeft(10).row();
 
-        content.add(new Label("Backward Key:", skin)).left();
+        content.add(new Label(I18N.get("settings.backwardKey"), skin)).left();
         TextButton backwardBtn = new TextButton(Input.Keys.toString(camController.backwardKey), skin);
         backwardBtn.addListener(new ChangeListener() {
             @Override
@@ -122,7 +123,7 @@ public final class SettingsWindow extends Window {
         });
         content.add(backwardBtn).width(80).padLeft(10).row();
 
-        content.add(new Label("Grid Size:", skin)).left();
+        content.add(new Label(I18N.get("settings.gridSize"), skin)).left();
         TextButton gridBtn = new TextButton(String.valueOf(currentGridSize), skin);
         gridBtn.addListener(new ChangeListener() {
             @Override
@@ -144,7 +145,7 @@ public final class SettingsWindow extends Window {
         });
         content.add(gridBtn).width(50).fillX().padLeft(10).row();
 
-        CheckBox protectedDataCb = new CheckBox(" Protect Sensitive Data (FIPS)", skin);
+        CheckBox protectedDataCb = new CheckBox(I18N.get("settings.protectSensitiveData"), skin);
         protectedDataCb.setChecked(currentProtectedData);
         protectedDataCb.addListener(new ChangeListener() {
             @Override
@@ -157,7 +158,7 @@ public final class SettingsWindow extends Window {
         });
         content.add(protectedDataCb).colspan(2).left().padTop(10).row();
 
-        TextButton saveButton = new TextButton("Save", skin);
+        TextButton saveButton = new TextButton(I18N.get("settings.save"), skin);
         saveButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {

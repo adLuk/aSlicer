@@ -1,4 +1,5 @@
 package cz.ad.print3d.aslicer.ui.desktop.view.wizard;
+import cz.ad.print3d.aslicer.ui.desktop.I18N;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
@@ -105,12 +106,12 @@ public class PrinterConnectionStep implements WizardStep {
 
     @Override
     public String getTitle() {
-        return "Connection Details";
+        return I18N.get("wizard.printer.connection.title");
     }
 
     @Override
     public String getDescription() {
-        return "Enter the access codes for your selected printers. This information is necessary to establish a secure communication channel.";
+        return I18N.get("wizard.printer.connection.description");
     }
 
     @Override
@@ -162,7 +163,7 @@ public class PrinterConnectionStep implements WizardStep {
         List<DiscoveredDevice> selectedDevices = discoveryStep.getSelectedDevices();
         if (selectedDevices.isEmpty()) {
             Table emptyTable = new Table();
-            emptyTable.add(new Label("No printers selected in the previous step.", skin)).row();
+            emptyTable.add(new Label(I18N.get("wizard.printer.connection.noPrintersSelected"), skin)).row();
             content.add(emptyTable).center().expand();
             return;
         }
@@ -195,8 +196,8 @@ public class PrinterConnectionStep implements WizardStep {
         deviceCard.setBackground(skin.newDrawable("white", new Color(0.2f, 0.2f, 0.2f, 0.5f)));
         deviceCard.pad(15);
         
-        String vendor = (device.getVendor() != null ? device.getVendor() : "Unknown");
-        String displayName = vendor + " Printer";
+        String vendor = (device.getVendor() != null ? device.getVendor() : I18N.get("common.unknown"));
+        String displayName = I18N.format("wizard.printer.connection.printerNameFormat", vendor);
         Label nameLabel = new Label(displayName, skin, skin.has("default-bold", Label.LabelStyle.class) ? "default-bold" : "default");
         deviceCard.add(nameLabel).left().expandX();
         deviceCard.add(new Label(device.getIpAddress(), skin)).right().row();
@@ -209,10 +210,10 @@ public class PrinterConnectionStep implements WizardStep {
 
         if ("Bambu Lab".equalsIgnoreCase(vendor)) {
             String savedAccessCode = getSavedCredential(device.getIpAddress(), "accessCode");
-            addTextField(inputTable, fields, "accessCode", "Access Code:", savedAccessCode, device);
+            addTextField(inputTable, fields, "accessCode", I18N.get("wizard.printer.connection.accessCode"), savedAccessCode, device);
         } else {
             String savedApiKey = getSavedCredential(device.getIpAddress(), "apiKey");
-            addTextField(inputTable, fields, "apiKey", "API Key:", savedApiKey, device);
+            addTextField(inputTable, fields, "apiKey", I18N.get("wizard.printer.connection.apiKey"), savedApiKey, device);
         }
         printerFields.put(device.getIpAddress(), fields);
         deviceCard.add(inputTable).colspan(2).fillX().row();
@@ -220,12 +221,12 @@ public class PrinterConnectionStep implements WizardStep {
         Table actionTable = new Table();
         actionTable.left();
         
-        TextButton validateBtn = new TextButton("Validate", skin);
+        TextButton validateBtn = new TextButton(I18N.get("wizard.printer.connection.validate"), skin);
         validateButtons.put(device.getIpAddress(), validateBtn);
         actionTable.add(validateBtn).padRight(10);
         
         boolean isValidated = validatedPrinters.containsKey(device.getIpAddress());
-        Label statusLabel = new Label(isValidated ? "Success" : "Not validated", skin);
+        Label statusLabel = new Label(isValidated ? I18N.get("wizard.printer.connection.success") : I18N.get("wizard.printer.connection.notValidated"), skin);
         statusLabel.setColor(isValidated ? Color.GREEN : Color.LIGHT_GRAY);
         statusLabels.put(device.getIpAddress(), statusLabel);
         actionTable.add(statusLabel).expandX().left();
@@ -287,7 +288,7 @@ public class PrinterConnectionStep implements WizardStep {
                 String ip = device.getIpAddress();
                 connectionCredentials.computeIfAbsent(ip, ignored -> new HashMap<>()).put(id, field.getText());
                 validatedPrinters.remove(ip);
-                statusLabels.get(ip).setText("Not validated");
+                statusLabels.get(ip).setText(I18N.get("wizard.printer.connection.notValidated"));
                 statusLabels.get(ip).setColor(Color.LIGHT_GRAY);
                 detailButtons.get(ip).setVisible(false);
                 updateValidateButtonState(ip);
@@ -363,7 +364,7 @@ public class PrinterConnectionStep implements WizardStep {
         Label statusLabel = statusLabels.get(ip);
         TextButton validateBtn = validateButtons.get(ip);
 
-        statusLabel.setText("Validating...");
+        statusLabel.setText(I18N.get("wizard.printer.connection.validating"));
         statusLabel.setColor(Color.YELLOW);
         statusLabel.clearListeners();
         validateBtn.setDisabled(true);
@@ -374,7 +375,7 @@ public class PrinterConnectionStep implements WizardStep {
         PrinterClient client = connectionPool.getOrCreateClient(device, credentials);
         if (client == null) {
             String msg = "Unsupported vendor: " + device.getVendor();
-            statusLabel.setText("Error: " + msg + " (click for details)");
+            statusLabel.setText(I18N.format("wizard.printer.connection.errorFormat", msg));
             statusLabel.setColor(Color.RED);
             statusLabel.clearListeners();
             statusLabel.addListener(new ClickListener() {
@@ -390,15 +391,15 @@ public class PrinterConnectionStep implements WizardStep {
         client.setCertificateValidationCallback(details -> {
             CompletableFuture<Boolean> future = new CompletableFuture<>();
             Gdx.app.postRunnable(() -> {
-                Dialog dialog = new Dialog("Untrusted Certificate", skin) {
+                Dialog dialog = new Dialog(I18N.get("wizard.printer.connection.untrustedCertTitle"), skin) {
                     @Override
                     protected void result(Object object) {
                         future.complete((Boolean) object);
                     }
                 };
-                dialog.text("An untrusted (self-signed) certificate was discovered for " + ip + ":\n\n" + details + "\n\nDo you want to trust this certificate?");
-                dialog.button("Yes", true);
-                dialog.button("No", false);
+                dialog.text(I18N.format("wizard.printer.connection.untrustedCertMessage", ip, details));
+                dialog.button(I18N.get("wizard.printer.connection.yes"), true);
+                dialog.button(I18N.get("wizard.printer.connection.no"), false);
                 dialog.show(wizard.getStage());
             });
             return future;
@@ -412,10 +413,10 @@ public class PrinterConnectionStep implements WizardStep {
                 nameLabel.setText(info);
                 
                 if (details.getPrinterSystem().getFullReport() != null) {
-                    statusLabel.setText("Success (Report received)");
+                    statusLabel.setText(I18N.get("wizard.printer.connection.successReport"));
                     statusLabel.setColor(Color.GREEN);
                 } else if (details.getPrinterSystem().getSerialNumber() != null) {
-                    statusLabel.setText("Success (Connected)");
+                    statusLabel.setText(I18N.get("wizard.printer.connection.successConnected"));
                     statusLabel.setColor(Color.GREEN);
                 }
 
@@ -433,10 +434,10 @@ public class PrinterConnectionStep implements WizardStep {
                         validatedPrinters.put(ip, details);
                         
                         if (details.getPrinterSystem() != null && details.getPrinterSystem().getFullReport() == null) {
-                            statusLabel.setText("Success (Waiting for report...)");
+                            statusLabel.setText(I18N.get("wizard.printer.connection.waitingForReport"));
                             statusLabel.setColor(Color.YELLOW);
                         } else {
-                            statusLabel.setText("Success");
+                            statusLabel.setText(I18N.get("wizard.printer.connection.success"));
                             statusLabel.setColor(Color.GREEN);
                         }
                         
@@ -464,14 +465,14 @@ public class PrinterConnectionStep implements WizardStep {
                         if (ex instanceof java.util.concurrent.CompletionException && ex.getCause() != null) {
                             msg = ex.getCause().getMessage();
                         }
-                        statusLabel.setText("Failed: " + msg + " (click for details)");
+                        statusLabel.setText(I18N.format("wizard.printer.connection.failedFormat", msg));
                         statusLabel.setColor(Color.RED);
                         statusLabel.clearListeners();
                         String finalMsg = msg;
                         statusLabel.addListener(new ClickListener() {
                             @Override
                             public void clicked(InputEvent event, float x, float y) {
-                                showErrorDialog("Connection Error", "Failed to connect to " + ip + ":\n\n" + finalMsg, ex);
+                                showErrorDialog(I18N.get("wizard.printer.connection.untrustedCertTitle"), "Failed to connect to " + ip + ":\n\n" + finalMsg, ex);
                             }
                         });
                         validateBtn.setDisabled(false);
@@ -488,7 +489,7 @@ public class PrinterConnectionStep implements WizardStep {
      * @param details validated printer details
      */
     private void showDeviceDetails(DiscoveredDevice device, Printer3DDto details) {
-        Dialog dialog = new Dialog("Device Details - " + device.getIpAddress(), skin) {
+        Dialog dialog = new Dialog(I18N.format("printerdiscovery.deviceDetailsTitle", device.getIpAddress()), skin) {
             @Override
             protected void result(Object object) {
                 hide();
@@ -498,39 +499,39 @@ public class PrinterConnectionStep implements WizardStep {
         Table contentTable = new Table();
         contentTable.pad(10).left();
 
-        contentTable.add(new Label("Discovered Information", skin, "default", Color.YELLOW)).left().padBottom(5).row();
-        contentTable.add(new Label("IP Address: " + device.getIpAddress(), skin)).left().padLeft(10).row();
-        contentTable.add(new Label("Vendor: " + device.getVendor(), skin)).left().padLeft(10).row();
+        contentTable.add(new Label(I18N.get("wizard.printer.connection.discoveredInfo"), skin, "default", Color.YELLOW)).left().padBottom(5).row();
+        contentTable.add(new Label(I18N.format("wizard.printer.connection.ipAddress", device.getIpAddress()), skin)).left().padLeft(10).row();
+        contentTable.add(new Label(I18N.format("wizard.printer.connection.vendor", device.getVendor()), skin)).left().padLeft(10).row();
         contentTable.add(new Label("", skin)).row();
 
         if (details != null && details.getPrinterSystem() != null) {
             contentTable.add(new Label("", skin)).row();
             contentTable.add(new Image(skin.newDrawable("white", new Color(0.5f, 0.5f, 0.5f, 0.5f)))).fillX().height(1).padTop(5).padBottom(10).row();
             
-            contentTable.add(new Label("Validated System Information", skin, "default", Color.GREEN)).left().padBottom(5).row();
-            contentTable.add(new Label("Manufacturer: " + details.getPrinterSystem().getPrinterManufacturer(), skin)).left().padLeft(10).row();
-            contentTable.add(new Label("Model: " + details.getPrinterSystem().getPrinterModel(), skin)).left().padLeft(10).row();
-            contentTable.add(new Label("Software: " + details.getPrinterSystem().getFirmwareVersion(), skin)).left().padLeft(10).row();
+            contentTable.add(new Label(I18N.get("wizard.printer.connection.validatedSystemInfo"), skin, "default", Color.GREEN)).left().padBottom(5).row();
+            contentTable.add(new Label(I18N.format("wizard.printer.connection.manufacturer", details.getPrinterSystem().getPrinterManufacturer()), skin)).left().padLeft(10).row();
+            contentTable.add(new Label(I18N.format("wizard.printer.connection.model", details.getPrinterSystem().getPrinterModel()), skin)).left().padLeft(10).row();
+            contentTable.add(new Label(I18N.format("wizard.printer.connection.software", details.getPrinterSystem().getFirmwareVersion()), skin)).left().padLeft(10).row();
             if (details.getPrinterSystem().getHardwareVersion() != null) {
-                contentTable.add(new Label("Hardware: " + details.getPrinterSystem().getHardwareVersion(), skin)).left().padLeft(10).row();
+                contentTable.add(new Label(I18N.format("wizard.printer.connection.hardware", details.getPrinterSystem().getHardwareVersion()), skin)).left().padLeft(10).row();
             }
             
             contentTable.add(new Label("", skin)).row();
             contentTable.add(new Image(skin.newDrawable("white", new Color(0.5f, 0.5f, 0.5f, 0.5f)))).fillX().height(1).padTop(5).padBottom(10).row();
-            contentTable.add(new Label("Full Report:", skin, "default", Color.YELLOW)).left().padBottom(5).row();
+            contentTable.add(new Label(I18N.get("wizard.printer.connection.fullReport"), skin, "default", Color.YELLOW)).left().padBottom(5).row();
             
             if (details.getPrinterSystem().getFullReport() != null && !details.getPrinterSystem().getFullReport().isEmpty()) {
                 Label reportLabel = new Label(details.getPrinterSystem().getFullReport(), skin);
                 reportLabel.setWrap(true);
                 contentTable.add(reportLabel).left().padLeft(10).width(380).row();
             } else {
-                contentTable.add(new Label("No raw data received from printer yet.", skin, "default", Color.ORANGE)).left().padLeft(10).row();
+                contentTable.add(new Label(I18N.get("wizard.printer.connection.noRawData"), skin, "default", Color.ORANGE)).left().padLeft(10).row();
             }
         }
 
         ScrollPane scrollPane = new ScrollPane(contentTable, skin);
         dialog.getContentTable().add(scrollPane).expand().fill().minSize(400, 300);
-        dialog.button("Close");
+        dialog.button(I18N.get("wizard.printer.connection.close"));
         dialog.show(wizard.getStage());
     }
 
@@ -552,7 +553,7 @@ public class PrinterConnectionStep implements WizardStep {
         label.setAlignment(com.badlogic.gdx.utils.Align.center);
         contentTable.add(label).width(450).row();
 
-        TextButton copyBtn = new TextButton("Copy to Clipboard", skin);
+        TextButton copyBtn = new TextButton(I18N.get("wizard.printer.connection.copyToClipboard"), skin);
         copyBtn.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
@@ -565,12 +566,12 @@ public class PrinterConnectionStep implements WizardStep {
                     fullError.append(sw);
                 }
                 Gdx.app.getClipboard().setContents(fullError.toString());
-                copyBtn.setText("Copied!");
+                copyBtn.setText(I18N.get("wizard.printer.connection.copied"));
             }
         });
 
         dialog.getButtonTable().add(copyBtn).pad(10);
-        dialog.button("Close");
+        dialog.button(I18N.get("wizard.printer.connection.close"));
         dialog.show(wizard.getStage());
     }
 

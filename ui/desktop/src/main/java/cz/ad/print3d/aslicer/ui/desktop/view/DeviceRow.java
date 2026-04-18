@@ -1,4 +1,5 @@
 package cz.ad.print3d.aslicer.ui.desktop.view;
+import cz.ad.print3d.aslicer.ui.desktop.I18N;
 
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.scenes.scene2d.Actor;
@@ -128,9 +129,10 @@ public final class DeviceRow extends Table {
 
         StringBuilder deviceLabelText = new StringBuilder();
         if (positivelyIdentified) {
-            deviceLabelText.append(vendor).append(" Printer @ ");
+            deviceLabelText.append(I18N.format("devicerow.printerAtFormat", vendor, ip));
+        } else {
+            deviceLabelText.append(ip);
         }
-        deviceLabelText.append(ip);
 
         if (name != null && !name.isEmpty() && !name.equals(vendor)) {
             deviceLabelText.append(" - ").append(name);
@@ -201,9 +203,9 @@ public final class DeviceRow extends Table {
      * @param result     the scan result for a specific port
      */
     private void addPortInfo(Table portsTable, PortScanResult result) {
-        String serviceName = result.getService() != null ? result.getService() : "Open";
-        String status = result.isVerificationInProgress() ? " [Verification in progress]" : "";
-        String serviceInfo = "Port " + result.getPort() + ": " + serviceName + status;
+        String serviceName = result.getService() != null ? result.getService() : I18N.get("devicerow.open");
+        String status = result.isVerificationInProgress() ? I18N.get("devicerow.verificationInProgress") : "";
+        String serviceInfo = I18N.format("devicerow.portInfoFormat", result.getPort(), serviceName, status);
         
         Label serviceLabel = new Label("  " + serviceInfo, skin);
         serviceLabel.setName("port-" + result.getPort());
