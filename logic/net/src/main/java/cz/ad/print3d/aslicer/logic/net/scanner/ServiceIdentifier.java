@@ -30,15 +30,38 @@ import java.util.regex.Pattern;
  */
 public class ServiceIdentifier {
 
+    /**
+     * Regex pattern to identify SSH banner.
+     * Example: SSH-2.0-OpenSSH_8.2p1 Ubuntu-4ubuntu0.1
+     */
     private static final Pattern SSH_PATTERN = Pattern.compile("^SSH-([0-9.]+)-(.*)");
+
+    /**
+     * Regex pattern to identify HTTP response status line.
+     * Example: HTTP/1.1 200 OK
+     */
     private static final Pattern HTTP_PATTERN = Pattern.compile("^HTTP/([0-9.]+)\\s+([0-9]{3})\\s+(.*)");
+
+    /**
+     * Regex pattern to identify generic 3-digit text greetings (like FTP or SMTP).
+     * Example: 220 ProFTPD Server
+     */
     private static final Pattern GENERIC_TEXT_GREETING = Pattern.compile("^([0-9]{3})\\s+(.*)");
 
     /**
      * Data class to hold identified service information.
+     * Contains the name of the identified service and any additional details
+     * parsed from the initial communication banner.
      */
     public static class ServiceInfo {
+        /**
+         * The human-readable name of the identified service (e.g., "SSH", "HTTP").
+         */
         private final String name;
+
+        /**
+         * Additional details about the service (e.g., version strings, server info).
+         */
         private final String details;
 
         /**
@@ -120,6 +143,14 @@ public class ServiceIdentifier {
         return new ServiceInfo("Text Banner", content);
     }
 
+    /**
+     * Heuristically determines if the provided buffer contains binary data.
+     * It checks the first 100 bytes for non-printable characters that are not
+     * common whitespace (tab, newline, carriage return).
+     *
+     * @param msg the buffer to analyze
+     * @return true if the buffer likely contains binary data, false otherwise
+     */
     private static boolean isBinary(ByteBuf msg) {
         int length = Math.min(msg.readableBytes(), 100);
         for (int i = 0; i < length; i++) {
@@ -132,6 +163,14 @@ public class ServiceIdentifier {
         return false;
     }
 
+    /**
+     * Attempts to identify a service based on known binary protocol patterns.
+     * Currently supports MySQL handshake and GIOP (CORBA) headers.
+     * If no pattern matches, returns a hexadecimal representation of the first 16 bytes.
+     *
+     * @param msg the binary buffer to analyze
+     * @return ServiceInfo containing identified service name and details
+     */
     private static ServiceInfo identifyBinary(ByteBuf msg) {
         int readable = msg.readableBytes();
         

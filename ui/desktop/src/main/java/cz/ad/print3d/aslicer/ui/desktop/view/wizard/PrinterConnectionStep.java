@@ -28,19 +28,72 @@ public class PrinterConnectionStep implements WizardStep {
 
     private static final Logger logger = LoggerFactory.getLogger(PrinterConnectionStep.class);
 
+    /**
+     * UI skin used for creating actors and styling.
+     */
     private final Skin skin;
+
+    /**
+     * Main content table containing the list of discovered devices.
+     */
     private final Table content;
+
+    /**
+     * Reference to the previous discovery step to access selected devices.
+     */
     private final PrinterDiscoveryStep discoveryStep;
+
+    /**
+     * Mapping of device IP to a map of input fields (e.g., "accessCode", "apiKey").
+     */
     private final Map<String, Map<String, TextField>> printerFields = new HashMap<>();
+
+    /**
+     * Mapping of device IP to a map of entered credentials for persistent storage during wizard session.
+     */
     private final Map<String, Map<String, String>> connectionCredentials = new HashMap<>();
+
+    /**
+     * Mapping of device IP to validated printer details.
+     */
     private final Map<String, Printer3DDto> validatedPrinters = new HashMap<>();
+
+    /**
+     * Mapping of device IP to active printer clients for communication.
+     */
     private final Map<String, PrinterClient> activeClients = new HashMap<>();
+
+    /**
+     * Mapping of device IP to status labels for UI feedback.
+     */
     private final Map<String, Label> statusLabels = new HashMap<>();
+
+    /**
+     * Mapping of device IP to validation buttons.
+     */
     private final Map<String, TextButton> validateButtons = new HashMap<>();
+
+    /**
+     * Mapping of device IP to detail buttons shown after successful validation.
+     */
     private final Map<String, Button> detailButtons = new HashMap<>();
+
+    /**
+     * Mapping of device IP to discovered device metadata.
+     */
     private final Map<String, DiscoveredDevice> ipToDevice = new HashMap<>();
+
+    /**
+     * The parent wizard managing the step lifecycle.
+     */
     private Wizard wizard;
 
+    /**
+     * Creates a new PrinterConnectionStep with the specified skin and discovery step.
+     *
+     * @param skin          the UI skin to use
+     * @param discoveryStep the previous step containing selected devices
+     */
     public PrinterConnectionStep(Skin skin, PrinterDiscoveryStep discoveryStep) {
         this.skin = skin;
         this.discoveryStep = discoveryStep;
@@ -96,6 +149,9 @@ public class PrinterConnectionStep implements WizardStep {
         return isValid();
     }
 
+    /**
+     * Clears and builds the UI layout for this wizard step.
+     */
     private void buildLayout() {
         content.clear();
         printerFields.clear();
@@ -126,6 +182,13 @@ public class PrinterConnectionStep implements WizardStep {
         content.add(scrollPane).expand().fill();
     }
 
+    /**
+     * Adds a card-like representation of a device to the layout, including
+     * input fields and validation status.
+     *
+     * @param parent the parent table to add the card to
+     * @param device the discovered device to display
+     */
     private void addDeviceCard(Table parent, DiscoveredDevice device) {
         String ip = device.getIpAddress();
         ipToDevice.put(ip, device);
@@ -146,10 +209,10 @@ public class PrinterConnectionStep implements WizardStep {
         Map<String, TextField> fields = new HashMap<>();
 
         if ("Bambu Lab".equalsIgnoreCase(vendor)) {
-            String savedAccessCode = getSavedCredential(device.getIpAddress(), "accessCode", "");
+            String savedAccessCode = getSavedCredential(device.getIpAddress(), "accessCode");
             addTextField(inputTable, fields, "accessCode", "Access Code:", savedAccessCode, device);
         } else {
-            String savedApiKey = getSavedCredential(device.getIpAddress(), "apiKey", "");
+            String savedApiKey = getSavedCredential(device.getIpAddress(), "apiKey");
             addTextField(inputTable, fields, "apiKey", "API Key:", savedApiKey, device);
         }
         printerFields.put(device.getIpAddress(), fields);
@@ -203,6 +266,16 @@ public class PrinterConnectionStep implements WizardStep {
         updateValidateButtonState(ip);
     }
 
+    /**
+     * Helper method to add a labeled text field to a table.
+     *
+     * @param table        the parent table
+     * @param fields       map to store the created text field
+     * @param id           unique identifier for the field
+     * @param labelText    text for the label
+     * @param defaultValue initial value for the text field
+     * @param device       the device this field belongs to
+     */
     private void addTextField(Table table, Map<String, TextField> fields, String id, String labelText, String defaultValue, DiscoveredDevice device) {
         table.add(new Label(labelText, skin)).padRight(10).left();
         TextField field = new TextField(defaultValue, skin);
@@ -213,7 +286,7 @@ public class PrinterConnectionStep implements WizardStep {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
                 String ip = device.getIpAddress();
-                connectionCredentials.computeIfAbsent(ip, k -> new HashMap<>()).put(id, field.getText());
+                connectionCredentials.computeIfAbsent(ip, ignored -> new HashMap<>()).put(id, field.getText());
                 validatedPrinters.remove(ip);
                 statusLabels.get(ip).setText("Not validated");
                 statusLabels.get(ip).setColor(Color.LIGHT_GRAY);
@@ -224,6 +297,12 @@ public class PrinterConnectionStep implements WizardStep {
         });
     }
 
+    /**
+     * Updates the enabled state and color of the validation button based on the
+     * presence of required connection information.
+     *
+     * @param ip the IP address of the device to update
+     */
     private void updateValidateButtonState(String ip) {
         DiscoveredDevice device = ipToDevice.get(ip);
         if (device == null) return;
@@ -231,7 +310,7 @@ public class PrinterConnectionStep implements WizardStep {
         Map<String, TextField> fields = printerFields.get(ip);
         if (fields == null) return;
 
-        boolean ready = false;
+        boolean ready;
         String vendor = device.getVendor();
         if ("Bambu Lab".equalsIgnoreCase(vendor)) {
             TextField accessCodeField = fields.get("accessCode");
@@ -252,11 +331,19 @@ public class PrinterConnectionStep implements WizardStep {
         }
     }
 
-    private String getSavedCredential(String ip, String id, String defaultValue) {
+    /**
+     * Retrieves previously entered credentials for a device IP from the current
+     * wizard session, or returns an empty string if not found.
+     *
+     * @param ip the IP address of the device
+     * @param id the credential identifier (e.g., "accessCode")
+     * @return the saved credential value or an empty string
+     */
+    private String getSavedCredential(String ip, String id) {
         if (connectionCredentials.containsKey(ip)) {
-            return connectionCredentials.get(ip).getOrDefault(id, defaultValue);
+            return connectionCredentials.get(ip).getOrDefault(id, "");
         }
-        return defaultValue;
+        return "";
     }
 
     /**
@@ -321,32 +408,30 @@ public class PrinterConnectionStep implements WizardStep {
             return future;
         });
 
-        client.setDetailsUpdateCallback(details -> {
-            Gdx.app.postRunnable(() -> {
-                validatedPrinters.put(ip, details);
-                if (details.getPrinterSystem() != null) {
-                    String info = details.getPrinterSystem().getPrinterManufacturer() + " " +
-                                 (details.getPrinterSystem().getPrinterModel() != null ? details.getPrinterSystem().getPrinterModel() : "");
-                    nameLabel.setText(info);
-                    
-                    if (details.getPrinterSystem().getFullReport() != null) {
-                        statusLabel.setText("Success (Report received)");
-                        statusLabel.setColor(Color.GREEN);
-                    } else if (details.getPrinterSystem().getSerialNumber() != null) {
-                        statusLabel.setText("Success (Connected)");
-                        statusLabel.setColor(Color.GREEN);
-                    }
-
-                    if (details.getPrinterSystem().getSerialNumber() != null) {
-                        connectionCredentials.computeIfAbsent(ip, k -> new HashMap<>()).put("serial", details.getPrinterSystem().getSerialNumber());
-                    }
+        client.setDetailsUpdateCallback(details -> Gdx.app.postRunnable(() -> {
+            validatedPrinters.put(ip, details);
+            if (details.getPrinterSystem() != null) {
+                String info = details.getPrinterSystem().getPrinterManufacturer() + " " +
+                             (details.getPrinterSystem().getPrinterModel() != null ? details.getPrinterSystem().getPrinterModel() : "");
+                nameLabel.setText(info);
+                
+                if (details.getPrinterSystem().getFullReport() != null) {
+                    statusLabel.setText("Success (Report received)");
+                    statusLabel.setColor(Color.GREEN);
+                } else if (details.getPrinterSystem().getSerialNumber() != null) {
+                    statusLabel.setText("Success (Connected)");
+                    statusLabel.setColor(Color.GREEN);
                 }
-                if (wizard != null) wizard.updateButtons();
-            });
-        });
+
+                if (details.getPrinterSystem().getSerialNumber() != null) {
+                    connectionCredentials.computeIfAbsent(ip, ignored -> new HashMap<>()).put("serial", details.getPrinterSystem().getSerialNumber());
+                }
+            }
+            if (wizard != null) wizard.updateButtons();
+        }));
 
         client.connect()
-                .thenCompose(v -> client.getDetails())
+                .thenCompose(ignored -> client.getDetails())
                 .thenAccept(details -> {
                     Gdx.app.postRunnable(() -> {
                         validatedPrinters.put(ip, details);
@@ -483,7 +568,7 @@ public class PrinterConnectionStep implements WizardStep {
                     java.io.StringWriter sw = new java.io.StringWriter();
                     java.io.PrintWriter pw = new java.io.PrintWriter(sw);
                     ex.printStackTrace(pw);
-                    fullError.append(sw.toString());
+                    fullError.append(sw);
                 }
                 Gdx.app.getClipboard().setContents(fullError.toString());
                 copyBtn.setText("Copied!");

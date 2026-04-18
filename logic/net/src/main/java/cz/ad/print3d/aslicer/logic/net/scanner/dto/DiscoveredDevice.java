@@ -28,14 +28,49 @@ import java.util.Objects;
  */
 public class DiscoveredDevice {
 
+    /**
+     * The IP address of the discovered device.
+     */
     private final String ipAddress;
+
+    /**
+     * List of discovered network services (open ports and their banners).
+     */
     private final List<PortScanResult> services;
+
+    /**
+     * List of mDNS services discovered for this device.
+     */
     private final List<MdnsServiceInfo> mdnsServices = new ArrayList<>();
+
+    /**
+     * List of SSDP services discovered for this device.
+     */
     private final List<SsdpServiceInfo> ssdpServices = new ArrayList<>();
+
+    /**
+     * Flag indicating if the device is currently reachable on the network.
+     */
     private boolean reachable;
+
+    /**
+     * Flag used in the UI to indicate if this device has been selected by the user.
+     */
     private boolean selected;
+
+    /**
+     * Human-readable name of the device, if identified.
+     */
     private String name;
+
+    /**
+     * Identified vendor of the device (e.g., "Bambu Lab", "Creality").
+     */
     private String vendor;
+
+    /**
+     * Identified model name of the device.
+     */
     private String model;
 
     /**

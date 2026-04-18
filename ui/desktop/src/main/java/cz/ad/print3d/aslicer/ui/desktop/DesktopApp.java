@@ -32,82 +32,106 @@ import cz.ad.print3d.aslicer.ui.desktop.view.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Main application class for the desktop user interface.
- * Handles the 3D visualization, user interactions, and configuration management.
- * It coordinates several logical blocks, including scene management, model management,
- * and the user interface.
- */
+    /**
+     * Main application class for the desktop user interface.
+     * This class implements {@link ApplicationListener} and serves as the central hub
+     * for the LibGDX application life cycle. It handles the 3D visualization, user
+     * interactions, and configuration management. It coordinates several logical
+     * blocks, including scene management, model management, and the user interface.
+     */
 public class DesktopApp implements ApplicationListener {
     private static final Logger LOGGER = LoggerFactory.getLogger(DesktopApp.class);
 
     /**
      * Application configuration handler.
+     * Responsible for loading and saving application-wide settings such as
+     * window dimensions, last used directories, and UI preferences.
      */
     public final AppConfig appConfig;
 
     /**
      * File dialog for selecting models.
+     * Provides a native-like interface for the user to browse and select
+     * 3D model files (e.g., STL, OBJ) for import.
      */
     private final ModelFileDialog fileDialog;
 
     /**
      * Scene persistence handler for workspace saving/loading.
+     * Manages the serialization and deserialization of the entire 3D scene,
+     * including model positions, rotations, and scales.
      */
     private final ScenePersistence scenePersistence;
 
     /**
      * Scene manager for 3D components like camera, lighting, and grid.
+     * Handles the setup and rendering of the 3D world, camera movement,
+     * and visualization of the build plate grid.
      */
     public SceneManager sceneManager;
 
     /**
      * Model manager for handling models, instances, and selection logic.
+     * Maintains the list of loaded 3D models and their instances,
+     * and handles ray-casting for model selection.
      */
     public ModelManager modelManager;
 
     /**
      * Repository for printer configurations.
+     * Provides access to definitions of supported 3D printers, including
+     * their build volume, connection protocols, and capabilities.
      */
     public cz.ad.print3d.aslicer.logic.printer.PrinterRepository printerRepository;
 
     /**
      * Desktop UI manager for handling stages, menus, and dialogs.
+     * Manages the 2D overlay (Scene2D.ui), including toolbars, windows,
+     * and interaction between the UI and the 3D scene.
      */
     public DesktopUI desktopUI;
 
     /**
      * Main input multiplexer for the application.
+     * Dispatches input events to both the 2D UI stages and the 3D scene
+     * input processors in a prioritized manner.
      */
     private InputMultiplexer multiplexer;
 
     /**
      * Input processor for handling model selection in the 3D scene.
+     * Listens for touch/click events to determine which 3D model in the scene
+     * is being interacted with by the user.
      */
     public InputProcessor selectionProcessor;
 
     /**
-     * Current width of the application window.
+     * Current width of the application window in pixels.
+     * Used for layout calculations and resizing the viewport.
      */
     public int currentWidth;
 
     /**
-     * Current height of the application window.
+     * Current height of the application window in pixels.
+     * Used for layout calculations and resizing the viewport.
      */
     public int currentHeight;
 
     /**
      * Last used directory for opening models.
+     * Persisted to provide a better user experience when opening multiple files.
      */
     public String lastDir = "";
 
     /**
      * Path to the last opened model.
+     * Used for quick access or restoring the state of the application.
      */
     public String currentModelPath;
 
     /**
      * Current active view index (0 for Model, 1 for Grid).
+     * Determines which view is currently being rendered and which UI elements are shown.
      */
     private int activeView = 0;
 
@@ -128,7 +152,7 @@ public class DesktopApp implements ApplicationListener {
                 @Override public java.util.List<String> getGroups() { return new java.util.ArrayList<>(groups.keySet()); }
                 @Override public java.util.Map<String, cz.ad.print3d.aslicer.logic.printer.Printer3D> getPrintersByGroup(String groupName) { return groups.getOrDefault(groupName, java.util.Collections.emptyMap()); }
                 @Override public java.util.Optional<cz.ad.print3d.aslicer.logic.printer.Printer3D> getPrinter(String groupName, String printerName) { return java.util.Optional.ofNullable(getPrintersByGroup(groupName).get(printerName)); }
-                @Override public void savePrinter(String groupName, String printerName, cz.ad.print3d.aslicer.logic.printer.Printer3D printer) { groups.computeIfAbsent(groupName, k -> new java.util.HashMap<>()).put(printerName, printer); }
+                @Override public void savePrinter(String groupName, String printerName, cz.ad.print3d.aslicer.logic.printer.Printer3D printer) { groups.computeIfAbsent(groupName, ignored -> new java.util.HashMap<>()).put(printerName, printer); }
                 @Override public boolean deletePrinter(String groupName, String printerName) { return groups.containsKey(groupName) && groups.get(groupName).remove(printerName) != null; }
                 @Override public boolean deleteGroup(String groupName) { return groups.remove(groupName) != null; }
             };
@@ -136,11 +160,15 @@ public class DesktopApp implements ApplicationListener {
     }
 
     /**
-     * Application entry point.
+     * Application entry point. Initializes the security layer and starts the
+     * desktop application with the configured window dimensions.
      *
-     * @param args command line arguments
+     * @param args command line arguments (currently not used)
      */
     public static void main(String[] args) {
+        if (args != null && args.length > 0) {
+            LOGGER.debug("Application started with arguments: {}", (Object) args);
+        }
         SecurityInitializer.init();
         DesktopApp app = new DesktopApp();
         AppConfigDto dto = app.appConfig.loadToDto();
@@ -155,7 +183,10 @@ public class DesktopApp implements ApplicationListener {
     }
 
     /**
-     * Saves all current application and scene configurations.
+     * Saves all current application and scene configurations to persistent storage.
+     * This includes window state, view settings, camera position, and the list
+     * of loaded models. It also triggers scene persistence to save the 3D transforms
+     * of all objects in the workspace.
      */
     public void saveAllConfig() {
         AppConfigDto dto = appConfig.loadToDto();
@@ -199,6 +230,12 @@ public class DesktopApp implements ApplicationListener {
         }
     }
 
+    /**
+     * Called when the application is first created.
+     * Initializes core components like the scene manager, model manager,
+     * UI stages, and input processors. It also triggers the initial loading
+     * of the scene from the configuration or workspace.
+     */
     @Override
     public void create() {
         // Start network information collection as early as possible
@@ -289,6 +326,9 @@ public class DesktopApp implements ApplicationListener {
 
     /**
      * Loads the initial scene state on application startup.
+     * Attempts to restore the workspace from the last saved state (models and transforms).
+     * If no workspace is found, it falls back to reloading files specified in the
+     * application configuration.
      */
     protected void loadInitialScene() {
         AppConfigDto dto = appConfig.loadToDto();
@@ -311,6 +351,12 @@ public class DesktopApp implements ApplicationListener {
         }
     }
 
+    /**
+     * Sets up the 2D user interface.
+     * Initializes the main toolbars, sidebars, and overlays using Scene2D.ui.
+     * Configures listeners for UI events like opening files, clearing the scene,
+     * and managing printer discovery.
+     */
     protected void setupUI() {
         desktopUI = new DesktopUI();
         AppToolbar toolbar = new AppToolbar(desktopUI.getSkin(), new AppToolbar.ToolbarListener() {
@@ -348,23 +394,15 @@ public class DesktopApp implements ApplicationListener {
             }
         }, printerRepository);
 
-        AppStageToolbar stageToolbar = new AppStageToolbar(desktopUI.getSkin(), new AppStageToolbar.StageToolbarListener() {
-            @Override
-            public void onSwitchStage(int index) {
-                activeView = index;
-                if (desktopUI != null) {
-                    desktopUI.setActiveView(index);
-                    updateInputProcessor();
-                }
+        AppStageToolbar stageToolbar = new AppStageToolbar(desktopUI.getSkin(), index -> {
+            activeView = index;
+            if (desktopUI != null) {
+                desktopUI.setActiveView(index);
+                updateInputProcessor();
             }
         });
 
-        AppSideToolbar sideToolbar = new AppSideToolbar(desktopUI.getSkin(), new AppSideToolbar.SideToolbarListener() {
-            @Override
-            public void onToggleModelList() {
-                toggleModelListWindow();
-            }
-        });
+        AppSideToolbar sideToolbar = new AppSideToolbar(desktopUI.getSkin(), this::toggleModelListWindow);
 
         desktopUI.setupLayout(toolbar, stageToolbar, sideToolbar, sceneManager, modelManager);
     }
@@ -430,6 +468,13 @@ public class DesktopApp implements ApplicationListener {
         );
     }
 
+    /**
+     * Called when the application window is resized.
+     * Updates the viewport dimensions for both the 3D scene and the 2D UI stages.
+     *
+     * @param width  new window width in pixels
+     * @param height new window height in pixels
+     */
     @Override
     public void resize(int width, int height) {
         currentWidth = width;
@@ -442,6 +487,10 @@ public class DesktopApp implements ApplicationListener {
         }
     }
 
+    /**
+     * Main rendering loop called by LibGDX for each frame.
+     * Clears the screen and draws the active UI stages.
+     */
     @Override
     public void render() {
         Gdx.gl.glViewport(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
@@ -452,12 +501,23 @@ public class DesktopApp implements ApplicationListener {
         }
     }
 
+    /**
+     * Called when the application is paused (e.g., when the window loses focus).
+     */
     @Override
     public void pause() {}
 
+    /**
+     * Called when the application is resumed after being paused.
+     */
     @Override
     public void resume() {}
 
+    /**
+     * Called when the application is destroyed.
+     * Saves all configurations and disposes of all resources, including the
+     * scene manager, model manager, and UI skin.
+     */
     @Override
     public void dispose() {
         saveAllConfig();

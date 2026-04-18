@@ -18,9 +18,24 @@ import java.util.function.Consumer;
  */
 public final class DeviceRow extends Table {
 
+    /**
+     * The internal representation of the device data being managed by this row.
+     */
     private final DiscoveredDevice currentDevice;
+
+    /**
+     * UI skin used for styling.
+     */
     private final Skin skin;
+
+    /**
+     * Callback invoked when the user clicks on the details button.
+     */
     private final Consumer<DiscoveredDevice> onDetailsClick;
+
+    /**
+     * Flag indicating if the port details section is expanded.
+     */
     private boolean isExpanded = true;
 
     /**
@@ -91,6 +106,9 @@ public final class DeviceRow extends Table {
         buildLayout();
     }
 
+    /**
+     * Rebuilds the UI layout based on the current state of the device.
+     */
     private void buildLayout() {
         clear();
         pad(8);
@@ -124,9 +142,7 @@ public final class DeviceRow extends Table {
 
         Label deviceLabel = new Label(deviceLabelText.toString(), skin);
         // Enable markup if the skin supports it, otherwise use fallback
-        if (skin.has("default", Label.LabelStyle.class) && deviceLabel.getStyle().font.getData().markupEnabled) {
-            // markup enabled
-        } else {
+        if (!(skin.has("default", Label.LabelStyle.class) && deviceLabel.getStyle().font.getData().markupEnabled)) {
             // fallback if markup is not enabled
             if (positivelyIdentified) {
                 deviceLabel.setColor(Color.YELLOW);
@@ -178,6 +194,12 @@ public final class DeviceRow extends Table {
         }
     }
 
+    /**
+     * Adds port-specific information to the ports table.
+     *
+     * @param portsTable the table to add information to
+     * @param result     the scan result for a specific port
+     */
     private void addPortInfo(Table portsTable, PortScanResult result) {
         String serviceName = result.getService() != null ? result.getService() : "Open";
         String status = result.isVerificationInProgress() ? " [Verification in progress]" : "";
@@ -198,10 +220,20 @@ public final class DeviceRow extends Table {
         portsTable.add(serviceLabel).colspan(3).left().padLeft(10).row();
     }
 
+    /**
+     * Returns the underlying discovered device data.
+     *
+     * @return the current device
+     */
     public DiscoveredDevice getDevice() {
         return currentDevice;
     }
 
+    /**
+     * Returns whether the port details section is expanded.
+     *
+     * @return true if expanded, false if collapsed
+     */
     public boolean isExpanded() {
         return isExpanded;
     }

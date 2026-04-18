@@ -35,8 +35,19 @@ import org.slf4j.LoggerFactory;
  */
 public class AppGrid implements Disposable {
     private static final Logger LOGGER = LoggerFactory.getLogger(AppGrid.class);
+    /**
+     * The underlying LibGDX model for the grid lines.
+     */
     private final Model model;
+
+    /**
+     * The model instance used for rendering the grid in the 3D scene.
+     */
     private final ModelInstance instance;
+
+    /**
+     * The distance between individual grid lines.
+     */
     private final float step;
 
     /**

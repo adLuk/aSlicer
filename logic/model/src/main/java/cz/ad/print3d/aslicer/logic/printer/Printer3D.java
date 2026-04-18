@@ -10,6 +10,9 @@ import java.util.Map;
 
 /**
  * Interface representing a 3D printer and its capabilities.
+ * This interface provides access to the printer's system information,
+ * physical topology, available toolheads, and network connection profiles.
+ * It serves as the primary model for any supported 3D printer in the application.
  *
  * @author Senior Architect
  * @since 1.0.0
@@ -17,24 +20,32 @@ import java.util.Map;
 public interface Printer3D {
 
     /**
-     * @return the {@link PrinterSystem} defining general printer properties.
+     * Retrieves the system information of the printer.
+     *
+     * @return the {@link PrinterSystem} defining general properties like manufacturer, model, and firmware.
      */
     PrinterSystem getPrinterSystem();
 
     /**
-     * @return the {@link Topology} describing the printer's physical layout and limits.
+     * Retrieves the physical topology of the printer.
+     *
+     * @return the {@link Topology} describing the build volume, axis limits, and coordinate system.
      */
     Topology getTopology();
 
     /**
-     * @return a list of {@link Toolhead}s available on the printer.
+     * Retrieves the list of toolheads installed on the printer.
+     *
+     * @return a list of {@link Toolhead} objects, each representing an extruder or other tool.
      */
     List<Toolhead> getToolhead();
 
     /**
-     * Returns a map of defined network connections for this printer.
+     * Returns a map of network connection configurations defined for this printer.
+     * Connection names can be used to distinguish between different access methods
+     * (e.g., "Local LAN", "Cloud", "OctoPrint").
      *
-     * @return a map where keys are connection names and values are {@link PrinterNetConnection} objects.
+     * @return a map where keys are connection identifiers and values are {@link PrinterNetConnection} profiles.
      */
     Map<String, PrinterNetConnection> getNetConnections();
 }

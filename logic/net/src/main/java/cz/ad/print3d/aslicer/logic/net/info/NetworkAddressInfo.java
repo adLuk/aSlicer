@@ -22,9 +22,24 @@ package cz.ad.print3d.aslicer.logic.net.info;
  * It supports both IPv4 and IPv6 addresses.
  */
 public class NetworkAddressInfo {
+    /**
+     * The textual representation of the IP address (e.g., "192.168.1.1").
+     */
     private final String address;
+
+    /**
+     * The hostname associated with this address, often obtained via reverse DNS lookup.
+     */
     private final String hostname;
+
+    /**
+     * Flag indicating if the address follows the IPv4 protocol.
+     */
     private final boolean ipv4;
+
+    /**
+     * The network prefix length (subnet mask bits, e.g., 24 for 255.255.255.0).
+     */
     private final int prefixLength;
 
     /**

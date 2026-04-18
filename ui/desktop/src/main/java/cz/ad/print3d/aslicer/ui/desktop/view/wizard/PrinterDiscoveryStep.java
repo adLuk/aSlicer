@@ -37,29 +37,113 @@ import java.util.Map;
  */
 public class PrinterDiscoveryStep implements WizardStep {
 
+    /**
+     * UI skin used for creating actors and styling.
+     */
     private final Skin skin;
+
+    /**
+     * Main content table containing the UI elements.
+     */
     private final Table content;
+
+    /**
+     * Text field for the starting IP address of the scan range.
+     */
     private final TextField startIpField;
+
+    /**
+     * Text field for the ending IP address of the scan range.
+     */
     private final TextField endIpField;
+
+    /**
+     * Checkbox to enable deep scanning (checking all potential printer ports).
+     */
     private final CheckBox deepScanCheckBox;
+
+    /**
+     * Checkbox to include the local machine's IP address in the scan.
+     */
     private final CheckBox includeSelfIpCheckBox;
+
+    /**
+     * Text field for the scan timeout in milliseconds.
+     */
     private final TextField timeoutField;
+
+    /**
+     * Label to display the current scan status and progress.
+     */
     private final Label progressLabel;
+
+    /**
+     * List of UI rows representing discovered devices.
+     */
     private final List<DeviceRow> rows = new ArrayList<>();
+
+    /**
+     * Table containing the list of discovered devices.
+     */
     private final Table resultsTable;
+
+    /**
+     * Network scanner implementation for identifying printers.
+     */
     private final NetworkScanner scanner;
+
+    /**
+     * Collector for local network interface information.
+     */
     private final NetworkInformationCollector collector;
+
+    /**
+     * Current scan configuration loaded from the environment or defaults.
+     */
     private final ScanConfiguration scanConfig;
+
+    /**
+     * Button to start or stop the network scan.
+     */
     private final ImageButton searchButton;
+
+    /**
+     * Icon displayed when no scan is active.
+     */
     private final Drawable searchIcon;
+
+    /**
+     * Icon displayed when a scan is currently running.
+     */
     private final Drawable stopIcon;
+
+    /**
+     * Flag indicating whether a network scan is currently in progress.
+     */
     private boolean isScanning = false;
+
+    /**
+     * The parent wizard managing the step lifecycle.
+     */
     private Wizard wizard;
 
+    /**
+     * Creates a new PrinterDiscoveryStep with the specified skin and default components.
+     *
+     * @param skin the UI skin to use
+     */
     public PrinterDiscoveryStep(Skin skin) {
         this(skin, new NettyNetworkScanner(), new NetworkInformationCollector(), ScanConfigurationLoader.loadDefault());
     }
 
+    /**
+     * Creates a new PrinterDiscoveryStep with full control over its components.
+     *
+     * @param skin      the UI skin to use
+     * @param scanner   the network scanner implementation
+     * @param collector the network information collector
+     * @param config    the scan configuration
+     */
     public PrinterDiscoveryStep(Skin skin, NetworkScanner scanner, NetworkInformationCollector collector, ScanConfiguration config) {
         this.skin = skin;
         this.scanner = scanner;
@@ -188,6 +272,10 @@ public class PrinterDiscoveryStep implements WizardStep {
         return !getSelectedDevices().isEmpty();
     }
 
+    /**
+     * Notifies the parent wizard that the step state has changed and buttons
+     * should be updated (e.g., Enable/Disable 'Next' button).
+     */
     private void updateWizardButtons() {
         if (wizard != null) {
             wizard.updateButtons();
@@ -214,6 +302,9 @@ public class PrinterDiscoveryStep implements WizardStep {
         return result;
     }
 
+    /**
+     * Disposes of resources used by this step, including the search icons.
+     */
     @Override
     public void dispose() {
         stopScan();
@@ -222,6 +313,11 @@ public class PrinterDiscoveryStep implements WizardStep {
         }
     }
 
+    /**
+     * Initializes the IP range fields based on the local network interface.
+     * Attempts to find the first non-loopback IPv4 address and suggests a
+     * default scan range for that subnet.
+     */
     private void initializeIpRange() {
         progressLabel.setText("Getting network information...");
         collector.collectAsync().thenAccept(interfaces -> Gdx.app.postRunnable(() -> {
@@ -248,6 +344,10 @@ public class PrinterDiscoveryStep implements WizardStep {
         });
     }
 
+    /**
+     * Starts a new network scan based on the user-defined IP range and settings.
+     * This method runs asynchronously and updates the UI as devices are discovered.
+     */
     private void startScan() {
         if (isScanning) return;
 
@@ -358,12 +458,21 @@ public class PrinterDiscoveryStep implements WizardStep {
         });
     }
 
+    /**
+     * Stops the currently running network scan.
+     */
     private void stopScan() {
         if (!isScanning) return;
         progressLabel.setText("Stopping scan...");
         scanner.stopScan();
     }
 
+    /**
+     * Adds a newly discovered device to the results table.
+     * If the device was already discovered (same IP), its information is updated.
+     *
+     * @param device the discovered device metadata
+     */
     private void addDiscoveredDevice(DiscoveredDevice device) {
         Gdx.app.postRunnable(() -> {
             // Remove initial labels if present
@@ -397,7 +506,8 @@ public class PrinterDiscoveryStep implements WizardStep {
     }
 
     /**
-     * Displays a dialog with all discovered data for a device.
+     * Shows a dialog with detailed information about a discovered device,
+     * including open ports, services, and mDNS attributes.
      *
      * @param device the device to show details for
      */
@@ -471,6 +581,10 @@ public class PrinterDiscoveryStep implements WizardStep {
         dialog.show(stage);
     }
 
+    /**
+     * Sorts the discovery results, putting identified printers first and then
+     * sorting by IP address.
+     */
     private void sortResults() {
         if (rows.isEmpty()) return;
 
@@ -500,6 +614,12 @@ public class PrinterDiscoveryStep implements WizardStep {
         return selected;
     }
 
+    /**
+     * Helper method to create an image button style with specified icons.
+     *
+     * @param icon the icon to display on the button
+     * @return the created button style
+     */
     private ImageButton.ImageButtonStyle createButtonStyle(Drawable icon) {
         ImageButton.ImageButtonStyle style = new ImageButton.ImageButtonStyle();
         style.up = skin.newDrawable("white", Color.GRAY);
@@ -508,6 +628,11 @@ public class PrinterDiscoveryStep implements WizardStep {
         return style;
     }
 
+    /**
+     * Creates a procedurally generated magnifying glass icon.
+     *
+     * @return the search icon drawable
+     */
     private Drawable createSearchIcon() {
         Pixmap pixmap = new Pixmap(32, 32, Pixmap.Format.RGBA8888);
         pixmap.setColor(Color.WHITE);
@@ -523,6 +648,11 @@ public class PrinterDiscoveryStep implements WizardStep {
         return new TextureRegionDrawable(new TextureRegion(texture));
     }
 
+    /**
+     * Creates a procedurally generated stop (red square) icon.
+     *
+     * @return the stop icon drawable
+     */
     private Drawable createStopIcon() {
         Pixmap pixmap = new Pixmap(32, 32, Pixmap.Format.RGBA8888);
         pixmap.setColor(Color.RED);
