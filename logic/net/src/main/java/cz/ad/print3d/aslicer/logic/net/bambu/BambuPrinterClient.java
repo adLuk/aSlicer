@@ -181,6 +181,12 @@ public class BambuPrinterClient extends AbstractPrinterClient {
         Printer3DDto dto = new Printer3DDto();
         PrinterSystemDto system = new PrinterSystemDto();
         
+        String currentSerial = mqttClient.getSerial();
+        if (currentSerial == null || currentSerial.isEmpty()) {
+            currentSerial = (serial != null && !serial.isEmpty()) ? serial : ipAddress;
+        }
+
+        String modelName = identifyModel(currentSerial);
         String manufacturer = "Bambu Lab";
         if (amsStatus != null) {
             manufacturer = amsStatus + " " + manufacturer;
@@ -197,20 +203,24 @@ public class BambuPrinterClient extends AbstractPrinterClient {
             system.setFullReport(versionReport);
         }
         
-        String currentSerial = mqttClient.getSerial();
-        if (currentSerial == null || currentSerial.isEmpty()) {
-            currentSerial = (serial != null && !serial.isEmpty()) ? serial : ipAddress;
-            system.setPrinterName("Bambu Lab " + currentSerial);
-            system.setPrinterModel("Bambu Lab Printer (" + currentSerial + ")");
-            system.setSerialNumber(null); // Explicitly null to indicate not yet discovered
-        } else {
-            system.setPrinterName("Bambu Lab " + currentSerial);
-            system.setPrinterModel("Bambu Lab Printer (" + currentSerial + ")");
-            system.setSerialNumber(currentSerial);
-        }
+        system.setPrinterName(manufacturer + " " + modelName + " (" + currentSerial + ")");
+        system.setPrinterModel(modelName);
+        system.setSerialNumber(mqttClient.getSerial());
         
         dto.setPrinterSystem(system);
         return CompletableFuture.completedFuture(dto);
+    }
+
+    private String identifyModel(String serialNumber) {
+        if (serialNumber == null || serialNumber.isEmpty()) return "Bambu Lab Printer";
+        if (serialNumber.startsWith("01P")) return "Bambu Lab X1";
+        if (serialNumber.startsWith("01S")) return "Bambu Lab X1-Carbon";
+        if (serialNumber.startsWith("01C")) return "Bambu Lab X1-Carbon";
+        if (serialNumber.startsWith("021")) return "Bambu Lab P1P";
+        if (serialNumber.startsWith("02S")) return "Bambu Lab P1S";
+        if (serialNumber.startsWith("030")) return "Bambu Lab A1 mini";
+        if (serialNumber.startsWith("039")) return "Bambu Lab A1";
+        return "Bambu Lab Printer";
     }
 
     @Override

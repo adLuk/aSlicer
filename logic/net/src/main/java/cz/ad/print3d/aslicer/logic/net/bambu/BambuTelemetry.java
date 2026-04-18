@@ -56,6 +56,24 @@ public class BambuTelemetry {
         @JsonProperty("ams")
         private AmsData ams;
 
+        @JsonProperty("nozzle_diameter")
+        private Double nozzleDiameter;
+
+        @JsonProperty("nozzle_type")
+        private String nozzleType;
+
+        /**
+         * @return the nozzle diameter in mm.
+         */
+        public Double getNozzleDiameter() { return nozzleDiameter; }
+        public void setNozzleDiameter(Double nozzleDiameter) { this.nozzleDiameter = nozzleDiameter; }
+
+        /**
+         * @return the type of nozzle (e.g., "stainless_steel", "hardened_steel").
+         */
+        public String getNozzleType() { return nozzleType; }
+        public void setNozzleType(String nozzleType) { this.nozzleType = nozzleType; }
+
         /**
          * @return the current G-code execution state (e.g., "IDLE", "RUNNING", "PAUSE").
          */

@@ -204,6 +204,29 @@ public class PrinterDiscoveryStep implements WizardStep {
         
         settingsTable.add(optionsRow).left().row();
 
+        // Row 3: Manual IP Entry
+        Table manualRow = new Table();
+        manualRow.padTop(10);
+        manualRow.add(new Label("Manual IP:", skin)).padRight(10);
+        TextField manualIpField = new TextField("", skin);
+        manualRow.add(manualIpField).width(130).padRight(10);
+        TextButton manualAddButton = new TextButton("Add", skin);
+        manualAddButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                String ip = manualIpField.getText().trim();
+                if (!ip.isEmpty() && IpUtils.isValidIp(ip)) {
+                    DiscoveredDevice device = new DiscoveredDevice(ip);
+                    // Add standard Bambu port if not found by scan
+                    device.addService(new PortScanResult(8883, true));
+                    addDiscoveredDevice(device);
+                    manualIpField.setText("");
+                }
+            }
+        });
+        manualRow.add(manualAddButton).width(60);
+        settingsTable.add(manualRow).left().row();
+
         content.add(settingsTable).fillX().padBottom(15).row();
 
         // Progress section

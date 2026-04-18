@@ -138,4 +138,24 @@ public final class IpUtils {
         if (parts.length != 4) return "";
         return parts[0] + "." + parts[1] + "." + parts[2] + ".";
     }
+    /**
+     * Checks if a string is a valid IPv4 address.
+     *
+     * @param ip the string to check
+     * @return true if valid, false otherwise
+     */
+    public static boolean isValidIp(String ip) {
+        if (ip == null || ip.isEmpty()) return false;
+        String[] parts = ip.split("\\.");
+        if (parts.length != 4) return false;
+        try {
+            for (String part : parts) {
+                int val = Integer.parseInt(part);
+                if (val < 0 || val > 255) return false;
+            }
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
 }

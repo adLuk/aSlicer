@@ -407,8 +407,8 @@ public class BambuMqttClient {
             LOGGER.warn("Cannot send get_version: request topic unknown for host {}", host);
             return CompletableFuture.completedFuture(null);
         }
-        // Use robust payload with user_id and sequence_id as string
-        String payload = "{\"system\": {\"get_version\": []}, \"user_id\": \"0\", \"sequence_id\": \"0\"}";
+        // Use robust payload with command: get_version
+        String payload = "{\"system\": {\"sequence_id\": \"0\", \"command\": \"get_version\"}, \"user_id\": \"0\", \"sequence_id\": \"0\"}";
         LOGGER.info("Sending get_version request to topic {} for host {}", topic, host);
         return client.publishWith()
                 .topic(topic)
