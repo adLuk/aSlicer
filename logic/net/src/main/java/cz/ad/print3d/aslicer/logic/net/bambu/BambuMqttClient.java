@@ -144,7 +144,16 @@ public class BambuMqttClient {
                 .serverHost(host)
                 .serverPort(port)
                 .sslConfig(sslBuilder.build())
-                .addConnectedListener(context -> LOGGER.info("MQTT Client ({}) connected to {}", clientId, host))
+                .automaticReconnectWithDefaultConfig()
+                .addConnectedListener(context -> {
+                    LOGGER.info("MQTT Client ({}) connected to {}", clientId, host);
+                    // Resubscribe on reconnect if serial is known
+                    if (serial != null && !serial.isEmpty()) {
+                        subscribeToTelemetry();
+                        // Also try to get version to refresh state
+                        sendGetVersion();
+                    }
+                })
                 .addDisconnectedListener(context -> {
                     Throwable cause = context.getCause();
                     LOGGER.info("MQTT Client ({}) disconnected from {}: {}", clientId, host, (cause != null ? cause.getMessage() : "No cause provided"));
@@ -396,8 +405,48 @@ public class BambuMqttClient {
      * @return a {@link CompletableFuture} that completes when the message is sent.
      */
     public CompletableFuture<Void> sendGetVersion() {
-        if (client == null || !client.getState().isConnected()) {
-            String state = (client != null) ? client.getState().toString() : "null";
+        return sendGetVersion(3);
+    }
+
+    /**
+     * Internal version of sendGetVersion with retry logic.
+     * 
+     * @param retries number of retries left
+     * @return a {@link CompletableFuture} that completes when the message is sent.
+     */
+    private CompletableFuture<Void> sendGetVersion(int retries) {
+        if (client == null) {
+            LOGGER.error("Failed to send get_version to {}: MQTT client is not initialized", host);
+            return CompletableFuture.failedFuture(new RuntimeException("MQTT client is not initialized"));
+        }
+
+        if (!client.getState().isConnected()) {
+            if (retries > 0) {
+                LOGGER.info("MQTT client for {} is not connected (state: {}). Attempting to reconnect... ({} retries left)", 
+                    host, client.getState(), retries);
+                
+                // If not connected and not currently connecting, trigger connect()
+                if (client.getState() == com.hivemq.client.mqtt.MqttClientState.DISCONNECTED) {
+                    this.connect();
+                }
+
+                // Return a future that waits and then tries again
+                CompletableFuture<Void> retryFuture = new CompletableFuture<>();
+                CompletableFuture.runAsync(() -> {
+                    try {
+                        Thread.sleep(2000);
+                        sendGetVersion(retries - 1).whenComplete((v, ex) -> {
+                            if (ex != null) retryFuture.completeExceptionally(ex);
+                            else retryFuture.complete(null);
+                        });
+                    } catch (InterruptedException e) {
+                        retryFuture.completeExceptionally(e);
+                    }
+                });
+                return retryFuture;
+            }
+            
+            String state = client.getState().toString();
             LOGGER.error("Failed to send get_version to {}: MQTT client is not connected. Current state: {}", host, state);
             return CompletableFuture.failedFuture(new RuntimeException("MQTT client is not connected (state: " + state + ")"));
         }
@@ -417,6 +466,10 @@ public class BambuMqttClient {
                 .send()
                 .handle((pubAck, ex) -> {
                     if (ex != null) {
+                        if (retries > 0) {
+                             LOGGER.warn("Failed to publish get_version to {}, retrying...: {}", host, ex.getMessage());
+                             return sendGetVersion(retries - 1);
+                        }
                         LOGGER.error("Failed to send get_version to {}: {}", host, ex.getMessage());
                         return CompletableFuture.<Void>failedFuture(ex);
                     }

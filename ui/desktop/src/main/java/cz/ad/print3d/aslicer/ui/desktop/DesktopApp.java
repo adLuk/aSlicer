@@ -85,6 +85,12 @@ public class DesktopApp implements ApplicationListener {
     public cz.ad.print3d.aslicer.logic.printer.PrinterRepository printerRepository;
 
     /**
+     * Application-scope pool for managing active printer connections.
+     * Handles the lifecycle of connections to 3D printers.
+     */
+    public cz.ad.print3d.aslicer.logic.net.PrinterConnectionPool connectionPool;
+
+    /**
      * Desktop UI manager for handling stages, menus, and dialogs.
      * Manages the 2D overlay (Scene2D.ui), including toolbars, windows,
      * and interaction between the UI and the 3D scene.
@@ -142,6 +148,7 @@ public class DesktopApp implements ApplicationListener {
         this.appConfig = new AppConfig();
         this.fileDialog = new ModelFileDialog();
         this.scenePersistence = new ScenePersistence();
+        this.connectionPool = new cz.ad.print3d.aslicer.logic.net.PrinterConnectionPool();
         try {
             this.printerRepository = new cz.ad.print3d.aslicer.logic.core.printer.ZipPrinterRepository(java.nio.file.Paths.get("printers.zip"));
         } catch (java.io.IOException e) {
@@ -457,6 +464,7 @@ public class DesktopApp implements ApplicationListener {
     public void togglePrinterDiscoveryWindow() {
         AppConfigDto dto = appConfig.loadToDto();
         desktopUI.togglePrinterDiscoveryWindow(
+            connectionPool,
             dto.getWizardWidth(),
             dto.getWizardHeight(),
             (width, height) -> {
@@ -487,12 +495,26 @@ public class DesktopApp implements ApplicationListener {
         }
     }
 
+    private float poolCheckTimer = 0;
+    private static final float POOL_CHECK_INTERVAL = 30f; // 30 seconds
+
     /**
      * Main rendering loop called by LibGDX for each frame.
      * Clears the screen and draws the active UI stages.
      */
     @Override
     public void render() {
+        float delta = Gdx.graphics.getDeltaTime();
+        
+        // Periodically ensure all pooled connections are alive
+        poolCheckTimer += delta;
+        if (poolCheckTimer >= POOL_CHECK_INTERVAL) {
+            poolCheckTimer = 0;
+            if (connectionPool != null) {
+                connectionPool.ensureAllConnected();
+            }
+        }
+
         Gdx.gl.glViewport(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
 

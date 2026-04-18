@@ -5,6 +5,7 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.backends.headless.HeadlessApplication;
 import com.badlogic.gdx.backends.headless.HeadlessApplicationConfiguration;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
+import cz.ad.print3d.aslicer.logic.net.PrinterConnectionPool;
 import cz.ad.print3d.aslicer.ui.desktop.GdxTestUtils;
 import cz.ad.print3d.aslicer.ui.desktop.view.DesktopUI;
 import org.junit.jupiter.api.Test;
@@ -40,7 +41,7 @@ public class WizardPersistenceTest {
                     };
 
                     // Open wizard with initial size 900x700
-                    ui.togglePrinterDiscoveryWindow(900, 700, (w, h) -> {
+                    ui.togglePrinterDiscoveryWindow(new PrinterConnectionPool(), 900, 700, (w, h) -> {
                         savedWidth.set(w);
                         savedHeight.set(h);
                     });

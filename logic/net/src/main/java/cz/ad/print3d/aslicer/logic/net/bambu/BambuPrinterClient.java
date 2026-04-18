@@ -224,6 +224,11 @@ public class BambuPrinterClient extends AbstractPrinterClient {
     }
 
     @Override
+    public boolean isConnected() {
+        return mqttClient != null && mqttClient.isConnected();
+    }
+
+    @Override
     public void disconnect() {
         if (mqttClient != null) {
             mqttClient.disconnect();

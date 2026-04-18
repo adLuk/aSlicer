@@ -59,11 +59,6 @@ public class PrinterConnectionStep implements WizardStep {
     private final Map<String, Printer3DDto> validatedPrinters = new HashMap<>();
 
     /**
-     * Mapping of device IP to active printer clients for communication.
-     */
-    private final Map<String, PrinterClient> activeClients = new HashMap<>();
-
-    /**
      * Mapping of device IP to status labels for UI feedback.
      */
     private final Map<String, Label> statusLabels = new HashMap<>();
@@ -89,14 +84,21 @@ public class PrinterConnectionStep implements WizardStep {
     private Wizard wizard;
 
     /**
+     * Application-scope connection pool for managing printer clients.
+     */
+    private final cz.ad.print3d.aslicer.logic.net.PrinterConnectionPool connectionPool;
+
+    /**
      * Creates a new PrinterConnectionStep with the specified skin and discovery step.
      *
-     * @param skin          the UI skin to use
-     * @param discoveryStep the previous step containing selected devices
+     * @param skin           the UI skin to use
+     * @param discoveryStep  the previous step containing selected devices
+     * @param connectionPool the connection pool to use for printer clients
      */
-    public PrinterConnectionStep(Skin skin, PrinterDiscoveryStep discoveryStep) {
+    public PrinterConnectionStep(Skin skin, PrinterDiscoveryStep discoveryStep, cz.ad.print3d.aslicer.logic.net.PrinterConnectionPool connectionPool) {
         this.skin = skin;
         this.discoveryStep = discoveryStep;
+        this.connectionPool = connectionPool;
         this.content = new Table();
         this.content.pad(10);
     }
@@ -124,11 +126,8 @@ public class PrinterConnectionStep implements WizardStep {
 
     @Override
     public void onExit(Wizard wizard) {
-        // Disconnect all connected clients when leaving the step
-        for (PrinterClient client : activeClients.values()) {
-            client.disconnect();
-        }
-        activeClients.clear();
+        // We no longer disconnect all clients on exit, as they are managed by the connectionPool
+        // and might be needed in the next step or main application.
     }
 
     @Override
@@ -369,12 +368,10 @@ public class PrinterConnectionStep implements WizardStep {
         statusLabel.clearListeners();
         validateBtn.setDisabled(true);
 
-        // Disconnect old client if exists
-        if (activeClients.containsKey(ip)) {
-            activeClients.get(ip).disconnect();
-        }
+        // Disconnect old client if exists in the pool
+        connectionPool.removeClient(ip);
 
-        PrinterClient client = PrinterClientFactory.createClient(device, credentials);
+        PrinterClient client = connectionPool.getOrCreateClient(device, credentials);
         if (client == null) {
             String msg = "Unsupported vendor: " + device.getVendor();
             statusLabel.setText("Error: " + msg + " (click for details)");
@@ -389,7 +386,6 @@ public class PrinterConnectionStep implements WizardStep {
             validateBtn.setDisabled(false);
             return;
         }
-        activeClients.put(ip, client);
 
         client.setCertificateValidationCallback(details -> {
             CompletableFuture<Boolean> future = new CompletableFuture<>();
@@ -458,8 +454,7 @@ public class PrinterConnectionStep implements WizardStep {
                     });
                     // Do not disconnect immediately for Bambu Lab to receive reports
                     if (!"Bambu Lab".equalsIgnoreCase(device.getVendor())) {
-                        client.disconnect();
-                        activeClients.remove(ip);
+                        connectionPool.removeClient(ip);
                     }
                 })
                 .exceptionally(ex -> {
@@ -481,8 +476,7 @@ public class PrinterConnectionStep implements WizardStep {
                         });
                         validateBtn.setDisabled(false);
                     });
-                    client.disconnect();
-                    activeClients.remove(ip);
+                    connectionPool.removeClient(ip);
                     return null;
                 });
     }
@@ -612,14 +606,8 @@ public class PrinterConnectionStep implements WizardStep {
 
     @Override
     public void dispose() {
-        // Ensure all active clients are disconnected when the step is disposed
-        for (PrinterClient client : activeClients.values()) {
-            try {
-                client.disconnect();
-            } catch (Exception e) {
-                logger.error("Error during client disconnect: {}", e.getMessage());
-            }
-        }
-        activeClients.clear();
+        // In a real app, we might want to keep the pool alive beyond the wizard
+        // but if the whole UI is disposing, we might want to clear it.
+        // For now, we leave it to the application scope.
     }
 }

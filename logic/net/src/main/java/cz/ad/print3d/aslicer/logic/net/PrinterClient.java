@@ -26,6 +26,11 @@ public interface PrinterClient {
     CompletableFuture<Printer3DDto> getDetails();
 
     /**
+     * @return true if the client is currently connected.
+     */
+    boolean isConnected();
+
+    /**
      * Sets a callback that will be notified when printer details are updated
      * (e.g., when a report is received after an initial connection).
      *

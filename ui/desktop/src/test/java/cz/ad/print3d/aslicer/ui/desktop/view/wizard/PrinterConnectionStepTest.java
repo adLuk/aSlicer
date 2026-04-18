@@ -9,6 +9,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.Button;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import cz.ad.print3d.aslicer.logic.net.scanner.dto.DiscoveredDevice;
+import cz.ad.print3d.aslicer.logic.net.PrinterConnectionPool;
 import cz.ad.print3d.aslicer.ui.desktop.GdxTestUtils;
 import org.junit.jupiter.api.Test;
 
@@ -45,7 +46,7 @@ public class PrinterConnectionStepTest {
                         }
                     };
 
-                    PrinterConnectionStep connectionStep = new PrinterConnectionStep(skin, mockDiscoveryStep);
+                    PrinterConnectionStep connectionStep = new PrinterConnectionStep(skin, mockDiscoveryStep, new PrinterConnectionPool());
                     Wizard wizard = new Wizard("Test", skin);
                     wizard.addStep(mockDiscoveryStep);
                     wizard.addStep(connectionStep);
@@ -96,7 +97,7 @@ public class PrinterConnectionStepTest {
                         }
                     };
 
-                    PrinterConnectionStep connectionStep = new PrinterConnectionStep(skin, mockDiscoveryStep);
+                    PrinterConnectionStep connectionStep = new PrinterConnectionStep(skin, mockDiscoveryStep, new PrinterConnectionPool());
                     
                     // This should throw GdxRuntimeException
                     assertThrows(com.badlogic.gdx.utils.GdxRuntimeException.class, () -> {
@@ -135,7 +136,7 @@ public class PrinterConnectionStepTest {
                         }
                     };
 
-                    PrinterConnectionStep connectionStep = new PrinterConnectionStep(skin, mockDiscoveryStep);
+                    PrinterConnectionStep connectionStep = new PrinterConnectionStep(skin, mockDiscoveryStep, new PrinterConnectionPool());
                     Wizard wizard = new Wizard("Test", skin);
                     wizard.addStep(mockDiscoveryStep);
                     wizard.addStep(connectionStep);

@@ -239,15 +239,16 @@ public class DesktopUI implements Disposable {
     /**
      * Toggles the visibility of the printer discovery wizard.
      *
-     * @param initialWidth  the initial width of the wizard
-     * @param initialHeight the initial height of the wizard
-     * @param sizeCallback  a callback to be invoked when the wizard size changes or it is closed
+     * @param connectionPool the application-scope connection pool
+     * @param initialWidth   the initial width of the wizard
+     * @param initialHeight  the initial height of the wizard
+     * @param sizeCallback   a callback to be invoked when the wizard size changes or it is closed
      */
-    public void togglePrinterDiscoveryWindow(int initialWidth, int initialHeight, java.util.function.BiConsumer<Integer, Integer> sizeCallback) {
+    public void togglePrinterDiscoveryWindow(cz.ad.print3d.aslicer.logic.net.PrinterConnectionPool connectionPool, int initialWidth, int initialHeight, java.util.function.BiConsumer<Integer, Integer> sizeCallback) {
         if (printerWizard == null) {
             printerWizard = new Wizard("Printer Discovery Wizard", skin, initialWidth, initialHeight);
             PrinterDiscoveryStep discoveryStep = new PrinterDiscoveryStep(skin);
-            PrinterConnectionStep connectionStep = new PrinterConnectionStep(skin, discoveryStep);
+            PrinterConnectionStep connectionStep = new PrinterConnectionStep(skin, discoveryStep, connectionPool);
             
             printerWizard.addStep(discoveryStep);
             printerWizard.addStep(connectionStep);

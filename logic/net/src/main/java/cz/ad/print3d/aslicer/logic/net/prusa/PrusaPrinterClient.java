@@ -76,6 +76,11 @@ public class PrusaPrinterClient extends AbstractPrinterClient {
     }
 
     @Override
+    public boolean isConnected() {
+        return httpClient != null;
+    }
+
+    @Override
     public void disconnect() {
     }
 }
