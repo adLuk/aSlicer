@@ -115,7 +115,10 @@ public class LanguageSelectBox extends Table {
                 float x = getX(), y = getY(), width = getWidth(), height = getHeight();
                 float itemHeight = getItemHeight();
 
-                batch.getColor().a *= parentAlpha;
+                Color color = batch.getColor();
+                float oldAlpha = color.a;
+                batch.setColor(color.r, color.g, color.b, color.a * parentAlpha);
+
                 if (getStyle().background != null) {
                     getStyle().background.draw(batch, x, y, width, height);
                 }
@@ -140,9 +143,12 @@ public class LanguageSelectBox extends Table {
 
                     itemY -= itemHeight;
                 }
+                
+                batch.setColor(color.r, color.g, color.b, oldAlpha);
             }
         };
         this.languageList.setItems(items);
+        this.languageList.getSelection().setProgrammaticChangeEvents(false);
         
         this.scrollPane = new ScrollPane(languageList, skin);
         this.scrollPane.setVisible(false);
@@ -160,13 +166,27 @@ public class LanguageSelectBox extends Table {
         });
 
         languageList.addListener(new ChangeListener() {
+            /**
+             * Handles selection changes in the language list.
+             * The dropdown is hidden only when a user explicitly selects a language.
+             * Programmatic changes (e.g., during initialization) do not trigger this.
+             *
+             * @param event the change event
+             * @param actor the list actor
+             */
             @Override
             public void changed(ChangeEvent event, Actor actor) {
+                // Ensure the event originated from the list itself and not a bubble from elsewhere
+                if (event.getTarget() != languageList) {
+                    return;
+                }
+                
                 LanguageItem selected = languageList.getSelected();
                 if (selected != null) {
                     updateButton(selected);
                     hideDropdown();
-                    // Trigger a change event on this Table to notify listeners
+                    
+                    // Trigger a change event on this Table to notify external listeners (like AppToolbar)
                     ChangeEvent ce = com.badlogic.gdx.utils.Pools.obtain(ChangeEvent.class);
                     fire(ce);
                     com.badlogic.gdx.utils.Pools.free(ce);
@@ -175,8 +195,7 @@ public class LanguageSelectBox extends Table {
         });
 
         add(selectionButton).fill().expand();
-
-        setSelectedByLocale(I18N.getCurrentLocale());
+        setSelectedByLocale(I18N.getCurrentLocale(), false);
     }
 
     private void showDropdown() {
@@ -186,6 +205,7 @@ public class LanguageSelectBox extends Table {
         stage.addActor(scrollPane);
         scrollPane.setVisible(true);
         updateScrollPaneSizeAndPosition();
+        scrollPane.validate(); // Ensure layout is calculated
         scrollPane.toFront();
         stage.setScrollFocus(scrollPane);
 
@@ -215,14 +235,21 @@ public class LanguageSelectBox extends Table {
     private void updateScrollPaneSizeAndPosition() {
         if (getStage() == null) return;
 
-        float width = getWidth();
+        float width = Math.max(150, getWidth());
         float itemHeight = languageList.getItemHeight();
         float height = Math.min(200, items.size * itemHeight);
         
         scrollPane.setSize(width, height);
         
         com.badlogic.gdx.math.Vector2 stagePos = localToStageCoordinates(new com.badlogic.gdx.math.Vector2(0, 0));
-        scrollPane.setPosition(stagePos.x, stagePos.y - height);
+        float stageHeight = getStage().getHeight();
+        
+        // If there's not enough space below, show it above
+        if (stagePos.y - height < 0 && stageHeight - (stagePos.y + getHeight()) > height) {
+            scrollPane.setPosition(stagePos.x, stagePos.y + getHeight());
+        } else {
+            scrollPane.setPosition(stagePos.x, stagePos.y - height);
+        }
     }
 
     @Override
@@ -235,26 +262,46 @@ public class LanguageSelectBox extends Table {
     }
 
     private void setupItems() {
-        items.add(new LanguageItem(Locale.forLanguageTag("en-US"), "English", createFlagIcon("US")));
-        items.add(new LanguageItem(Locale.forLanguageTag("cs-CZ"), "Čeština", createFlagIcon("CZ")));
-        items.add(new LanguageItem(Locale.forLanguageTag("sk-SK"), "Slovenčina", createFlagIcon("SK")));
-        items.add(new LanguageItem(Locale.forLanguageTag("de-DE"), "Deutsch", createFlagIcon("DE")));
-        items.add(new LanguageItem(Locale.forLanguageTag("es-ES"), "Español", createFlagIcon("ES")));
-        items.add(new LanguageItem(Locale.forLanguageTag("uk-UA"), "Українська", createFlagIcon("UA")));
-        items.add(new LanguageItem(Locale.forLanguageTag("th-TH"), "ไทย", createFlagIcon("TH")));
-        items.add(new LanguageItem(Locale.forLanguageTag("zh-CN"), "中文", createFlagIcon("CN")));
+        for (Locale locale : I18N.getSupportedLocales()) {
+            String name = locale.getDisplayLanguage(locale);
+            if (name.length() > 0) {
+                name = name.substring(0, 1).toUpperCase() + name.substring(1);
+            }
+            items.add(new LanguageItem(locale, name, createFlagIcon(locale.getCountry())));
+        }
     }
 
     /**
      * Sets the selection based on the provided locale.
+     * Fires a ChangeEvent if the selection actually changes.
      *
      * @param locale the locale to select
      */
     public void setSelectedByLocale(Locale locale) {
+        setSelectedByLocale(locale, true);
+    }
+
+    /**
+     * Internal method to set selection with optional event firing.
+     *
+     * @param locale the locale to select
+     * @param fireEvent true to fire a ChangeEvent if selection changes
+     */
+    private void setSelectedByLocale(Locale locale, boolean fireEvent) {
         for (LanguageItem item : items) {
             if (item.getLocale().getLanguage().equals(locale.getLanguage())) {
-                languageList.setSelected(item);
-                updateButton(item);
+                if (languageList.getSelected() != item) {
+                    languageList.setSelected(item);
+                    updateButton(item);
+                    
+                    if (fireEvent) {
+                        // Fire a change event to notify listeners that the selection has changed programmatically
+                        com.badlogic.gdx.scenes.scene2d.utils.ChangeListener.ChangeEvent ce = 
+                            com.badlogic.gdx.utils.Pools.obtain(com.badlogic.gdx.scenes.scene2d.utils.ChangeListener.ChangeEvent.class);
+                        fire(ce);
+                        com.badlogic.gdx.utils.Pools.free(ce);
+                    }
+                }
                 break;
             }
         }
@@ -265,6 +312,13 @@ public class LanguageSelectBox extends Table {
      */
     public LanguageItem getSelected() {
         return languageList.getSelected();
+    }
+
+    /**
+     * @return the number of available language options
+     */
+    public int getItemsCount() {
+        return items.size;
     }
 
     private void updateButton(LanguageItem item) {

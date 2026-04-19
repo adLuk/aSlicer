@@ -17,15 +17,45 @@ public final class I18N {
     private static ResourceBundle javaBundle;
     private static Locale currentLocale;
 
+    private static final Locale[] SUPPORTED_LOCALES = {
+            Locale.forLanguageTag("en-US"),
+            Locale.forLanguageTag("cs-CZ"),
+            Locale.forLanguageTag("sk-SK"),
+            Locale.forLanguageTag("de-DE"),
+            Locale.forLanguageTag("es-ES"),
+            Locale.forLanguageTag("uk-UA"),
+            Locale.forLanguageTag("th-TH"),
+            Locale.forLanguageTag("zh-CN")
+    };
+
     /**
      * Initializes the localization system with the default locale.
      */
     public static void init() {
         if (currentLocale == null) {
-            init(Locale.getDefault());
+            Locale defaultLocale = Locale.getDefault();
+            // Check if default locale is supported, otherwise fallback to first supported
+            boolean supported = false;
+            for (Locale locale : SUPPORTED_LOCALES) {
+                if (locale.getLanguage().equals(defaultLocale.getLanguage())) {
+                    supported = true;
+                    init(locale);
+                    break;
+                }
+            }
+            if (!supported) {
+                init(SUPPORTED_LOCALES[0]);
+            }
         } else {
             init(currentLocale);
         }
+    }
+
+    /**
+     * @return an array of supported locales
+     */
+    public static Locale[] getSupportedLocales() {
+        return SUPPORTED_LOCALES.clone();
     }
 
     /**
