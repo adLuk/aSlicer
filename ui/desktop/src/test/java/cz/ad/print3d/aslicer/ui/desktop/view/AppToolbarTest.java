@@ -76,6 +76,11 @@ public class AppToolbarTest {
                         public void onAddPrinter() {
                             addPrinterCalled.set(true);
                         }
+
+                        @Override
+                        public void onLanguageChanged(java.util.Locale locale) {
+                            // Test implementation
+                        }
                     }, repository);
 
                     assertNotNull(toolbar);

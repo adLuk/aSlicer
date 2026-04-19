@@ -59,12 +59,20 @@ public final class AppToolbar extends Table {
          * Called when the add printer button is clicked.
          */
         void onAddPrinter();
+
+        /**
+         * Called when the application language is changed.
+         *
+         * @param locale the new locale
+         */
+        void onLanguageChanged(java.util.Locale locale);
     }
 
     private final Skin skin;
     private final ToolbarListener listener;
     private final PrinterRepository repository;
     private PrinterSelectBox printerSelectBox;
+    private LanguageSelectBox languageSelectBox;
 
     /**
      * Creates a new toolbar with the specified skin, listener and printer repository.
@@ -131,14 +139,26 @@ public final class AppToolbar extends Table {
         printerGroup.addButton(printerSelectBox);
         printerGroup.addButton(addPrinterButton);
 
+        languageSelectBox = new LanguageSelectBox(skin);
+        languageSelectBox.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                if (listener != null && languageSelectBox.getSelected() != null) {
+                    listener.onLanguageChanged(languageSelectBox.getSelected().getLocale());
+                }
+            }
+        });
+
         ToolbarGroup settingsGroup = new ToolbarGroup(skin);
+        settingsGroup.addButton(languageSelectBox);
         settingsGroup.addButton(settingsButton);
         settingsGroup.setSeparatorVisible(false);
+        settingsGroup.getButtonContainer().right();
 
-        add(modelGroup).fillY();
-        add(printerGroup).fillY();
+        add(modelGroup).fillY().left();
+        add(printerGroup).fillY().left().padLeft(10);
         add().expandX();
-        add(settingsGroup).fillY();
+        add(settingsGroup).fillY().right();
         left();
     }
 

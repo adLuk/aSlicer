@@ -39,7 +39,7 @@ public class PrinterToolbarTest {
             public void create() {
                 try {
                     GdxTestUtils.mockGdxGL();
-                    Skin skin = createTestSkin();
+                    Skin skin = GdxTestUtils.createTestSkin();
                     PrinterRepository repository = createMockRepository();
                     
                     AppToolbar toolbar = new AppToolbar(skin, null, repository);
@@ -79,38 +79,6 @@ public class PrinterToolbarTest {
                     latch.countDown();
                     Gdx.app.exit();
                 }
-            }
-
-            private Skin createTestSkin() {
-                Skin skin = new Skin();
-                Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
-                pixmap.setColor(Color.WHITE);
-                pixmap.fill();
-                skin.add("white", new Texture(pixmap));
-                BitmapFont font = new BitmapFont();
-                skin.add("default", font);
-                
-                TextButton.TextButtonStyle textButtonStyle = new TextButton.TextButtonStyle();
-                textButtonStyle.font = font;
-                skin.add("default", textButtonStyle);
-                
-                CheckBox.CheckBoxStyle checkBoxStyle = new CheckBox.CheckBoxStyle();
-                checkBoxStyle.font = font;
-                skin.add("default", checkBoxStyle);
-                
-                ScrollPane.ScrollPaneStyle scrollPaneStyle = new ScrollPane.ScrollPaneStyle();
-                skin.add("default", scrollPaneStyle);
-                
-                Window.WindowStyle windowStyle = new Window.WindowStyle();
-                windowStyle.titleFont = font;
-                skin.add("default", windowStyle);
-
-                com.badlogic.gdx.scenes.scene2d.ui.List.ListStyle listStyle = new com.badlogic.gdx.scenes.scene2d.ui.List.ListStyle();
-                listStyle.font = font;
-                listStyle.selection = skin.newDrawable("white", Color.LIGHT_GRAY);
-                skin.add("default", listStyle);
-
-                return skin;
             }
 
             private PrinterRepository createMockRepository() {

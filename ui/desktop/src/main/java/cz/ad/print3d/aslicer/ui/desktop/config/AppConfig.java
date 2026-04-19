@@ -194,6 +194,8 @@ public class AppConfig {
         dto.setGridSize(getFloat("grid.size", 5.0f));
         dto.setProtectedData(Boolean.parseBoolean(getProperty("protected.data", "false")));
         dto.setTrustSystemCerts(Boolean.parseBoolean(getProperty("ssl.trust_system_certs", "true")));
+        dto.setLanguage(getProperty("locale.language", java.util.Locale.getDefault().getLanguage()));
+        dto.setCountry(getProperty("locale.country", java.util.Locale.getDefault().getCountry()));
 
         int loadedFileCount = getInt("loaded.file.count", 0);
         List<String> loadedFiles = new ArrayList<>();
@@ -255,6 +257,8 @@ public class AppConfig {
         setProperty("grid.size", dto.getGridSize());
         setProperty("protected.data", String.valueOf(dto.isProtectedData()));
         setProperty("ssl.trust_system_certs", String.valueOf(dto.isTrustSystemCerts()));
+        setProperty("locale.language", dto.getLanguage());
+        setProperty("locale.country", dto.getCountry());
 
         List<String> loadedFiles = dto.getLoadedFiles();
         setProperty("loaded.file.count", loadedFiles.size());

@@ -15,12 +15,17 @@ import java.util.ResourceBundle;
 public final class I18N {
     private static I18NBundle gdxBundle;
     private static ResourceBundle javaBundle;
+    private static Locale currentLocale;
 
     /**
      * Initializes the localization system with the default locale.
      */
     public static void init() {
-        init(Locale.getDefault());
+        if (currentLocale == null) {
+            init(Locale.getDefault());
+        } else {
+            init(currentLocale);
+        }
     }
 
     /**
@@ -29,6 +34,7 @@ public final class I18N {
      * @param locale the locale to use for loading the bundle
      */
     public static void init(Locale locale) {
+        currentLocale = locale;
         try {
             javaBundle = ResourceBundle.getBundle("i18n.messages", locale);
         } catch (Exception e) {
@@ -42,6 +48,15 @@ public final class I18N {
                 // Log error or handle missing bundle
             }
         }
+    }
+
+    /**
+     * Gets the current locale used by the localization system.
+     *
+     * @return the current locale
+     */
+    public static Locale getCurrentLocale() {
+        return currentLocale != null ? currentLocale : Locale.getDefault();
     }
 
     /**

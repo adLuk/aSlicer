@@ -233,6 +233,7 @@ public class DesktopApp implements ApplicationListener {
             dto.setCameraTargetY(sceneManager.getCameraController().target.y);
             dto.setCameraTargetZ(sceneManager.getCameraController().target.z);
         }
+        dto.setLocale(I18N.getCurrentLocale());
         appConfig.saveFromDto(dto);
         if (modelManager != null) {
             scenePersistence.saveScene(modelManager.getLoadedModelPaths(), modelManager.getInstances());
@@ -247,11 +248,11 @@ public class DesktopApp implements ApplicationListener {
      */
     @Override
     public void create() {
-        I18N.init();
+        AppConfigDto dto = appConfig.loadToDto();
+        I18N.init(dto.getLocale());
         // Start network information collection as early as possible
         new cz.ad.print3d.aslicer.logic.net.info.NetworkInformationCollector().collectAsync();
 
-        AppConfigDto dto = appConfig.loadToDto();
         lastDir = dto.getLastDir();
         currentModelPath = dto.getLastFile();
 
@@ -401,6 +402,19 @@ public class DesktopApp implements ApplicationListener {
             @Override
             public void onAddPrinter() {
                 togglePrinterDiscoveryWindow();
+            }
+
+            @Override
+            public void onLanguageChanged(java.util.Locale locale) {
+                AppConfigDto currentDto = appConfig.loadToDto();
+                currentDto.setLocale(locale);
+                appConfig.saveFromDto(currentDto);
+                I18N.init(locale);
+                // Refresh UI to apply new language
+                setupUI();
+                updateInputProcessor();
+                // We need to restore the state of windows if they were open
+                // but for now, re-calling setupUI is the core requirement for persistence between runs
             }
         }, printerRepository);
 

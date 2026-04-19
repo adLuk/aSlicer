@@ -2,8 +2,12 @@ package cz.ad.print3d.aslicer.ui.desktop.view;
 import cz.ad.print3d.aslicer.ui.desktop.I18N;
 
 import com.badlogic.gdx.scenes.scene2d.Actor;
+import com.badlogic.gdx.scenes.scene2d.InputEvent;
+import com.badlogic.gdx.scenes.scene2d.InputListener;
+import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
+import com.badlogic.gdx.math.Vector2;
 import cz.ad.print3d.aslicer.logic.printer.Printer3D;
 import cz.ad.print3d.aslicer.logic.printer.PrinterRepository;
 
@@ -24,29 +28,85 @@ public final class PrinterSelectBox extends Table {
     private final Map<Printer3D, CheckBox> printerCheckBoxMap = new java.util.HashMap<>();
     private final Table printerListTable;
     private final ScrollPane scrollPane;
+    private InputListener stageHideListener;
 
     public PrinterSelectBox(Skin skin, PrinterRepository repository) {
         this.skin = skin;
         this.repository = repository;
         this.selectionButton = new TextButton("", skin);
         
-        add(selectionButton).fillX().expandX();
+        add(selectionButton).fill().expand();
         
         this.printerListTable = new Table();
         this.scrollPane = new ScrollPane(printerListTable, skin);
         this.scrollPane.setVisible(false);
+        this.scrollPane.setFadeScrollBars(false);
         
         selectionButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
-                scrollPane.setVisible(!scrollPane.isVisible());
+                if (scrollPane.getParent() != null) {
+                    hideDropdown();
+                } else {
+                    showDropdown();
+                }
             }
         });
         
-        row();
-        add(scrollPane).fillX().expandX().maxHeight(200);
-        
         refresh();
+    }
+
+    private void showDropdown() {
+        Stage stage = getStage();
+        if (stage == null) return;
+
+        stage.addActor(scrollPane);
+        scrollPane.setVisible(true);
+        updateScrollPaneSizeAndPosition();
+        scrollPane.toFront();
+        stage.setScrollFocus(scrollPane);
+
+        stageHideListener = new InputListener() {
+            @Override
+            public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
+                if (!scrollPane.isAscendantOf(event.getTarget()) && event.getTarget() != selectionButton) {
+                    hideDropdown();
+                    return true;
+                }
+                return false;
+            }
+        };
+        stage.addListener(stageHideListener);
+    }
+
+    private void hideDropdown() {
+        if (getStage() != null && stageHideListener != null) {
+            getStage().removeListener(stageHideListener);
+            stageHideListener = null;
+        }
+        scrollPane.remove();
+        scrollPane.setVisible(false);
+    }
+
+    private void updateScrollPaneSizeAndPosition() {
+        if (getStage() == null) return;
+
+        float width = getWidth();
+        float height = Math.min(200, printerListTable.getPrefHeight());
+        
+        scrollPane.setSize(width, height);
+        
+        Vector2 stagePos = localToStageCoordinates(new Vector2(0, 0));
+        scrollPane.setPosition(stagePos.x, stagePos.y - height);
+    }
+
+    @Override
+    public void act(float delta) {
+        super.act(delta);
+        if (scrollPane.getParent() != null) {
+            updateScrollPaneSizeAndPosition();
+            scrollPane.toFront();
+        }
     }
 
     public void refresh() {

@@ -19,6 +19,7 @@ package cz.ad.print3d.aslicer.ui.desktop.config;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Data Transfer Object for application configuration settings.
@@ -82,6 +83,10 @@ public class AppConfigDto {
 
     // SSL Trust Management
     private boolean trustSystemCerts = true;
+
+    // Localization settings
+    private String language = Locale.getDefault().getLanguage();
+    private String country = Locale.getDefault().getCountry();
 
     /**
      * @return the width of the application window
@@ -497,9 +502,54 @@ public class AppConfigDto {
     }
 
     /**
-     * @param trustSystemCerts true if system certificates should be trusted as a fallback
+     * @param trustSystemCerts the trustSystemCerts to set
      */
     public void setTrustSystemCerts(boolean trustSystemCerts) {
         this.trustSystemCerts = trustSystemCerts;
+    }
+
+    /**
+     * @return the current application locale
+     */
+    public Locale getLocale() {
+        return Locale.of(language, country);
+    }
+
+    /**
+     * @param locale the locale to set for the application
+     */
+    public void setLocale(Locale locale) {
+        if (locale != null) {
+            this.language = locale.getLanguage();
+            this.country = locale.getCountry();
+        }
+    }
+
+    /**
+     * @return the language code
+     */
+    public String getLanguage() {
+        return language;
+    }
+
+    /**
+     * @param language the language code to set
+     */
+    public void setLanguage(String language) {
+        this.language = language;
+    }
+
+    /**
+     * @return the country code
+     */
+    public String getCountry() {
+        return country;
+    }
+
+    /**
+     * @param country the country code to set
+     */
+    public void setCountry(String country) {
+        this.country = country;
     }
 }

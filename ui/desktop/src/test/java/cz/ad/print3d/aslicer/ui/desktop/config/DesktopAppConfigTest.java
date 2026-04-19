@@ -175,4 +175,21 @@ public class DesktopAppConfigTest {
             throw new RuntimeException(errorRef.get());
         }
     }
+
+    @Test
+    void testLocalePersistence() throws IOException {
+        AppConfig config = new AppConfig();
+        AppConfigDto dto = new AppConfigDto();
+        java.util.Locale csLocale = java.util.Locale.of("cs", "CZ");
+        dto.setLocale(csLocale);
+        config.saveFromDto(dto);
+        config.save();
+
+        assertTrue(Files.exists(AppConfig.CONFIG_PATH));
+        AppConfig config2 = new AppConfig();
+        AppConfigDto dto2 = config2.loadToDto();
+        assertEquals("cs", dto2.getLanguage());
+        assertEquals("CZ", dto2.getCountry());
+        assertEquals(csLocale, dto2.getLocale());
+    }
 }
