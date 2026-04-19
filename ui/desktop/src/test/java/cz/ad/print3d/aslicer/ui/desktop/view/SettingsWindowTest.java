@@ -25,12 +25,9 @@ import com.badlogic.gdx.graphics.*;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g3d.utils.CameraInputController;
 import com.badlogic.gdx.scenes.scene2d.Actor;
-import com.badlogic.gdx.scenes.scene2d.ui.CheckBox;
-import com.badlogic.gdx.scenes.scene2d.ui.Label;
-import com.badlogic.gdx.scenes.scene2d.ui.Skin;
-import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
-import com.badlogic.gdx.scenes.scene2d.ui.Window;
+import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
+import cz.ad.print3d.aslicer.ui.desktop.I18N;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.CountDownLatch;
@@ -51,6 +48,7 @@ public class SettingsWindowTest {
             @Override
             public void create() {
                 try {
+                    I18N.init();
                     mockGdxGL();
                     Skin skin = createTestSkin();
                     PerspectiveCamera cam = new PerspectiveCamera();
@@ -61,7 +59,7 @@ public class SettingsWindowTest {
 
                     SettingsWindow window = new SettingsWindow(skin, camController, 0.5f, false, updatedGridSize::set, updatedProtectedData::set, () -> saved.set(true));
 
-                    assertEquals("Settings", window.getTitleLabel().getText().toString());
+                    assertEquals(I18N.get("settings.title"), window.getTitleLabel().getText().toString());
                     assertTrue(window.isVisible());
 
                     // Find grid size button and test cycling
@@ -72,7 +70,7 @@ public class SettingsWindowTest {
                     assertEquals("1.0", gridBtn.getText().toString());
 
                     // Find and click the save button
-                    TextButton saveBtn = findButton(window, "Save");
+                    TextButton saveBtn = findButton(window, I18N.get("settings.save"));
                     assertNotNull(saveBtn, "Save button should be found");
                     
                     saveBtn.fire(new ChangeListener.ChangeEvent());

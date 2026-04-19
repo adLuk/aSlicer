@@ -30,6 +30,7 @@ import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.utils.Array;
 import cz.ad.print3d.aslicer.logic.model.Model;
 import cz.ad.print3d.aslicer.logic.model.basic.LengthUnit;
+import cz.ad.print3d.aslicer.ui.desktop.I18N;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.CountDownLatch;
@@ -51,6 +52,7 @@ public class ModelListWindowTest {
             @Override
             public void create() {
                 try {
+                    I18N.init();
                     mockGdxGL();
                     Skin skin = createTestSkin();
                     final Array<String> paths = new Array<>();
@@ -87,7 +89,7 @@ public class ModelListWindowTest {
                     });
                     ModelListWindow window = windowRef[0];
                     assertNotNull(window);
-                    assertEquals("Loaded Models", window.getTitleLabel().getText().toString());
+                    assertEquals(I18N.get("modellist.title"), window.getTitleLabel().getText().toString());
 
                     // Check list items
                     List<ModelListWindow.ModelListItem> list = window.getInternalList();

@@ -3,9 +3,9 @@ package cz.ad.print3d.aslicer.ui.desktop;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.utils.I18NBundle;
 
+import java.text.MessageFormat;
 import java.util.Locale;
 import java.util.ResourceBundle;
-import java.text.MessageFormat;
 
 /**
  * Central class for handling localization in the desktop application.
@@ -37,7 +37,7 @@ public final class I18N {
 
         if (Gdx.files != null) {
             try {
-                gdxBundle = I18NBundle.createBundle(Gdx.files.internal("i18n/messages"), locale);
+                gdxBundle = I18NBundle.createBundle(Gdx.files.internal("i18n/messages"), locale, "UTF-8");
             } catch (Exception e) {
                 // Log error or handle missing bundle
             }

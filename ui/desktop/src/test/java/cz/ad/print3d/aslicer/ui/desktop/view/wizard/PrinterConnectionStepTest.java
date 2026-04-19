@@ -4,13 +4,14 @@ import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.backends.headless.HeadlessApplication;
 import com.badlogic.gdx.backends.headless.HeadlessApplicationConfiguration;
-import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.Button;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
-import cz.ad.print3d.aslicer.logic.net.scanner.dto.DiscoveredDevice;
 import cz.ad.print3d.aslicer.logic.net.PrinterConnectionPool;
+import cz.ad.print3d.aslicer.logic.net.scanner.dto.DiscoveredDevice;
 import cz.ad.print3d.aslicer.ui.desktop.GdxTestUtils;
+import cz.ad.print3d.aslicer.ui.desktop.I18N;
 import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
@@ -32,6 +33,7 @@ public class PrinterConnectionStepTest {
             @Override
             public void create() {
                 try {
+                    I18N.init();
                     GdxTestUtils.mockGdxGL();
                     Skin skin = GdxTestUtils.createTestSkin();
 
@@ -82,6 +84,7 @@ public class PrinterConnectionStepTest {
             @Override
             public void create() {
                 try {
+                    I18N.init();
                     GdxTestUtils.mockGdxGL();
                     Skin skin = GdxTestUtils.createTestSkin();
                     // Remove ButtonStyle to simulate the bug
@@ -122,6 +125,7 @@ public class PrinterConnectionStepTest {
             @Override
             public void create() {
                 try {
+                    I18N.init();
                     GdxTestUtils.mockGdxGL();
                     Skin skin = GdxTestUtils.createTestSkin();
 
@@ -155,7 +159,7 @@ public class PrinterConnectionStepTest {
                             for (com.badlogic.gdx.scenes.scene2d.Actor cardChild : deviceCard.getChildren()) {
                                 if (cardChild instanceof Table actionTable) {
                                     for (com.badlogic.gdx.scenes.scene2d.Actor actionChild : actionTable.getChildren()) {
-                                        if (actionChild instanceof com.badlogic.gdx.scenes.scene2d.ui.TextButton btn && "Validate".equals(btn.getText().toString())) {
+                                        if (actionChild instanceof com.badlogic.gdx.scenes.scene2d.ui.TextButton btn && I18N.get("wizard.printer.connection.validate").equals(btn.getText().toString())) {
                                             validateBtn = btn;
                                         } else if (actionChild instanceof Label lbl) {
                                             statusLabel = lbl;
@@ -172,8 +176,7 @@ public class PrinterConnectionStepTest {
                     // Trigger validation (it will fail because vendor is unknown)
                     validateBtn.toggle(); // This triggers the ChangeListener
                     
-                    assertTrue(statusLabel.getText().toString().contains("Unsupported vendor"));
-                    assertTrue(statusLabel.getText().toString().contains("(click for details)"));
+                    assertTrue(statusLabel.getText().toString().contains(I18N.format("wizard.printer.connection.errorFormat", "Unsupported vendor")));
                     // ClickListener is added in validateConnection
                     assertEquals(1, statusLabel.getListeners().size);
 

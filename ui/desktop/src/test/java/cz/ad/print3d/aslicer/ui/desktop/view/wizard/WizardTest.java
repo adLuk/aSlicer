@@ -10,6 +10,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import cz.ad.print3d.aslicer.ui.desktop.GdxTestUtils;
+import cz.ad.print3d.aslicer.ui.desktop.I18N;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.CountDownLatch;
@@ -31,6 +32,7 @@ public class WizardTest {
             @Override
             public void create() {
                 try {
+                    I18N.init();
                     GdxTestUtils.mockGdxGL();
                     Skin skin = GdxTestUtils.createTestSkin();
                     Wizard wizard = new Wizard("Test Wizard", skin);
@@ -67,12 +69,12 @@ public class WizardTest {
                     // Test next navigation (should work if complete)
                     step1.complete = true;
                     wizard.updateButtons();
-                    assertEquals("Step 1 of 2", wizard.getStepProgressLabel().getText().toString());
+                    assertEquals(I18N.format("wizard.stepProgressFormat", 1, 2), wizard.getStepProgressLabel().getText().toString());
 
                     wizard.next();
                     assertFalse(step1.isEntered);
                     assertTrue(step2.isEntered);
-                    assertEquals("Step 2 of 2", wizard.getStepProgressLabel().getText().toString());
+                    assertEquals(I18N.format("wizard.stepProgressFormat", 2, 2), wizard.getStepProgressLabel().getText().toString());
 
                     // Test back navigation
                     wizard.back();

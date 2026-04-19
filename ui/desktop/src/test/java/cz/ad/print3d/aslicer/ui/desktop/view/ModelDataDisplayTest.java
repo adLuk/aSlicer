@@ -27,6 +27,7 @@ import com.badlogic.gdx.utils.Array;
 import cz.ad.print3d.aslicer.logic.model.Model;
 import cz.ad.print3d.aslicer.logic.model.basic.LengthUnit;
 import cz.ad.print3d.aslicer.ui.desktop.GdxTestUtils;
+import cz.ad.print3d.aslicer.ui.desktop.I18N;
 import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
@@ -50,6 +51,7 @@ public class ModelDataDisplayTest {
             @Override
             public void create() {
                 try {
+                    I18N.init();
                     GdxTestUtils.mockGdxGL();
                     Skin skin = GdxTestUtils.createTestSkin();
 
@@ -69,14 +71,14 @@ public class ModelDataDisplayTest {
                     for (com.badlogic.gdx.scenes.scene2d.Actor actor : window.getChildren()) {
                         if (actor instanceof Label) {
                             Label l = (Label) actor;
-                            if (l.getText().toString().contains("No model selected")) {
+                            if (l.getText().toString().contains(I18N.get("modellist.noSelection"))) {
                                 foundDetailLabel = l;
                                 break;
                             }
                         }
                     }
                     
-                    assertTrue(foundDetailLabel != null, "Detail label should show 'No model selected' initially");
+                    assertTrue(foundDetailLabel != null, "Detail label should show '" + I18N.get("modellist.noSelection") + "' initially");
 
                     // Select the model
                     Array<Integer> selection = new Array<>();
@@ -84,9 +86,9 @@ public class ModelDataDisplayTest {
                     window.setSelectedIndices(selection);
 
                     String text = foundDetailLabel.getText().toString();
-                    assertTrue(text.contains("Parts: 1"), "Should show part count");
-                    assertTrue(text.contains("Triangles: 100"), "Should show triangle count");
-                    assertTrue(text.contains("Units: millimeter"), "Should show units");
+                    assertTrue(text.contains(I18N.get("modellist.parts") + " 1"), "Should show part count");
+                    assertTrue(text.contains(I18N.get("modellist.triangles") + " 100"), "Should show triangle count");
+                    assertTrue(text.contains(I18N.get("modellist.units") + " " + I18N.get("unit.millimeter")), "Should show units");
 
                     latch.countDown();
                 } catch (Exception e) {

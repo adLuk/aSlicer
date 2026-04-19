@@ -17,10 +17,14 @@
  */
 package cz.ad.print3d.aslicer.ui.desktop.view;
 
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
+import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator.FreeTypeFontParameter;
 import com.badlogic.gdx.graphics.g3d.utils.CameraInputController;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.Touchable;
@@ -35,6 +39,10 @@ import cz.ad.print3d.aslicer.ui.desktop.view.wizard.PrinterConnectionStep;
 import cz.ad.print3d.aslicer.ui.desktop.view.wizard.PrinterDiscoveryStep;
 import cz.ad.print3d.aslicer.ui.desktop.view.wizard.Wizard;
 
+import java.io.InputStreamReader;
+import java.util.HashSet;
+import java.util.Properties;
+import java.util.Set;
 import java.util.function.Consumer;
 
 /**
@@ -112,6 +120,56 @@ public class DesktopUI implements Disposable {
     }
 
     /**
+     * Creates a font that supports all required character ranges.
+     * @return the generated BitmapFont
+     */
+    public BitmapFont createFont() {
+        if (Gdx.files.internal("fonts/NotoSans-Regular.ttf").exists()) {
+            FreeTypeFontGenerator generator = new FreeTypeFontGenerator(Gdx.files.internal("fonts/NotoSans-Regular.ttf"));
+            FreeTypeFontParameter parameter = new FreeTypeFontParameter();
+            parameter.size = 16;
+            
+            Set<Character> charSet = new HashSet<>();
+            for (char c : FreeTypeFontGenerator.DEFAULT_CHARS.toCharArray()) {
+                charSet.add(c);
+            }
+            
+            // Collect all unique characters from localization files
+            String[] suffixes = {"", "_cs", "_de", "_en", "_es", "_sk", "_th", "_uk", "_zh"};
+            for (String suffix : suffixes) {
+                FileHandle file = Gdx.files.internal("i18n/messages" + suffix + ".properties");
+                if (file.exists()) {
+                    Properties props = new Properties();
+                    try (InputStreamReader reader = new InputStreamReader(file.read(), "UTF-8")) {
+                        props.load(reader);
+                        for (Object value : props.values()) {
+                            String s = value.toString();
+                            for (int i = 0; i < s.length(); i++) {
+                                char c = s.charAt(i);
+                                if (!Character.isWhitespace(c) && !Character.isISOControl(c)) {
+                                    charSet.add(c);
+                                }
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                }
+            }
+            
+            StringBuilder sb = new StringBuilder();
+            for (Character c : charSet) {
+                sb.append(c);
+            }
+            parameter.characters = sb.toString();
+            
+            BitmapFont font = generator.generateFont(parameter);
+            generator.dispose();
+            return font;
+        }
+        // Fallback to default if font file is missing
+        return new BitmapFont();
+    }
+
+    /**
      * Creates the default UI skin.
      *
      * @return the created Skin object
@@ -122,8 +180,8 @@ public class DesktopUI implements Disposable {
         pixmap.setColor(Color.WHITE);
         pixmap.fill();
         skin.add("white", new Texture(pixmap));
-
-        BitmapFont font = new BitmapFont();
+        
+        BitmapFont font = createFont();
         skin.add("default", font);
 
         Label.LabelStyle labelStyle = new Label.LabelStyle();

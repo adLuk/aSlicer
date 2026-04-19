@@ -16,7 +16,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 package cz.ad.print3d.aslicer.ui.desktop.view;
-import cz.ad.print3d.aslicer.ui.desktop.I18N;
 
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
@@ -28,6 +27,7 @@ import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.*;
 import com.badlogic.gdx.utils.Array;
+import cz.ad.print3d.aslicer.ui.desktop.I18N;
 
 /**
  * Window that displays a list of currently loaded models in the scene.
@@ -422,7 +422,10 @@ public final class ModelListWindow extends Window {
 
             String unitStr = model.lengthUnit() != null ? model.lengthUnit().getValue() : "unknown";
             String info = I18N.format("modellist.infoFormat",
-                item.displayName, partCount, triangleCount, unitStr);
+                item.displayName, 
+                I18N.get("modellist.parts"), partCount,
+                I18N.get("modellist.triangles"), triangleCount,
+                I18N.get("modellist.units"), I18N.get("unit." + unitStr));
             detailLabel.setText(info);
         } else {
             detailLabel.setText(I18N.get("modellist.dataNotAvailable"));

@@ -16,6 +16,7 @@ import cz.ad.print3d.aslicer.logic.net.scanner.dto.DiscoveredDevice;
 import cz.ad.print3d.aslicer.logic.net.scanner.dto.MdnsServiceInfo;
 import cz.ad.print3d.aslicer.logic.net.scanner.dto.PortScanResult;
 import cz.ad.print3d.aslicer.ui.desktop.GdxTestUtils;
+import cz.ad.print3d.aslicer.ui.desktop.I18N;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -49,6 +50,7 @@ public class PrinterDiscoveryDialogTest {
             @Override
             public void create() {
                 try {
+                    I18N.init();
                     GdxTestUtils.mockGdxGL();
                     Skin skin = GdxTestUtils.createTestSkin();
                     
@@ -172,7 +174,7 @@ public class PrinterDiscoveryDialogTest {
         for (Actor child : table.getChildren()) {
             if (child instanceof CheckBox) {
                 CheckBox cb = (CheckBox) child;
-                if (cb.getText().toString().contains("Include self IP")) {
+                if (cb.getText().toString().contains(I18N.get("printerdiscovery.includeSelfIp"))) {
                     return true;
                 }
             } else if (child instanceof Table) {
@@ -195,6 +197,7 @@ public class PrinterDiscoveryDialogTest {
             @Override
             public void create() {
                 try {
+                    I18N.init();
                     GdxTestUtils.mockGdxGL();
                     Skin skin = GdxTestUtils.createTestSkin();
                     
@@ -339,6 +342,7 @@ public class PrinterDiscoveryDialogTest {
             @Override
             public void create() {
                 try {
+                    I18N.init();
                     GdxTestUtils.mockGdxGL();
                     Skin skin = GdxTestUtils.createTestSkin();
 
@@ -471,7 +475,7 @@ public class PrinterDiscoveryDialogTest {
         for (Actor child : table.getChildren()) {
             if (child instanceof CheckBox) {
                 CheckBox cb = (CheckBox) child;
-                if (cb.getText().toString().contains("Deep Scan")) {
+                if (cb.getText().toString().contains(I18N.get("printerdiscovery.deepScan"))) {
                     return true;
                 }
             } else if (child instanceof Table) {
@@ -512,6 +516,7 @@ public class PrinterDiscoveryDialogTest {
             @Override
             public void create() {
                 try {
+                    I18N.init();
                     GdxTestUtils.mockGdxGL();
                     Skin skin = GdxTestUtils.createTestSkin();
 
@@ -627,6 +632,7 @@ public class PrinterDiscoveryDialogTest {
             @Override
             public void create() {
                 try {
+                    I18N.init();
                     GdxTestUtils.mockGdxGL();
                     Skin skin = GdxTestUtils.createTestSkin();
                     Stage stage = new Stage(new ScreenViewport());
@@ -729,7 +735,7 @@ public class PrinterDiscoveryDialogTest {
         // Close via button
         CountDownLatch closeLatch = new CountDownLatch(1);
         Gdx.app.postRunnable(() -> {
-            TextButton closeButton = findButton(dialog, "Close");
+            TextButton closeButton = findButton(dialog, I18N.get("printerdiscovery.close"));
             if (closeButton != null) {
                 closeButton.toggle();
             }
@@ -778,6 +784,7 @@ public class PrinterDiscoveryDialogTest {
             @Override
             public void create() {
                 try {
+                    I18N.init();
                     GdxTestUtils.mockGdxGL();
                     Skin skin = GdxTestUtils.createTestSkin();
 
@@ -879,6 +886,7 @@ public class PrinterDiscoveryDialogTest {
             @Override
             public void create() {
                 try {
+                    I18N.init();
                     GdxTestUtils.mockGdxGL();
                     Skin skin = GdxTestUtils.createTestSkin();
                     Stage stage = new Stage(new ScreenViewport());
@@ -952,8 +960,7 @@ public class PrinterDiscoveryDialogTest {
                 // Look for details dialog and ScrollPane within it
                 Dialog mdnsDialog = null;
                 for (Actor actor : stageRef.get().getActors()) {
-                    if (actor instanceof Dialog && ("Device Details - 192.168.1.50".equals(((Dialog) actor).getTitleLabel().getText().toString()) 
-                            || "mDNS Details".equals(((Dialog) actor).getTitleLabel().getText().toString()))) {
+                    if (actor instanceof Dialog && (I18N.format("printerdiscovery.deviceDetailsTitle", "192.168.1.50").equals(((Dialog) actor).getTitleLabel().getText().toString()))) {
                         mdnsDialog = (Dialog) actor;
                         break;
                     }
@@ -969,7 +976,7 @@ public class PrinterDiscoveryDialogTest {
                         break;
                     }
                 }
-                assertTrue(foundScrollPane, "mDNS Details content should be inside a ScrollPane");
+                assertTrue(foundScrollPane, I18N.get("printerdiscovery.mdnsHeader") + " content should be inside a ScrollPane");
             });
         });
 
@@ -988,6 +995,7 @@ public class PrinterDiscoveryDialogTest {
             @Override
             public void create() {
                 try {
+                    I18N.init();
                     GdxTestUtils.mockGdxGL();
                     Skin skin = GdxTestUtils.createTestSkin();
                     PrinterDiscoveryDialog dialog = new PrinterDiscoveryDialog(skin, new NetworkScanner() {
@@ -1097,6 +1105,7 @@ public class PrinterDiscoveryDialogTest {
             @Override
             public void create() {
                 try {
+                    I18N.init();
                     GdxTestUtils.mockGdxGL();
                     Skin skin = GdxTestUtils.createTestSkin();
                     
@@ -1216,6 +1225,7 @@ public class PrinterDiscoveryDialogTest {
             @Override
             public void create() {
                 try {
+                    I18N.init();
                     GdxTestUtils.mockGdxGL();
                     Skin skin = GdxTestUtils.createTestSkin();
                     DiscoveredDevice device = new DiscoveredDevice("192.168.1.10");
@@ -1276,6 +1286,7 @@ public class PrinterDiscoveryDialogTest {
             @Override
             public void create() {
                 try {
+                    I18N.init();
                     GdxTestUtils.mockGdxGL();
                     Skin skin = GdxTestUtils.createTestSkin();
                     

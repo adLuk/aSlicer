@@ -9,23 +9,16 @@ import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
-import com.badlogic.gdx.scenes.scene2d.ui.CheckBox;
-import com.badlogic.gdx.scenes.scene2d.ui.ScrollPane;
-import com.badlogic.gdx.scenes.scene2d.ui.Skin;
-import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
-import com.badlogic.gdx.scenes.scene2d.ui.Window;
+import com.badlogic.gdx.scenes.scene2d.ui.*;
 import cz.ad.print3d.aslicer.logic.printer.Printer3D;
 import cz.ad.print3d.aslicer.logic.printer.PrinterRepository;
 import cz.ad.print3d.aslicer.logic.printer.system.PrinterSystem;
+import cz.ad.print3d.aslicer.ui.desktop.I18N;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Proxy;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -43,6 +36,7 @@ public class PrinterSelectBoxTest {
             @Override
             public void create() {
                 try {
+                    I18N.init();
                     mockGdxGL();
                     Skin skin = createTestSkin();
                     DummyPrinterRepository repository = new DummyPrinterRepository();
@@ -50,7 +44,7 @@ public class PrinterSelectBoxTest {
                     // Case 1: Empty repository
                     PrinterSelectBox selectBox = new PrinterSelectBox(skin, repository);
                     
-                    assertEquals("No printers", selectBox.getSelectionText());
+                    assertEquals(I18N.get("printerselectbox.noPrinters"), selectBox.getSelectionText());
                     assertTrue(selectBox.getSelectedPrinters().isEmpty());
                     
                     // Case 2: Repository with printers
@@ -62,8 +56,7 @@ public class PrinterSelectBoxTest {
                     repository.savePrinter("Group 1", "P2", p2);
                     
                     selectBox.refresh();
-                    
-                    assertEquals("None", selectBox.getSelectionText());
+                    assertEquals(I18N.get("printerselectbox.none"), selectBox.getSelectionText());
                     
                     // Select one
                     selectBox.selectPrinter(p1, true);
@@ -72,12 +65,12 @@ public class PrinterSelectBoxTest {
                     
                     // Select multiple
                     selectBox.selectPrinter(p2, true);
-                    assertEquals("2 printers", selectBox.getSelectionText());
+                    assertEquals(I18N.format("printerselectbox.multipleFormat", 2), selectBox.getSelectionText());
                     assertEquals(2, selectBox.getSelectedPrinters().size());
                     
                     // Select none
                     selectBox.clearSelection();
-                    assertEquals("None", selectBox.getSelectionText());
+                    assertEquals(I18N.get("printerselectbox.none"), selectBox.getSelectionText());
                     assertTrue(selectBox.getSelectedPrinters().isEmpty());
 
                 } catch (Throwable t) {
