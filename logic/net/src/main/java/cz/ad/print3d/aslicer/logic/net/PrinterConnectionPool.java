@@ -72,18 +72,17 @@ public final class PrinterConnectionPool {
     public PrinterClient getOrCreateClient(DiscoveredDevice device, Map<String, String> credentials) {
         String ip = device.getIpAddress();
         
-        // If a client already exists, check if it's the same vendor and if it's connected
-        // For simplicity, we create a new one if requested with credentials, 
-        // but normally we'd want to reuse or update.
-        // If we have an active client, we might want to keep it.
-        
         return activeClients.compute(ip, (key, existingClient) -> {
             if (existingClient != null) {
-                // Check if we should reuse existing client
-                // For now, if we have a client, we reuse it to keep the connection open.
-                // If credentials changed, we might need to recreate it.
-                // But for the wizard, they are usually entered once.
-                return existingClient;
+                // Check if credentials changed
+                Map<String, String> existingCreds = existingClient.getCredentials();
+                if (existingCreds.equals(credentials)) {
+                    LOGGER.debug("Reusing existing printer client for {}", ip);
+                    return existingClient;
+                }
+                
+                LOGGER.info("Credentials changed for {}, recreating client", ip);
+                existingClient.disconnect();
             }
             
             PrinterClient newClient = PrinterClientFactory.createClient(device, credentials);

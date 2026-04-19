@@ -77,6 +77,13 @@ public class OctoPrintPrinterClient extends AbstractPrinterClient {
     }
 
     @Override
+    public java.util.Map<String, String> getCredentials() {
+        java.util.Map<String, String> credentials = new java.util.HashMap<>();
+        credentials.put("apiKey", apiKey);
+        return credentials;
+    }
+
+    @Override
     public boolean isConnected() {
         return httpClient != null;
     }

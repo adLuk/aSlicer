@@ -50,15 +50,21 @@ public class BambuPrinterClient extends AbstractPrinterClient {
 
     @Override
     public CompletableFuture<Void> connect() {
-        try {
-            URL url = URI.create("https://" + ipAddress + ":8883").toURL();
-            BambuMqttPrinterNetConnection connection = new BambuMqttPrinterNetConnection(url, serial, accessCode);
-            mqttClient = new BambuMqttClient(connection);
-            mqttClient.setTelemetryConsumer(this::handleTelemetry);
-            return attemptConnect().orTimeout(20, TimeUnit.SECONDS);
-        } catch (MalformedURLException e) {
-            return CompletableFuture.failedFuture(e);
+        if (isConnected()) {
+            return CompletableFuture.completedFuture(null);
         }
+
+        if (mqttClient == null) {
+            try {
+                URL url = URI.create("https://" + ipAddress + ":8883").toURL();
+                BambuMqttPrinterNetConnection connection = new BambuMqttPrinterNetConnection(url, serial, accessCode);
+                mqttClient = new BambuMqttClient(connection);
+                mqttClient.setTelemetryConsumer(this::handleTelemetry);
+            } catch (MalformedURLException e) {
+                return CompletableFuture.failedFuture(e);
+            }
+        }
+        return attemptConnect().orTimeout(20, TimeUnit.SECONDS);
     }
 
     private void handleTelemetry(java.util.Map<String, Object> telemetry) {
@@ -158,8 +164,10 @@ public class BambuPrinterClient extends AbstractPrinterClient {
                     try {
                         SslCertificateManager.trustCertificate(cert, ipAddress);
                         // Refresh the MQTT client to use new trust store
-                        mqttClient.disconnect();
-                        // Re-run the full connect process to ensure a clean state (new MQTT client)
+                        if (mqttClient != null) {
+                            mqttClient.disconnect();
+                        }
+                        // Re-run the full connect process to ensure a clean state
                         return connect();
                     } catch (Exception e) {
                         return CompletableFuture.failedFuture(e);
@@ -221,6 +229,14 @@ public class BambuPrinterClient extends AbstractPrinterClient {
         if (serialNumber.startsWith("030")) return "Bambu Lab A1 mini";
         if (serialNumber.startsWith("039")) return "Bambu Lab A1";
         return "Bambu Lab Printer";
+    }
+
+    @Override
+    public java.util.Map<String, String> getCredentials() {
+        java.util.Map<String, String> credentials = new java.util.HashMap<>();
+        credentials.put("serial", serial);
+        credentials.put("accessCode", accessCode);
+        return credentials;
     }
 
     @Override

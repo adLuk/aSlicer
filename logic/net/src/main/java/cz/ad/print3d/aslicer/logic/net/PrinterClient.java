@@ -51,6 +51,11 @@ public interface PrinterClient {
     void setCertificateValidationCallback(CertificateValidationCallback callback);
 
     /**
+     * @return a map of credentials used by this client.
+     */
+    java.util.Map<String, String> getCredentials();
+
+    /**
      * Callback interface for handling untrusted certificates.
      */
     interface CertificateValidationCallback {

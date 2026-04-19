@@ -12,6 +12,7 @@ import cz.ad.print3d.aslicer.logic.net.PrinterClient;
 import cz.ad.print3d.aslicer.logic.net.PrinterClientFactory;
 import cz.ad.print3d.aslicer.logic.net.scanner.dto.DiscoveredDevice;
 import cz.ad.print3d.aslicer.logic.printer.dto.Printer3DDto;
+import cz.ad.print3d.aslicer.logic.printer.system.PrinterSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -356,38 +357,72 @@ public class PrinterConnectionStep implements WizardStep {
      */
     private void validateConnection(DiscoveredDevice device, Label nameLabel) {
         String ip = device.getIpAddress();
-        Map<String, String> credentials = new HashMap<>();
-        for (Map.Entry<String, TextField> entry : printerFields.get(ip).entrySet()) {
-            credentials.put(entry.getKey(), entry.getValue().getText());
-        }
+        Map<String, String> credentials = collectCredentials(ip);
 
         Label statusLabel = statusLabels.get(ip);
         TextButton validateBtn = validateButtons.get(ip);
 
+        updateUIBeforeValidation(statusLabel, validateBtn);
+
+        PrinterClient client = connectionPool.getOrCreateClient(device, credentials);
+        if (client == null) {
+            handleUnsupportedVendor(device, statusLabel, validateBtn);
+            return;
+        }
+
+        configureClientCallbacks(client, ip, statusLabel, nameLabel);
+
+        client.connect()
+                .thenCompose(ignored -> client.getDetails())
+                .thenAccept(details -> handleValidationSuccess(ip, details, statusLabel, validateBtn, nameLabel))
+                .exceptionally(ex -> handleValidationFailure(ip, ex, statusLabel, validateBtn));
+    }
+
+    /**
+     * Collects credentials from the UI fields for the given IP address.
+     */
+    private Map<String, String> collectCredentials(String ip) {
+        Map<String, String> credentials = new HashMap<>();
+        Map<String, TextField> fields = printerFields.get(ip);
+        if (fields != null) {
+            for (Map.Entry<String, TextField> entry : fields.entrySet()) {
+                credentials.put(entry.getKey(), entry.getValue().getText());
+            }
+        }
+        return credentials;
+    }
+
+    /**
+     * Updates the UI state before starting the validation process.
+     */
+    private void updateUIBeforeValidation(Label statusLabel, TextButton validateBtn) {
         statusLabel.setText(I18N.get("wizard.printer.connection.validating"));
         statusLabel.setColor(Color.YELLOW);
         statusLabel.clearListeners();
         validateBtn.setDisabled(true);
+    }
 
-        // Disconnect old client if exists in the pool
-        connectionPool.removeClient(ip);
+    /**
+     * Handles the case where the device vendor is not supported.
+     */
+    private void handleUnsupportedVendor(DiscoveredDevice device, Label statusLabel, TextButton validateBtn) {
+        String msg = "Unsupported vendor: " + device.getVendor();
+        statusLabel.setText(I18N.format("wizard.printer.connection.errorFormat", msg));
+        statusLabel.setColor(Color.RED);
+        statusLabel.clearListeners();
+        statusLabel.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                showErrorDialog("Error", msg, null);
+            }
+        });
+        validateBtn.setDisabled(false);
+    }
 
-        PrinterClient client = connectionPool.getOrCreateClient(device, credentials);
-        if (client == null) {
-            String msg = "Unsupported vendor: " + device.getVendor();
-            statusLabel.setText(I18N.format("wizard.printer.connection.errorFormat", msg));
-            statusLabel.setColor(Color.RED);
-            statusLabel.clearListeners();
-            statusLabel.addListener(new ClickListener() {
-                @Override
-                public void clicked(InputEvent event, float x, float y) {
-                    showErrorDialog("Error", msg, null);
-                }
-            });
-            validateBtn.setDisabled(false);
-            return;
-        }
-
+    /**
+     * Configures the printer client with necessary callbacks for validation.
+     */
+    private void configureClientCallbacks(PrinterClient client, String ip, Label statusLabel, Label nameLabel) {
         client.setCertificateValidationCallback(details -> {
             CompletableFuture<Boolean> future = new CompletableFuture<>();
             Gdx.app.postRunnable(() -> {
@@ -406,80 +441,85 @@ public class PrinterConnectionStep implements WizardStep {
         });
 
         client.setDetailsUpdateCallback(details -> Gdx.app.postRunnable(() -> {
-            validatedPrinters.put(ip, details);
-            if (details.getPrinterSystem() != null) {
-                String info = details.getPrinterSystem().getPrinterManufacturer() + " " +
-                             (details.getPrinterSystem().getPrinterModel() != null ? details.getPrinterSystem().getPrinterModel() : "");
-                nameLabel.setText(info);
-                
-                if (details.getPrinterSystem().getFullReport() != null) {
-                    statusLabel.setText(I18N.get("wizard.printer.connection.successReport"));
-                    statusLabel.setColor(Color.GREEN);
-                } else if (details.getPrinterSystem().getSerialNumber() != null) {
-                    statusLabel.setText(I18N.get("wizard.printer.connection.successConnected"));
-                    statusLabel.setColor(Color.GREEN);
-                }
-
-                if (details.getPrinterSystem().getSerialNumber() != null) {
-                    connectionCredentials.computeIfAbsent(ip, ignored -> new HashMap<>()).put("serial", details.getPrinterSystem().getSerialNumber());
-                }
-            }
+            updateValidatedPrinterDetails(ip, details, statusLabel, nameLabel);
             if (wizard != null) wizard.updateButtons();
         }));
+    }
 
-        client.connect()
-                .thenCompose(ignored -> client.getDetails())
-                .thenAccept(details -> {
-                    Gdx.app.postRunnable(() -> {
-                        validatedPrinters.put(ip, details);
-                        
-                        if (details.getPrinterSystem() != null && details.getPrinterSystem().getFullReport() == null) {
-                            statusLabel.setText(I18N.get("wizard.printer.connection.waitingForReport"));
-                            statusLabel.setColor(Color.YELLOW);
-                        } else {
-                            statusLabel.setText(I18N.get("wizard.printer.connection.success"));
-                            statusLabel.setColor(Color.GREEN);
-                        }
-                        
-                        validateBtn.setDisabled(false);
-                        validateBtn.setColor(Color.WHITE); // Reset highlight after success
-                        detailButtons.get(ip).setVisible(true);
-                        
-                        if (details.getPrinterSystem() != null) {
-                            String info = details.getPrinterSystem().getPrinterManufacturer() + " " +
-                                         (details.getPrinterSystem().getPrinterModel() != null ? details.getPrinterSystem().getPrinterModel() : "");
-                            nameLabel.setText(info);
-                        }
-                        
-                        if (wizard != null) wizard.updateButtons();
-                    });
-                    // Do not disconnect immediately for Bambu Lab to receive reports
-                    if (!"Bambu Lab".equalsIgnoreCase(device.getVendor())) {
-                        connectionPool.removeClient(ip);
-                    }
-                })
-                .exceptionally(ex -> {
-                    logger.error("Connection validation failed for {}: {}", ip, ex.getMessage(), ex);
-                    Gdx.app.postRunnable(() -> {
-                        String msg = ex.getMessage();
-                        if (ex instanceof java.util.concurrent.CompletionException && ex.getCause() != null) {
-                            msg = ex.getCause().getMessage();
-                        }
-                        statusLabel.setText(I18N.format("wizard.printer.connection.failedFormat", msg));
-                        statusLabel.setColor(Color.RED);
-                        statusLabel.clearListeners();
-                        String finalMsg = msg;
-                        statusLabel.addListener(new ClickListener() {
-                            @Override
-                            public void clicked(InputEvent event, float x, float y) {
-                                showErrorDialog(I18N.get("wizard.printer.connection.untrustedCertTitle"), "Failed to connect to " + ip + ":\n\n" + finalMsg, ex);
-                            }
-                        });
-                        validateBtn.setDisabled(false);
-                    });
-                    connectionPool.removeClient(ip);
-                    return null;
-                });
+    /**
+     * Updates the validated printer details in the UI and internal maps.
+     */
+    private void updateValidatedPrinterDetails(String ip, Printer3DDto details, Label statusLabel, Label nameLabel) {
+        validatedPrinters.put(ip, details);
+        if (details.getPrinterSystem() != null) {
+            PrinterSystem system = details.getPrinterSystem();
+            String info = system.getPrinterManufacturer() + " " +
+                         (system.getPrinterModel() != null ? system.getPrinterModel() : "");
+            nameLabel.setText(info);
+            
+            if (system.getFullReport() != null) {
+                statusLabel.setText(I18N.get("wizard.printer.connection.successReport"));
+                statusLabel.setColor(Color.GREEN);
+            } else if (system.getSerialNumber() != null) {
+                statusLabel.setText(I18N.get("wizard.printer.connection.successConnected"));
+                statusLabel.setColor(Color.GREEN);
+            }
+
+            if (system.getSerialNumber() != null) {
+                connectionCredentials.computeIfAbsent(ip, ignored -> new HashMap<>()).put("serial", system.getSerialNumber());
+            }
+        }
+    }
+
+    /**
+     * Handles a successful connection validation.
+     */
+    private void handleValidationSuccess(String ip, Printer3DDto details, Label statusLabel, TextButton validateBtn, Label nameLabel) {
+        Gdx.app.postRunnable(() -> {
+            updateValidatedPrinterDetails(ip, details, statusLabel, nameLabel);
+            
+            if (details.getPrinterSystem() != null && details.getPrinterSystem().getFullReport() == null) {
+                statusLabel.setText(I18N.get("wizard.printer.connection.waitingForReport"));
+                statusLabel.setColor(Color.YELLOW);
+            } else {
+                statusLabel.setText(I18N.get("wizard.printer.connection.success"));
+                statusLabel.setColor(Color.GREEN);
+            }
+            
+            validateBtn.setDisabled(false);
+            validateBtn.setColor(Color.WHITE); // Reset highlight after success
+            if (detailButtons.containsKey(ip)) {
+                detailButtons.get(ip).setVisible(true);
+            }
+            
+            if (wizard != null) wizard.updateButtons();
+        });
+    }
+
+    /**
+     * Handles a failed connection validation.
+     */
+    private Void handleValidationFailure(String ip, Throwable ex, Label statusLabel, TextButton validateBtn) {
+        logger.error("Connection validation failed for {}: {}", ip, ex.getMessage(), ex);
+        Gdx.app.postRunnable(() -> {
+            String msg = ex.getMessage();
+            if (ex instanceof java.util.concurrent.CompletionException && ex.getCause() != null) {
+                msg = ex.getCause().getMessage();
+            }
+            statusLabel.setText(I18N.format("wizard.printer.connection.failedFormat", msg));
+            statusLabel.setColor(Color.RED);
+            statusLabel.clearListeners();
+            String finalMsg = msg;
+            statusLabel.addListener(new ClickListener() {
+                @Override
+                public void clicked(InputEvent event, float x, float y) {
+                    showErrorDialog(I18N.get("wizard.printer.connection.untrustedCertTitle"), 
+                                   "Failed to connect to " + ip + ":\n\n" + finalMsg, ex);
+                }
+            });
+            validateBtn.setDisabled(false);
+        });
+        return null;
     }
 
     /**
