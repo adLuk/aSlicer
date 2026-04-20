@@ -6,6 +6,7 @@ import com.badlogic.gdx.backends.headless.HeadlessApplication;
 import com.badlogic.gdx.backends.headless.HeadlessApplicationConfiguration;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import cz.ad.print3d.aslicer.logic.net.PrinterConnectionPool;
+import cz.ad.print3d.aslicer.logic.net.scanner.NetworkScanner;
 import cz.ad.print3d.aslicer.ui.desktop.GdxTestUtils;
 import cz.ad.print3d.aslicer.ui.desktop.view.DesktopUI;
 import org.junit.jupiter.api.Test;
@@ -41,7 +42,24 @@ public class WizardPersistenceTest {
                     };
 
                     // Open wizard with initial size 900x700
-                    ui.togglePrinterDiscoveryWindow(new PrinterConnectionPool(), new cz.ad.print3d.aslicer.logic.printer.PrinterRepository() {
+                    ui.togglePrinterDiscoveryWindow(new PrinterConnectionPool(new cz.ad.print3d.aslicer.logic.net.PrinterClientFactory()), new NetworkScanner() {
+                        @Override public java.util.concurrent.CompletableFuture<java.util.List<cz.ad.print3d.aslicer.logic.net.scanner.dto.DiscoveredDevice>> scanRange(String baseIp, int startHost, int endHost, java.util.List<Integer> ports) { return null; }
+                        @Override public java.util.concurrent.CompletableFuture<java.util.List<cz.ad.print3d.aslicer.logic.net.scanner.dto.DiscoveredDevice>> scanRange(String baseIp, int startHost, int endHost, java.util.List<Integer> ports, boolean useBannerGrabbing) { return null; }
+                        @Override public java.util.concurrent.CompletableFuture<java.util.List<cz.ad.print3d.aslicer.logic.net.scanner.dto.DiscoveredDevice>> scanRange(String baseIp, int startHost, int endHost, java.util.List<Integer> ports, boolean useBannerGrabbing, ScanProgressListener listener) { return null; }
+                        @Override public java.util.concurrent.CompletableFuture<cz.ad.print3d.aslicer.logic.net.scanner.dto.DiscoveredDevice> scanHost(String host, java.util.List<Integer> ports) { return null; }
+                        @Override public java.util.concurrent.CompletableFuture<cz.ad.print3d.aslicer.logic.net.scanner.dto.DiscoveredDevice> scanHost(String host, java.util.List<Integer> ports, boolean useBannerGrabbing) { return null; }
+                        @Override public java.util.concurrent.CompletableFuture<cz.ad.print3d.aslicer.logic.net.scanner.dto.DiscoveredDevice> scanHost(String host, java.util.List<Integer> ports, boolean useBannerGrabbing, ScanProgressListener listener) { return null; }
+                        @Override public void setTimeout(int timeoutMillis) {}
+                        @Override public int getTimeout() { return 0; }
+                        @Override public void setMdnsTimeout(int timeoutMillis) {}
+                        @Override public int getMdnsTimeout() { return 0; }
+                        @Override public void setSsdpTimeout(int timeoutMillis) {}
+                        @Override public int getSsdpTimeout() { return 0; }
+                        @Override public void setIncludeSelfIp(boolean include) {}
+                        @Override public boolean isIncludeSelfIp() { return false; }
+                        @Override public void stopScan() {}
+                        @Override public void close() {}
+                    }, new cz.ad.print3d.aslicer.logic.printer.PrinterRepository() {
                         @Override public java.util.List<String> getGroups() { return java.util.Collections.emptyList(); }
                         @Override public java.util.Map<String, cz.ad.print3d.aslicer.logic.printer.Printer3D> getPrintersByGroup(String groupName) { return java.util.Collections.emptyMap(); }
                         @Override public java.util.Optional<cz.ad.print3d.aslicer.logic.printer.Printer3D> getPrinter(String groupName, String printerName) { return java.util.Optional.empty(); }

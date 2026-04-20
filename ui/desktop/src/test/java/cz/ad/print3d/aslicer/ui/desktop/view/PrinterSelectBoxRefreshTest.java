@@ -6,6 +6,8 @@ import com.badlogic.gdx.backends.headless.HeadlessApplication;
 import com.badlogic.gdx.backends.headless.HeadlessApplicationConfiguration;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import cz.ad.print3d.aslicer.logic.net.PrinterConnectionPool;
+import cz.ad.print3d.aslicer.logic.net.PrinterClientFactory;
+import cz.ad.print3d.aslicer.logic.net.scanner.NetworkScanner;
 import cz.ad.print3d.aslicer.logic.net.scanner.dto.DiscoveredDevice;
 import cz.ad.print3d.aslicer.logic.printer.Printer3D;
 import cz.ad.print3d.aslicer.logic.printer.PrinterRepository;
@@ -63,7 +65,24 @@ public class PrinterSelectBoxRefreshTest {
                     verify(spyRepository, atLeastOnce()).getGroups();
                     Mockito.reset(spyRepository);
 
-                    ui.togglePrinterDiscoveryWindow(new PrinterConnectionPool(), spyRepository, 800, 600, null);
+                    ui.togglePrinterDiscoveryWindow(new PrinterConnectionPool(new PrinterClientFactory()), new NetworkScanner() {
+                        @Override public java.util.concurrent.CompletableFuture<List<DiscoveredDevice>> scanRange(String baseIp, int startHost, int endHost, List<Integer> ports) { return null; }
+                        @Override public java.util.concurrent.CompletableFuture<List<DiscoveredDevice>> scanRange(String baseIp, int startHost, int endHost, List<Integer> ports, boolean useBannerGrabbing) { return null; }
+                        @Override public java.util.concurrent.CompletableFuture<List<DiscoveredDevice>> scanRange(String baseIp, int startHost, int endHost, List<Integer> ports, boolean useBannerGrabbing, ScanProgressListener listener) { return null; }
+                        @Override public java.util.concurrent.CompletableFuture<DiscoveredDevice> scanHost(String host, List<Integer> ports) { return null; }
+                        @Override public java.util.concurrent.CompletableFuture<DiscoveredDevice> scanHost(String host, List<Integer> ports, boolean useBannerGrabbing) { return null; }
+                        @Override public java.util.concurrent.CompletableFuture<DiscoveredDevice> scanHost(String host, List<Integer> ports, boolean useBannerGrabbing, ScanProgressListener listener) { return null; }
+                        @Override public void setTimeout(int timeoutMillis) {}
+                        @Override public int getTimeout() { return 0; }
+                        @Override public void setMdnsTimeout(int timeoutMillis) {}
+                        @Override public int getMdnsTimeout() { return 0; }
+                        @Override public void setSsdpTimeout(int timeoutMillis) {}
+                        @Override public int getSsdpTimeout() { return 0; }
+                        @Override public void setIncludeSelfIp(boolean include) {}
+                        @Override public boolean isIncludeSelfIp() { return false; }
+                        @Override public void stopScan() {}
+                        @Override public void close() {}
+                    }, spyRepository, 800, 600, null);
                     Wizard wizard = ui.getPrinterWizard();
                     assertNotNull(wizard);
 

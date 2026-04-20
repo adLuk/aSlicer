@@ -23,6 +23,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 /**
@@ -47,8 +49,11 @@ public class BambuMqttClient {
     private final BambuMqttMapper mapper;
     private final CompletableFuture<String> serialDiscoveryFuture = new CompletableFuture<>();
 
+    private final AtomicInteger connectionCounter = new AtomicInteger(0);
+    private final AtomicBoolean isManualDisconnect = new AtomicBoolean(false);
     private volatile String serial;
     private volatile Mqtt3AsyncClient client;
+    private volatile CompletableFuture<Void> connectFuture;
     private volatile Consumer<Map<String, Object>> telemetryConsumer;
 
     /**
@@ -87,7 +92,7 @@ public class BambuMqttClient {
      * @param s the serial number to check.
      * @return true if it is a placeholder or null/empty.
      */
-    private boolean isPlaceholderSerial(String s) {
+    boolean isPlaceholderSerial(String s) {
         return s == null || s.isEmpty() || s.equalsIgnoreCase("Bambu Printer") || 
                s.equalsIgnoreCase("Bambu Lab Printer") || s.equalsIgnoreCase("Unknown");
     }
@@ -122,10 +127,16 @@ public class BambuMqttClient {
      *
      * @return a {@link CompletableFuture} that completes when the connection is established and initial subscriptions are made.
      */
-    public CompletableFuture<Void> connect() {
+    public synchronized CompletableFuture<Void> connect() {
+        isManualDisconnect.set(false);
         if (isConnected()) {
             LOGGER.debug("MQTT client for {} is already connected", host);
             return CompletableFuture.completedFuture(null);
+        }
+
+        if (connectFuture != null && !connectFuture.isDone()) {
+            LOGGER.debug("MQTT connection for {} already in progress", host);
+            return connectFuture;
         }
 
         List<Provider> originalProviders = prioritizeSunProviders();
@@ -140,7 +151,7 @@ public class BambuMqttClient {
 
         this.client = buildMqttClient(tmf);
 
-        return client.connectWith()
+        connectFuture = client.connectWith()
                 .simpleAuth()
                 .username("bblp")
                 .password(accessCode.getBytes(StandardCharsets.UTF_8))
@@ -151,6 +162,8 @@ public class BambuMqttClient {
                 .handle((ack, throwable) -> handleConnectResult(ack, throwable, tmf, originalProviders))
                 .thenCompose(f -> f)
                 .thenCompose(v -> performInitialSubscriptions(originalProviders));
+        
+        return connectFuture;
     }
 
     /**
@@ -205,18 +218,39 @@ public class BambuMqttClient {
                 .identifier(clientId)
                 .serverHost(host)
                 .serverPort(port)
+                .transportConfig()
+                    .mqttConnectTimeout(30, TimeUnit.SECONDS)
+                    .applyTransportConfig()
                 .sslConfig(sslConfig)
+                .automaticReconnectWithDefaultConfig()
                 .addConnectedListener(context -> {
-                    LOGGER.info("MQTT Client ({}) connected to {}", clientId, host);
-                    if (!isPlaceholderSerial(serial)) {
-                        subscribeToTelemetry();
-                        sendGetVersion();
+                    int count = connectionCounter.incrementAndGet();
+                    LOGGER.info("MQTT Client ({}) connected to {} (attempt #{})", clientId, host, count);
+                    
+                    // On reconnect (count > 1), we need to restore subscriptions because we use cleanSession(true)
+                    if (count > 1) {
+                        LOGGER.info("Restoring subscriptions after reconnect for host {}", host);
+                        if (!isPlaceholderSerial(serial)) {
+                            subscribeToTelemetry().exceptionally(ex -> {
+                                LOGGER.error("Failed to restore telemetry subscriptions for {}: {}", host, ex.getMessage());
+                                return null;
+                            });
+                        } else {
+                            subscribeToDiscovery().exceptionally(ex -> {
+                                LOGGER.error("Failed to restore discovery subscription for {}: {}", host, ex.getMessage());
+                                return null;
+                            });
+                        }
                     }
                 })
                 .addDisconnectedListener(context -> {
                     Throwable cause = context.getCause();
-                    LOGGER.info("MQTT Client ({}) disconnected from {}: {}", clientId, host, 
-                            (cause != null ? cause.getMessage() : "No cause provided"));
+                    if (isManualDisconnect.get()) {
+                        LOGGER.info("MQTT Client ({}) disconnected from {} (manual disconnect)", clientId, host);
+                    } else {
+                        LOGGER.warn("MQTT Client ({}) disconnected unexpectedly from {}: {}", clientId, host,
+                                (cause != null ? cause.getMessage() : "No cause provided"));
+                    }
                 })
                 .buildAsync();
     }
@@ -281,12 +315,8 @@ public class BambuMqttClient {
         return subscribeFuture.handle((subAck, subEx) -> {
             restoreProviders(originalProviders);
             if (subEx != null) {
-                LOGGER.warn("Initial subscription failed for {}, but connection is active.", host);
-                if (!isPlaceholderSerial(this.serial)) {
-                    return sendGetVersion().thenCompose(v -> subscribeToTelemetry());
-                }
-                serialDiscoveryFuture.thenAccept(s -> sendGetVersion());
-                return CompletableFuture.<Void>completedFuture(null);
+                LOGGER.error("Initial subscription failed for host {}: {}", host, subEx.getMessage());
+                return CompletableFuture.<Void>failedFuture(subEx);
             }
 
             return triggerInitialVersionRequest();
@@ -319,9 +349,13 @@ public class BambuMqttClient {
      * @return a {@link CompletableFuture} that completes when the subscription is successful.
      */
     private CompletableFuture<Void> subscribeToDiscovery() {
+        Mqtt3AsyncClient currentClient = this.client;
+        if (currentClient == null) {
+            return CompletableFuture.failedFuture(new IllegalStateException("MQTT client is null"));
+        }
         String filter = "#";
         LOGGER.info("Subscribing to discovery wildcard topic ({}) for host {}", filter, host);
-        return client.subscribeWith()
+        return currentClient.subscribeWith()
                 .topicFilter(filter)
                 .callback(mqtt3Publish -> {
                     String topic = mqtt3Publish.getTopic().toString();
@@ -356,16 +390,20 @@ public class BambuMqttClient {
      * @return a {@link CompletableFuture} that completes when the primary subscription is successful.
      */
     CompletableFuture<Void> subscribeToTelemetry() {
+        Mqtt3AsyncClient currentClient = this.client;
+        if (currentClient == null) {
+            return CompletableFuture.failedFuture(new IllegalStateException("MQTT client is null"));
+        }
         String topicReport = BambuTopics.telemetry(serial);
         String topicNotify = BambuTopics.notify(serial);
         LOGGER.info("Subscribing to telemetry topics ({}, {}) for host {}", topicReport, topicNotify, host);
         
-        CompletableFuture<?> sub1 = client.subscribeWith()
+        CompletableFuture<?> sub1 = currentClient.subscribeWith()
                 .topicFilter(topicReport)
                 .callback(mqtt3Publish -> handleTelemetry(new String(mqtt3Publish.getPayloadAsBytes(), StandardCharsets.UTF_8)))
                 .send();
                 
-        client.subscribeWith()
+        currentClient.subscribeWith()
                 .topicFilter(topicNotify)
                 .callback(mqtt3Publish -> handleTelemetry(new String(mqtt3Publish.getPayloadAsBytes(), StandardCharsets.UTF_8)))
                 .send()
@@ -404,20 +442,26 @@ public class BambuMqttClient {
 
     /**
      * Disconnects the MQTT client from the printer's broker.
+     *
+     * @return a {@link CompletableFuture} that completes when the disconnection is finished.
      */
-    public void disconnect() {
+    public synchronized CompletableFuture<Void> disconnect() {
         if (client != null) {
+            isManualDisconnect.set(true);
             LOGGER.info("Disconnecting MQTT client for host {}", host);
-            client.disconnect()
+            CompletableFuture<Void> disconnectFuture = client.disconnect()
                     .whenComplete((v, ex) -> {
                         if (ex != null) {
                             LOGGER.warn("Error during MQTT disconnect for {}: {}", host, ex.getMessage());
                         } else {
-                            LOGGER.debug("MQTT client for {} disconnected successfully", host);
+                            LOGGER.debug("MQTT client for {} disconnected successfully", host, (Object) null);
                         }
                     });
             client = null;
+            connectFuture = null;
+            return disconnectFuture;
         }
+        return CompletableFuture.completedFuture(null);
     }
 
     /**
@@ -436,9 +480,26 @@ public class BambuMqttClient {
      * @return a {@link CompletableFuture} that completes when the message is sent.
      */
     private CompletableFuture<Void> sendGetVersion(int retries) {
-        if (client == null || !client.getState().isConnected()) {
-            LOGGER.error("Failed to send get_version to {}: MQTT client is not connected", host);
-            return CompletableFuture.failedFuture(new RuntimeException("MQTT client is not connected"));
+        if (connectFuture != null && !connectFuture.isDone()) {
+            LOGGER.info("Connection in progress for {}, waiting before sending get_version...", host);
+            return connectFuture.handle((v, ex) -> sendGetVersion(retries)).thenCompose(f -> f);
+        }
+
+        Mqtt3AsyncClient currentClient = this.client;
+        if (currentClient == null) {
+            LOGGER.error("Failed to send get_version to {}: MQTT client is null (disconnected)", host);
+            return CompletableFuture.failedFuture(new RuntimeException("MQTT client is not initialized"));
+        }
+        
+        if (!currentClient.getState().isConnected()) {
+            LOGGER.warn("Attempting to send get_version to {} while client is in state {}", host, currentClient.getState());
+            if (retries > 0) {
+                LOGGER.info("Retrying get_version for {} in 1s... (retries left: {})", host, retries);
+                return CompletableFuture.runAsync(() -> {
+                    try { Thread.sleep(1000); } catch (InterruptedException ignored) {}
+                }).thenCompose(v -> sendGetVersion(retries - 1));
+            }
+            return CompletableFuture.failedFuture(new RuntimeException("MQTT client is not connected (state: " + currentClient.getState() + ")"));
         }
         
         String topic = getRequestTopic();

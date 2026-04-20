@@ -89,7 +89,8 @@ public class OctoPrintPrinterClient extends AbstractPrinterClient {
     }
 
     @Override
-    public void disconnect() {
+    public CompletableFuture<Void> disconnect() {
         // No persistent connection to close for REST
+        return CompletableFuture.completedFuture(null);
     }
 }

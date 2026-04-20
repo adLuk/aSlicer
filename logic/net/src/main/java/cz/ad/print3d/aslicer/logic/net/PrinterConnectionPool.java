@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -21,9 +22,11 @@ public final class PrinterConnectionPool {
     private static final long CHECK_INTERVAL_SEC = 30;
 
     private final Map<String, PrinterClient> activeClients = new ConcurrentHashMap<>();
+    private final PrinterClientFactory clientFactory;
     private ScheduledExecutorService scheduler;
 
-    public PrinterConnectionPool() {
+    public PrinterConnectionPool(PrinterClientFactory clientFactory) {
+        this.clientFactory = clientFactory;
         start();
     }
 
@@ -85,7 +88,7 @@ public final class PrinterConnectionPool {
                 existingClient.disconnect();
             }
             
-            PrinterClient newClient = PrinterClientFactory.createClient(device, credentials);
+            PrinterClient newClient = clientFactory.createClient(device, credentials);
             if (newClient != null) {
                 LOGGER.info("Created new printer client for {}", ip);
             }
@@ -145,11 +148,25 @@ public final class PrinterConnectionPool {
 
     /**
      * Disconnects all active clients in the pool and stops the maintenance task.
+     * This method waits for all disconnections to complete with a 5-second timeout.
      */
     public void clear() {
         stop();
         LOGGER.info("Clearing printer connection pool ({} clients)", activeClients.size());
-        activeClients.values().forEach(PrinterClient::disconnect);
+        
+        java.util.List<CompletableFuture<Void>> disconnectFutures = new java.util.ArrayList<>();
+        activeClients.values().forEach(client -> disconnectFutures.add(client.disconnect()));
+        
+        if (!disconnectFutures.isEmpty()) {
+            try {
+                CompletableFuture.allOf(disconnectFutures.toArray(new CompletableFuture<?>[0]))
+                        .get(5, TimeUnit.SECONDS);
+                LOGGER.info("All printer clients disconnected successfully");
+            } catch (Exception e) {
+                LOGGER.warn("Timeout or error waiting for printer clients to disconnect: {}", e.getMessage());
+            }
+        }
+        
         activeClients.clear();
     }
 }

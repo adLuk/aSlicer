@@ -81,6 +81,11 @@ public class PrinterConnectionStep implements WizardStep {
     private final Map<String, DiscoveredDevice> ipToDevice = new HashMap<>();
 
     /**
+     * Number of active validation processes.
+     */
+    private final java.util.concurrent.atomic.AtomicInteger activeValidations = new java.util.concurrent.atomic.AtomicInteger(0);
+
+    /**
      * The parent wizard managing the step lifecycle.
      */
     private Wizard wizard;
@@ -362,6 +367,7 @@ public class PrinterConnectionStep implements WizardStep {
         Label statusLabel = statusLabels.get(ip);
         TextButton validateBtn = validateButtons.get(ip);
 
+        activeValidations.incrementAndGet();
         updateUIBeforeValidation(statusLabel, validateBtn);
 
         PrinterClient client = connectionPool.getOrCreateClient(device, credentials);
@@ -406,6 +412,7 @@ public class PrinterConnectionStep implements WizardStep {
      * Handles the case where the device vendor is not supported.
      */
     private void handleUnsupportedVendor(DiscoveredDevice device, Label statusLabel, TextButton validateBtn) {
+        activeValidations.decrementAndGet();
         String msg = "Unsupported vendor: " + device.getVendor();
         statusLabel.setText(I18N.format("wizard.printer.connection.errorFormat", msg));
         statusLabel.setColor(Color.RED);
@@ -475,6 +482,7 @@ public class PrinterConnectionStep implements WizardStep {
      * Handles a successful connection validation.
      */
     private void handleValidationSuccess(String ip, Printer3DDto details, Label statusLabel, TextButton validateBtn, Label nameLabel) {
+        activeValidations.decrementAndGet();
         Gdx.app.postRunnable(() -> {
             updateValidatedPrinterDetails(ip, details, statusLabel, nameLabel);
             
@@ -500,16 +508,22 @@ public class PrinterConnectionStep implements WizardStep {
      * Handles a failed connection validation.
      */
     private Void handleValidationFailure(String ip, Throwable ex, Label statusLabel, TextButton validateBtn) {
+        activeValidations.decrementAndGet();
         logger.error("Connection validation failed for {}: {}", ip, ex.getMessage(), ex);
         Gdx.app.postRunnable(() -> {
-            String msg = ex.getMessage();
-            if (ex instanceof java.util.concurrent.CompletionException && ex.getCause() != null) {
-                msg = ex.getCause().getMessage();
+            Throwable cause = (ex instanceof java.util.concurrent.CompletionException && ex.getCause() != null) ? ex.getCause() : ex;
+            String msg = cause.getMessage();
+            
+            if (cause instanceof java.util.concurrent.TimeoutException) {
+                msg = I18N.get("wizard.printer.connection.timeout");
+            } else if (msg == null || msg.isEmpty()) {
+                msg = cause.getClass().getSimpleName();
             }
-            statusLabel.setText(I18N.format("wizard.printer.connection.failedFormat", msg));
+            
+            String finalMsg = msg;
+            statusLabel.setText(I18N.format("wizard.printer.connection.failedFormat", finalMsg));
             statusLabel.setColor(Color.RED);
             statusLabel.clearListeners();
-            String finalMsg = msg;
             statusLabel.addListener(new ClickListener() {
                 @Override
                 public void clicked(InputEvent event, float x, float y) {
@@ -613,6 +627,13 @@ public class PrinterConnectionStep implements WizardStep {
         dialog.getButtonTable().add(copyBtn).pad(10);
         dialog.button(I18N.get("wizard.printer.connection.close"));
         dialog.show(wizard.getStage());
+    }
+
+    /**
+     * @return true if there are any active validation processes.
+     */
+    public boolean isValidating() {
+        return activeValidations.get() > 0;
     }
 
     /**

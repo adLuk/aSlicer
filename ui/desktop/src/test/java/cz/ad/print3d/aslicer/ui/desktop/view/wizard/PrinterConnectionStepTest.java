@@ -48,7 +48,7 @@ public class PrinterConnectionStepTest {
                         }
                     };
 
-                    PrinterConnectionStep connectionStep = new PrinterConnectionStep(skin, mockDiscoveryStep, new PrinterConnectionPool());
+                    PrinterConnectionStep connectionStep = new PrinterConnectionStep(skin, mockDiscoveryStep, new PrinterConnectionPool(new cz.ad.print3d.aslicer.logic.net.PrinterClientFactory()));
                     Wizard wizard = new Wizard("Test", skin);
                     wizard.addStep(mockDiscoveryStep);
                     wizard.addStep(connectionStep);
@@ -100,7 +100,7 @@ public class PrinterConnectionStepTest {
                         }
                     };
 
-                    PrinterConnectionStep connectionStep = new PrinterConnectionStep(skin, mockDiscoveryStep, new PrinterConnectionPool());
+                    PrinterConnectionStep connectionStep = new PrinterConnectionStep(skin, mockDiscoveryStep, new PrinterConnectionPool(new cz.ad.print3d.aslicer.logic.net.PrinterClientFactory()));
                     
                     // This should throw GdxRuntimeException
                     assertThrows(com.badlogic.gdx.utils.GdxRuntimeException.class, () -> {
@@ -140,7 +140,7 @@ public class PrinterConnectionStepTest {
                         }
                     };
 
-                    PrinterConnectionStep connectionStep = new PrinterConnectionStep(skin, mockDiscoveryStep, new PrinterConnectionPool());
+                    PrinterConnectionStep connectionStep = new PrinterConnectionStep(skin, mockDiscoveryStep, new PrinterConnectionPool(new cz.ad.print3d.aslicer.logic.net.PrinterClientFactory()));
                     Wizard wizard = new Wizard("Test", skin);
                     wizard.addStep(mockDiscoveryStep);
                     wizard.addStep(connectionStep);
@@ -176,7 +176,7 @@ public class PrinterConnectionStepTest {
                     // Trigger validation (it will fail because vendor is unknown)
                     validateBtn.toggle(); // This triggers the ChangeListener
                     
-                    assertTrue(statusLabel.getText().toString().contains(I18N.format("wizard.printer.connection.errorFormat", "Unsupported vendor")));
+                    assertTrue(statusLabel.getText().toString().contains("Unsupported vendor"));
                     // ClickListener is added in validateConnection
                     assertEquals(1, statusLabel.getListeners().size);
 

@@ -92,6 +92,7 @@ public class KlipperPrinterClient extends AbstractPrinterClient {
     }
 
     @Override
-    public void disconnect() {
+    public CompletableFuture<Void> disconnect() {
+        return CompletableFuture.completedFuture(null);
     }
 }

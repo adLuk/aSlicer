@@ -64,7 +64,7 @@ public class BambuPrinterClient extends AbstractPrinterClient {
                 return CompletableFuture.failedFuture(e);
             }
         }
-        return attemptConnect().orTimeout(20, TimeUnit.SECONDS);
+        return attemptConnect().orTimeout(35, TimeUnit.SECONDS);
     }
 
     private void handleTelemetry(java.util.Map<String, Object> telemetry) {
@@ -245,9 +245,10 @@ public class BambuPrinterClient extends AbstractPrinterClient {
     }
 
     @Override
-    public void disconnect() {
+    public CompletableFuture<Void> disconnect() {
         if (mqttClient != null) {
-            mqttClient.disconnect();
+            return mqttClient.disconnect();
         }
+        return CompletableFuture.completedFuture(null);
     }
 }

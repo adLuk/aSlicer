@@ -40,8 +40,10 @@ public interface PrinterClient {
 
     /**
      * Closes the connection to the printer.
+     *
+     * @return a {@link CompletableFuture} that completes when the disconnection is finished.
      */
-    void disconnect();
+    CompletableFuture<Void> disconnect();
 
     /**
      * Sets a callback for handling untrusted (self-signed) certificates.

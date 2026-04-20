@@ -497,7 +497,7 @@ public class PrinterDiscoveryStep implements WizardStep {
      *
      * @param device the discovered device metadata
      */
-    private void addDiscoveredDevice(DiscoveredDevice device) {
+    public void addDiscoveredDevice(DiscoveredDevice device) {
         Gdx.app.postRunnable(() -> {
         if (resultsTable.getChildren().size == 1 && resultsTable.getChildren().get(0) instanceof Label) {
             resultsTable.clear();

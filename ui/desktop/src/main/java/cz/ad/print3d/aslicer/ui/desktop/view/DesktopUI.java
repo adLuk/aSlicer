@@ -301,15 +301,16 @@ public class DesktopUI implements Disposable {
      * Toggles the visibility of the printer discovery wizard.
      *
      * @param connectionPool    the application-scope connection pool
+     * @param networkScanner    the network scanner for identifying printers
      * @param printerRepository the repository for storing printer configurations
      * @param initialWidth      the initial width of the wizard
      * @param initialHeight     the initial height of the wizard
      * @param sizeCallback      a callback to be invoked when the wizard size changes or it is closed
      */
-    public void togglePrinterDiscoveryWindow(cz.ad.print3d.aslicer.logic.net.PrinterConnectionPool connectionPool, cz.ad.print3d.aslicer.logic.printer.PrinterRepository printerRepository, int initialWidth, int initialHeight, java.util.function.BiConsumer<Integer, Integer> sizeCallback) {
+    public void togglePrinterDiscoveryWindow(cz.ad.print3d.aslicer.logic.net.PrinterConnectionPool connectionPool, cz.ad.print3d.aslicer.logic.net.scanner.NetworkScanner networkScanner, cz.ad.print3d.aslicer.logic.printer.PrinterRepository printerRepository, int initialWidth, int initialHeight, java.util.function.BiConsumer<Integer, Integer> sizeCallback) {
         if (printerWizard == null) {
             printerWizard = new Wizard(I18N.get("wizard.printer.title"), skin, initialWidth, initialHeight);
-            PrinterDiscoveryStep discoveryStep = new PrinterDiscoveryStep(skin);
+            PrinterDiscoveryStep discoveryStep = new PrinterDiscoveryStep(skin, networkScanner, new cz.ad.print3d.aslicer.logic.net.info.NetworkInformationCollector(), cz.ad.print3d.aslicer.logic.net.scanner.ScanConfigurationLoader.loadDefault());
             PrinterConnectionStep connectionStep = new PrinterConnectionStep(skin, discoveryStep, connectionPool);
             cz.ad.print3d.aslicer.ui.desktop.view.wizard.PrinterSaveStep saveStep = new cz.ad.print3d.aslicer.ui.desktop.view.wizard.PrinterSaveStep(skin, connectionStep, printerRepository);
             

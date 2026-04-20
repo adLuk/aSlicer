@@ -77,4 +77,15 @@ public class BambuMqttClientTest {
             return null;
         }).get(10, java.util.concurrent.TimeUnit.SECONDS);
     }
+
+    @Test
+    public void testIsPlaceholderSerial() throws Exception {
+        BambuPrinterNetConnection conn = new BambuMqttPrinterNetConnection(URI.create("https://192.168.0.10:8883").toURL(), null, "code");
+        BambuMqttClient client = new BambuMqttClient(conn);
+        
+        org.junit.jupiter.api.Assertions.assertTrue(client.isPlaceholderSerial(null));
+        org.junit.jupiter.api.Assertions.assertTrue(client.isPlaceholderSerial(""));
+        org.junit.jupiter.api.Assertions.assertTrue(client.isPlaceholderSerial("UNKNOWN"));
+        org.junit.jupiter.api.Assertions.assertFalse(client.isPlaceholderSerial("01S123456789012"));
+    }
 }

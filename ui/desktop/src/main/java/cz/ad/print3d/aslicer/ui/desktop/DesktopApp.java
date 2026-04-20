@@ -91,6 +91,11 @@ public class DesktopApp implements ApplicationListener {
     public cz.ad.print3d.aslicer.logic.net.PrinterConnectionPool connectionPool;
 
     /**
+     * Network scanner for identifying printers on the network.
+     */
+    public cz.ad.print3d.aslicer.logic.net.scanner.NetworkScanner networkScanner;
+
+    /**
      * Desktop UI manager for handling stages, menus, and dialogs.
      * Manages the 2D overlay (Scene2D.ui), including toolbars, windows,
      * and interaction between the UI and the 3D scene.
@@ -146,9 +151,13 @@ public class DesktopApp implements ApplicationListener {
      */
     public DesktopApp() {
         this.appConfig = new AppConfig();
+        AppConfigDto dto = this.appConfig.loadToDto();
+        this.currentWidth = dto.getWindowWidth();
+        this.currentHeight = dto.getWindowHeight();
         this.fileDialog = new ModelFileDialog();
         this.scenePersistence = new ScenePersistence();
-        this.connectionPool = new cz.ad.print3d.aslicer.logic.net.PrinterConnectionPool();
+        this.connectionPool = new cz.ad.print3d.aslicer.logic.net.PrinterConnectionPool(new cz.ad.print3d.aslicer.logic.net.PrinterClientFactory());
+        this.networkScanner = new cz.ad.print3d.aslicer.logic.net.scanner.NettyNetworkScanner();
         try {
             java.nio.file.Path printerPath = AppConfig.CONFIG_PATH.getParent().resolve("printers.zip");
             this.printerRepository = new cz.ad.print3d.aslicer.logic.core.printer.ZipPrinterRepository(printerPath, null, true);
@@ -185,10 +194,23 @@ public class DesktopApp implements ApplicationListener {
 
         Lwjgl3ApplicationConfiguration config = new Lwjgl3ApplicationConfiguration();
         config.setTitle(I18N.get("app.title"));
-        config.setWindowedMode(dto.getWindowWidth(), dto.getWindowHeight());
+
+        // Use saved dimensions if valid, otherwise fallback to defaults to prevent 0x0 window crash
+        int width = dto.getWindowWidth();
+        int height = dto.getWindowHeight();
+        if (width <= 0 || height <= 0) {
+            LOGGER.warn("Invalid window dimensions found in config: {}x{}. Falling back to default 1280x720.", width, height);
+            width = 1280;
+            height = 720;
+        }
+        config.setWindowedMode(width, height);
+
         config.useVsync(true);
         config.setForegroundFPS(60);
         new Lwjgl3Application(app, config);
+        
+        // Ensure application terminates even if there are non-daemon threads running
+        System.exit(0);
     }
 
     /**
@@ -199,8 +221,13 @@ public class DesktopApp implements ApplicationListener {
      */
     public void saveAllConfig() {
         AppConfigDto dto = appConfig.loadToDto();
-        dto.setWindowWidth(currentWidth);
-        dto.setWindowHeight(currentHeight);
+        // Only save dimensions if they are valid (not 0x0 which can happen on minimization or early crash)
+        if (currentWidth > 0 && currentHeight > 0) {
+            dto.setWindowWidth(currentWidth);
+            dto.setWindowHeight(currentHeight);
+        } else {
+            LOGGER.debug("Skipping saving window dimensions as they are invalid: {}x{}", currentWidth, currentHeight);
+        }
         dto.setLastDir(lastDir);
         dto.setLastFile(currentModelPath);
 
@@ -483,16 +510,26 @@ public class DesktopApp implements ApplicationListener {
      */
     public void togglePrinterDiscoveryWindow() {
         AppConfigDto dto = appConfig.loadToDto();
+        // Ensure valid initial dimensions for the wizard
+        int wizardWidth = dto.getWizardWidth() > 0 ? dto.getWizardWidth() : 800;
+        int wizardHeight = dto.getWizardHeight() > 0 ? dto.getWizardHeight() : 600;
+
         desktopUI.togglePrinterDiscoveryWindow(
             connectionPool,
+            networkScanner,
             printerRepository,
-            dto.getWizardWidth(),
-            dto.getWizardHeight(),
+            wizardWidth,
+            wizardHeight,
             (width, height) -> {
-                AppConfigDto currentDto = appConfig.loadToDto();
-                currentDto.setWizardWidth(width);
-                currentDto.setWizardHeight(height);
-                appConfig.saveFromDto(currentDto);
+                // Only save wizard dimensions if they are valid
+                if (width > 0 && height > 0) {
+                    AppConfigDto currentDto = appConfig.loadToDto();
+                    currentDto.setWizardWidth(width);
+                    currentDto.setWizardHeight(height);
+                    appConfig.saveFromDto(currentDto);
+                } else {
+                    LOGGER.debug("Skipping saving wizard dimensions as they are invalid: {}x{}", width, height);
+                }
             }
         );
     }
@@ -506,8 +543,11 @@ public class DesktopApp implements ApplicationListener {
      */
     @Override
     public void resize(int width, int height) {
-        currentWidth = width;
-        currentHeight = height;
+        // Ignore invalid sizes (e.g. 0x0 during minimization) to preserve last valid dimensions for next run
+        if (width > 0 && height > 0) {
+            currentWidth = width;
+            currentHeight = height;
+        }
         if (sceneManager != null) {
             sceneManager.resize(width, height);
         }
@@ -552,6 +592,7 @@ public class DesktopApp implements ApplicationListener {
     public void dispose() {
         saveAllConfig();
         if (connectionPool != null) connectionPool.clear();
+        if (networkScanner != null) networkScanner.close();
         if (sceneManager != null) sceneManager.dispose();
         if (modelManager != null) modelManager.dispose();
         if (desktopUI != null) desktopUI.dispose();

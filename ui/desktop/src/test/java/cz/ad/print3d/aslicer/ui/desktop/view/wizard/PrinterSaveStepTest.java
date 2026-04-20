@@ -35,7 +35,7 @@ public class PrinterSaveStepTest {
                     Skin skin = GdxTestUtils.createTestSkin();
 
                     PrinterDiscoveryStep discoveryStep = new PrinterDiscoveryStep(skin);
-                    cz.ad.print3d.aslicer.logic.net.PrinterConnectionPool pool = new cz.ad.print3d.aslicer.logic.net.PrinterConnectionPool();
+                    cz.ad.print3d.aslicer.logic.net.PrinterConnectionPool pool = new cz.ad.print3d.aslicer.logic.net.PrinterConnectionPool(new cz.ad.print3d.aslicer.logic.net.PrinterClientFactory());
                     PrinterConnectionStep connectionStep = new PrinterConnectionStep(skin, discoveryStep, pool);
                     
                     final Map<String, cz.ad.print3d.aslicer.logic.printer.Printer3D> savedPrinters = new HashMap<>();

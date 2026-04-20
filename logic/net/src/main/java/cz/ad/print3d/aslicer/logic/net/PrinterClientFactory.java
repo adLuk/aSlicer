@@ -19,7 +19,7 @@ public class PrinterClientFactory {
      * @param credentials the credentials (e.g., API key, access code).
      * @return a specific {@link PrinterClient} implementation, or {@code null} if vendor is unsupported.
      */
-    public static PrinterClient createClient(DiscoveredDevice device, Map<String, String> credentials) {
+    public PrinterClient createClient(DiscoveredDevice device, Map<String, String> credentials) {
         String vendor = device.getVendor();
         if (vendor == null) return null;
 
